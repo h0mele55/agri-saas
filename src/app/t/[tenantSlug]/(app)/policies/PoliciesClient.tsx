@@ -29,17 +29,18 @@ import {
     POLICY_STATUS_LABELS,
 } from './filter-defs';
 import { useHydratedNow } from '@/lib/hooks/use-hydrated-now';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // Status badge classes — keyed off the canonical PolicyStatus enum
 // values. POLICY_STATUS_LABELS in `filter-defs.ts` is the single
 // source of truth for the human label; this map covers the visual
 // treatment per state.
-const STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral',
-    IN_REVIEW: 'badge-info',
-    APPROVED: 'badge-success',
-    PUBLISHED: 'badge-success',
-    ARCHIVED: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral',
+    IN_REVIEW: 'info',
+    APPROVED: 'success',
+    PUBLISHED: 'success',
+    ARCHIVED: 'warning',
 };
 
 interface PoliciesClientProps {
@@ -206,17 +207,14 @@ function PoliciesPageInner({
             // the badge copy and the filter copy cannot drift.
             cell: ({ row }: any) => {
                 const status = row.original.status as string;
-                const cls = STATUS_BADGE[status] ?? 'badge-neutral';
+                const cls = STATUS_BADGE[status] ?? 'neutral';
                 const label =
                     (POLICY_STATUS_LABELS as Record<string, string>)[status] ??
                     status;
                 return (
-                    <span
-                        className={`badge ${cls}`}
-                        data-testid={`policy-status-${row.original.id}`}
-                    >
+                    <StatusBadge variant={cls} data-testid={`policy-status-${row.original.id}`}>
                         {label}
-                    </span>
+                    </StatusBadge>
                 );
             },
         },
@@ -316,12 +314,9 @@ function PoliciesPageInner({
                     <span className="inline-flex items-center gap-1 text-xs text-content-muted">
                         <TimestampTooltip date={p.nextReviewAt} />
                         {isOverdue && (
-                            <span
-                                className="badge badge-danger text-xs"
-                                data-testid={`policy-overdue-${p.id}`}
-                            >
+                            <StatusBadge variant="error" data-testid={`policy-overdue-${p.id}`}>
                                 Overdue
-                            </span>
+                            </StatusBadge>
                         )}
                     </span>
                 );

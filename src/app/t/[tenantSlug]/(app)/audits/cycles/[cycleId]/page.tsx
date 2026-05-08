@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppIcon, type AppIconName } from '@/components/icons/AppIcon';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const FW_META: Record<string, { icon: AppIconName; label: string }> = {
     ISO27001: { icon: 'shield', label: 'ISO/IEC 27001:2022' },
@@ -132,7 +133,7 @@ export default function CycleDetailPage() {
                             className="glass-card p-4 flex items-center justify-between hover:bg-bg-elevated/30 transition block" id={`pack-link-${p.id}`}>
                             <div>
                                 <span className="font-medium text-sm">{p.name}</span>
-                                <span className={`badge ml-2 ${p.status === 'DRAFT' ? 'badge-neutral' : p.status === 'FROZEN' ? 'badge-info' : 'badge-success'}`}>{p.status}</span>
+                                <StatusBadge variant={p.status === 'DRAFT' ? 'neutral' : p.status === 'FROZEN' ? 'info' : 'success'} className="ml-2">{p.status}</StatusBadge>
                             </div>
                             <span className="text-xs text-content-subtle">→</span>
                         </Link>

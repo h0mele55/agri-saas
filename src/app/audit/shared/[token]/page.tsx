@@ -3,6 +3,7 @@ import { formatDateTime } from '@/lib/format-date';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { AppIcon, type AppIconName } from '@/components/icons/AppIcon';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ENTITY_ICON: Record<string, AppIconName> = {
@@ -105,7 +106,7 @@ export default function SharedPackPage() {
                                     <div key={item.id} className="p-3 text-sm">
                                         <div className="flex items-center justify-between">
                                             <span className="font-medium">{name}</span>
-                                            {snap.status && <span className="badge badge-neutral text-xs">{snap.status}</span>}
+                                            {snap.status && <StatusBadge variant="neutral">{snap.status}</StatusBadge>}
                                         </div>
                                         {snap.description && <p className="text-xs text-slate-500 mt-1">{snap.description}</p>}
                                         <div className="flex gap-4 mt-1 text-xs text-slate-500">

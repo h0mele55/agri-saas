@@ -257,7 +257,11 @@ describe('TestDashboardG2Section — overdue list', () => {
             />,
         );
         const badge = screen.getByTestId('test-dashboard-g2-overdue-count');
-        expect(badge).toHaveClass('badge-danger');
+        // PR-2: <StatusBadge variant="error"> replaces the legacy
+        // <span className="badge badge-danger">. The element now carries
+        // the StatusBadge CVA classes — assert the canonical token.
+        expect(badge).toHaveClass('text-content-error');
+        expect(badge).toHaveClass('bg-bg-error');
         expect(badge).toHaveTextContent('1');
     });
 });

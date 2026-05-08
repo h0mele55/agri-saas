@@ -17,6 +17,7 @@ import { CopyText } from '@/components/ui/copy-text';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 const TraceabilityPanel = dynamic(() => import('@/components/TraceabilityPanel'), {
     loading: () => <div className="animate-pulse h-48" aria-busy="true" />,
@@ -100,7 +101,7 @@ export default function AssetDetailPage() {
     const CRITICALITIES = ['LOW', 'MEDIUM', 'HIGH'];
     const CRIT_OPTIONS: ComboboxOption[] = CRITICALITIES.map(c => ({ value: c, label: c }));
     const STATUS_OPTIONS: ComboboxOption[] = [{ value: 'ACTIVE', label: 'Active' }, { value: 'RETIRED', label: 'Retired' }];
-    const critColor = (c: string) => c === 'HIGH' ? 'badge-danger' : c === 'MEDIUM' ? 'badge-warning' : 'badge-success';
+    const critColor = (c: string): StatusBadgeVariant => c === 'HIGH' ? 'error' : c === 'MEDIUM' ? 'warning' : 'success';
 
     return (
         <div className="space-y-6 animate-fadeIn max-w-4xl">
@@ -111,9 +112,9 @@ export default function AssetDetailPage() {
                     <div>
                         <h1 className="text-2xl font-bold" id="asset-title-heading">{asset.name}</h1>
                         <div className="flex items-center gap-2 mt-1">
-                            <span className="badge badge-info">{asset.type?.replace(/_/g, ' ')}</span>
-                            {asset.criticality && <span className={`badge ${critColor(asset.criticality)}`}>{asset.criticality}</span>}
-                            <span className={`badge ${asset.status === 'RETIRED' ? 'badge-neutral' : 'badge-success'}`}>{asset.status || 'ACTIVE'}</span>
+                            <StatusBadge variant="info">{asset.type?.replace(/_/g, ' ')}</StatusBadge>
+                            {asset.criticality && <StatusBadge variant={critColor(asset.criticality)}>{asset.criticality}</StatusBadge>}
+                            <StatusBadge variant={asset.status === 'RETIRED' ? 'neutral' : 'success'}>{asset.status || 'ACTIVE'}</StatusBadge>
                         </div>
                     </div>
                 </div>

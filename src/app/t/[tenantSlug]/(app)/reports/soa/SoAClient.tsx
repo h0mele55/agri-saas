@@ -14,6 +14,7 @@ import { Modal } from '@/components/ui/modal';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge as StatusBadgePrimitive, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // ─── Types ───
 
@@ -34,20 +35,20 @@ interface SoAClientProps {
 // ─── Badge helpers ───
 
 function ApplicabilityBadge({ value }: { value: boolean | null }) {
-    if (value === true)  return <span className="badge badge-success">Applicable</span>;
-    if (value === false) return <span className="badge badge-neutral">Not Applicable</span>;
-    return <span className="badge badge-danger">Unmapped</span>;
+    if (value === true)  return <StatusBadgePrimitive variant="success">Applicable</StatusBadgePrimitive>;
+    if (value === false) return <StatusBadgePrimitive variant="neutral">Not Applicable</StatusBadgePrimitive>;
+    return <StatusBadgePrimitive variant="error">Unmapped</StatusBadgePrimitive>;
 }
 
 function StatusBadge({ value }: { value: string | null }) {
     if (!value) return <span className="text-content-subtle text-xs">—</span>;
-    const cls: Record<string, string> = {
-        IMPLEMENTED: 'badge-success',
-        IN_PROGRESS: 'badge-info',
-        NEEDS_REVIEW: 'badge-warning',
-        NOT_STARTED: 'badge-neutral',
+    const cls: Record<string, StatusBadgeVariant> = {
+        IMPLEMENTED: 'success',
+        IN_PROGRESS: 'info',
+        NEEDS_REVIEW: 'warning',
+        NOT_STARTED: 'neutral',
     };
-    return <span className={`badge ${cls[value] || 'badge-neutral'}`}>{value.replace(/_/g, ' ')}</span>;
+    return <StatusBadgePrimitive variant={cls[value] || 'neutral'}>{value.replace(/_/g, ' ')}</StatusBadgePrimitive>;
 }
 
 function GapBadges({ entry }: { entry: SoAEntryDTO }) {
@@ -372,11 +373,9 @@ export function SoAClient({ report, controls, tenantSlug, canEdit }: SoAClientPr
                                         {c.name}
                                     </span>
                                 </div>
-                                <span
-                                    className={`badge ${c.status === 'IMPLEMENTED' ? 'badge-success' : 'badge-neutral'}`}
-                                >
+                                <StatusBadgePrimitive variant={c.status === 'IMPLEMENTED' ? 'success' : 'neutral'}>
                                     {c.status}
-                                </span>
+                                </StatusBadgePrimitive>
                             </button>
                         ))}
                         {mapFilteredControls.length === 0 && (
@@ -533,9 +532,9 @@ function SoARow({
                                             {c.code || c.controlId.slice(0, 8)}
                                         </a>
                                         <span className="text-content-emphasis">{c.title}</span>
-                                        <span className={`badge ${c.applicability === 'APPLICABLE' ? 'badge-success' : 'badge-neutral'}`}>
+                                        <StatusBadgePrimitive variant={c.applicability === 'APPLICABLE' ? 'success' : 'neutral'}>
                                             {c.applicability}
-                                        </span>
+                                        </StatusBadgePrimitive>
                                         <StatusBadge value={c.status} />
                                     </div>
                                     <div className="flex items-center gap-2">

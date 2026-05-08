@@ -26,6 +26,7 @@ import {
     RotateCcw,
     Sparkles,
 } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 // ─── Step Definitions ───
 
@@ -357,7 +358,7 @@ export default function OnboardingWizard() {
                                 <p className="text-xs text-slate-400">Step {activeStepIdx + 1} of {STEPS.length}</p>
                             </div>
                             {isComplete(currentStep.key) && (
-                                <span className="badge badge-success ml-auto">Completed</span>
+                                <StatusBadge variant="success" className="ml-auto">Completed</StatusBadge>
                             )}
                         </div>
                         <div className="p-5">
@@ -531,7 +532,7 @@ function FrameworkSelectionStep({ data, onUpdate }: { data: StepData; onUpdate: 
                         >
                             <div className="flex items-center justify-between mb-2">
                                 <span className="font-semibold text-white text-sm">{fw.name}</span>
-                                {fw.badge && <span className="badge badge-info text-[10px]">{fw.badge}</span>}
+                                {fw.badge && <StatusBadge variant="info" className="text-[10px]">{fw.badge}</StatusBadge>}
                             </div>
                             <p className="text-xs text-slate-400 leading-relaxed">{fw.desc}</p>
                             {active && <div className="mt-2 flex items-center gap-1 text-brand-400 text-xs font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> Selected</div>}

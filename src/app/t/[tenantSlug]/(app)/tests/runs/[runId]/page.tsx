@@ -14,6 +14,7 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 const EV_KIND_OPTIONS: ComboboxOption[] = [
     { value: 'FILE_UPLOAD', label: 'Upload File' },
@@ -49,8 +50,8 @@ interface TestRunDetail {
     createdAt: string;
 }
 
-const RESULT_BADGE: Record<string, string> = {
-    PASS: 'badge-success', FAIL: 'badge-danger', INCONCLUSIVE: 'badge-warning',
+const RESULT_BADGE: Record<string, StatusBadgeVariant> = {
+    PASS: 'success', FAIL: 'error', INCONCLUSIVE: 'warning',
 };
 
 export default function TestRunPage() {
@@ -221,13 +222,13 @@ export default function TestRunPage() {
                         Test Run {run.testPlan ? `— ${run.testPlan.name}` : ''}
                     </h1>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className={`badge ${run.status === 'COMPLETED' ? 'badge-success' : run.status === 'RUNNING' ? 'badge-info' : 'badge-neutral'}`} id="test-run-status">
+                        <StatusBadge variant={run.status === 'COMPLETED' ? 'success' : run.status === 'RUNNING' ? 'info' : 'neutral'} id="test-run-status">
                             {run.status}
-                        </span>
+                        </StatusBadge>
                         {run.result && (
-                            <span className={`badge ${RESULT_BADGE[run.result] || 'badge-neutral'}`} id="test-run-result">
+                            <StatusBadge variant={RESULT_BADGE[run.result] || 'neutral'} id="test-run-result">
                                 {run.result}
-                            </span>
+                            </StatusBadge>
                         )}
                         {run.executedAt && (
                             <span className="text-xs text-content-muted">Executed: {formatDate(run.executedAt)}</span>
@@ -432,7 +433,7 @@ export default function TestRunPage() {
                             <div key={ev.id} className="flex items-center justify-between py-2 group">
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <span className="badge badge-xs badge-neutral">{ev.kind}</span>
+                                        <StatusBadge variant="neutral" size="sm">{ev.kind}</StatusBadge>
                                         {ev.evidence && (
                                             <span className="text-sm text-content-default">{ev.evidence.title}</span>
                                         )}

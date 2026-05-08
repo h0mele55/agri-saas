@@ -41,9 +41,9 @@ export function PoliciesTable({ policies }: { policies: Policy[] }) {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <span className={`badge ${STATUS_BADGE[row.original.status]}`}>
+        <StatusBadge variant={STATUS_BADGE[row.original.status]}>
           {row.original.status}
-        </span>
+        </StatusBadge>
       ),
     },
   ]), []);
@@ -87,9 +87,9 @@ export function PoliciesTable({ policies }: { policies: Policy[] }) {
   accessorKey: 'status',
   header: 'Status',
   cell: ({ row }) => (
-    <span className={`badge ${BADGE_MAP[row.original.status]}`}>
+    <StatusBadge variant={STATUS_BADGE[row.original.status]}>
       {row.original.status}
-    </span>
+    </StatusBadge>
   ),
 }
 ```
@@ -122,7 +122,7 @@ export function PoliciesTable({ policies }: { policies: Policy[] }) {
       <span className="text-xs">
         {formatDate(d)}
         {new Date(d) < new Date() && (
-          <span className="badge badge-danger ml-1">Overdue</span>
+          <StatusBadge variant="error" className="ml-1">Overdue</StatusBadge>
         )}
       </span>
     );

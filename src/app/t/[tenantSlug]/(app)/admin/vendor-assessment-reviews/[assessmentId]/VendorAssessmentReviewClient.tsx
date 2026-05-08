@@ -29,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { SkeletonDetailPage } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/format-date';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface Question {
     id: string;
@@ -97,13 +98,13 @@ const RATING_OPTIONS: ComboboxOption[] = [
     { value: 'CRITICAL', label: 'CRITICAL' },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral',
-    SENT: 'badge-info',
-    IN_PROGRESS: 'badge-info',
-    SUBMITTED: 'badge-warning',
-    REVIEWED: 'badge-success',
-    CLOSED: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral',
+    SENT: 'info',
+    IN_PROGRESS: 'info',
+    SUBMITTED: 'warning',
+    REVIEWED: 'success',
+    CLOSED: 'neutral',
 };
 
 export function VendorAssessmentReviewClient({
@@ -298,12 +299,9 @@ export function VendorAssessmentReviewClient({
                             <span>·</span>
                             <span>v{view.template.version}</span>
                             <span>·</span>
-                            <span
-                                className={`badge badge-xs ${STATUS_BADGE[view.status] ?? 'badge-neutral'}`}
-                                data-testid="review-status-badge"
-                            >
+                            <StatusBadge variant={STATUS_BADGE[view.status] ?? 'neutral'} size="sm" data-testid="review-status-badge">
                                 {view.status}
-                            </span>
+                            </StatusBadge>
                             {view.submittedAt && (
                                 <>
                                     <span>·</span>
@@ -416,13 +414,13 @@ export function VendorAssessmentReviewClient({
                                                 {q.prompt}
                                             </p>
                                             <p className="text-xs text-content-subtle mt-1">
-                                                <span className="badge badge-xs badge-info">
+                                                <StatusBadge variant="info" size="sm">
                                                     {q.answerType}
-                                                </span>{' '}
+                                                </StatusBadge>{' '}
                                                 {q.required && (
-                                                    <span className="badge badge-xs badge-warning">
+                                                    <StatusBadge variant="warning" size="sm">
                                                         required
-                                                    </span>
+                                                    </StatusBadge>
                                                 )}{' '}
                                                 <span>w={q.weight}</span>
                                             </p>

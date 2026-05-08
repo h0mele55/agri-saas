@@ -12,6 +12,7 @@ import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-c
 import { Button } from '@/components/ui/button';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { TestPlanScheduleSection } from '@/components/TestPlanScheduleSection';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface TestPlanDetail {
     id: string;
@@ -49,11 +50,11 @@ const FREQ_LABELS: Record<string, string> = {
     AD_HOC: 'Ad Hoc', DAILY: 'Daily', WEEKLY: 'Weekly',
     MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUALLY: 'Annually',
 };
-const RESULT_BADGE: Record<string, string> = {
-    PASS: 'badge-success', FAIL: 'badge-danger', INCONCLUSIVE: 'badge-warning',
+const RESULT_BADGE: Record<string, StatusBadgeVariant> = {
+    PASS: 'success', FAIL: 'error', INCONCLUSIVE: 'warning',
 };
-const RUN_STATUS_BADGE: Record<string, string> = {
-    PLANNED: 'badge-neutral', RUNNING: 'badge-info', COMPLETED: 'badge-success',
+const RUN_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    PLANNED: 'neutral', RUNNING: 'info', COMPLETED: 'success',
 };
 const FREQ_CB_OPTIONS: ComboboxOption[] = Object.entries(FREQ_LABELS).map(([v, l]) => ({ value: v, label: l }));
 const METHOD_OPTIONS: ComboboxOption[] = [{ value: 'MANUAL', label: 'Manual' }, { value: 'AUTOMATED', label: 'Automated' }];
@@ -159,9 +160,9 @@ export default function TestPlanDetailPage() {
                 <div>
                     <h1 className="text-2xl font-bold" id="test-plan-title">{plan.name}</h1>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className={`badge ${plan.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`} id="test-plan-status">
+                        <StatusBadge variant={plan.status === 'ACTIVE' ? 'success' : 'warning'} id="test-plan-status">
                             {plan.status}
-                        </span>
+                        </StatusBadge>
                         <span className="text-xs text-content-subtle">{FREQ_LABELS[plan.frequency] || plan.frequency}</span>
                         <span className="text-xs text-content-subtle">•</span>
                         <span className="text-xs text-content-subtle">{plan.method}</span>
@@ -308,13 +309,13 @@ export default function TestPlanDetailPage() {
                                 id={`test-run-link-${run.id}`}
                             >
                                 <div className="flex items-center gap-3">
-                                    <span className={`badge badge-xs ${RUN_STATUS_BADGE[run.status] || 'badge-neutral'}`}>
+                                    <StatusBadge variant={RUN_STATUS_BADGE[run.status] || 'neutral'} size="sm">
                                         {run.status}
-                                    </span>
+                                    </StatusBadge>
                                     {run.result && (
-                                        <span className={`badge badge-xs ${RESULT_BADGE[run.result] || 'badge-neutral'}`}>
+                                        <StatusBadge variant={RESULT_BADGE[run.result] || 'neutral'} size="sm">
                                             {run.result}
-                                        </span>
+                                        </StatusBadge>
                                     )}
                                     <span className="text-xs text-content-muted">
                                         {run.executedAt ? formatDate(run.executedAt) : 'Not executed'}

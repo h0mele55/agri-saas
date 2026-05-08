@@ -6,13 +6,14 @@ import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import type { CappedList } from '@/lib/list-backfill-cap';
 import { TruncationBanner } from '@/components/ui/TruncationBanner';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const STATUS_BADGE: Record<string, string> = {
-    PLANNED: 'badge-neutral', IN_PROGRESS: 'badge-info', COMPLETED: 'badge-success', CANCELLED: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    PLANNED: 'neutral', IN_PROGRESS: 'info', COMPLETED: 'success', CANCELLED: 'warning',
 };
-const RESULT_BADGE: Record<string, string> = {
-    NOT_TESTED: 'badge-neutral', PASS: 'badge-success', FAIL: 'badge-danger',
+const RESULT_BADGE: Record<string, StatusBadgeVariant> = {
+    NOT_TESTED: 'neutral', PASS: 'success', FAIL: 'error',
 };
 
 interface AuditsClientProps {
@@ -149,7 +150,7 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
                             className={`w-full text-left glass-card p-4 hover:bg-bg-elevated/30 transition ${selected?.id === a.id ? 'ring-2 ring-[var(--ring)]' : ''}`}>
                             <div className="flex items-center justify-between">
                                 <span className="font-medium text-sm">{a.title}</span>
-                                <span className={`badge ${STATUS_BADGE[a.status]}`}>{statusLabel(a.status)}</span>
+                                <StatusBadge variant={STATUS_BADGE[a.status]}>{statusLabel(a.status)}</StatusBadge>
                             </div>
                             <p className="text-xs text-content-subtle mt-1">{a._count?.checklist || 0} items · {a._count?.findings || 0} {t.findingsTab.toLowerCase()}</p>
                         </button>
@@ -187,7 +188,7 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
                                                 <p className="text-sm text-content-default">{item.prompt}</p>
                                                 {item.notes && <p className="text-xs text-content-subtle mt-1">{item.notes}</p>}
                                             </div>
-                                            <span className={`badge ${RESULT_BADGE[item.result]}`}>{resultLabel(item.result)}</span>
+                                            <StatusBadge variant={RESULT_BADGE[item.result]}>{resultLabel(item.result)}</StatusBadge>
                                         </div>
                                     ))}
                                 </div>
@@ -200,7 +201,7 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
                                         <div key={f.id} className="p-3 border border-border-default/50 rounded-lg mb-2">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-sm font-medium">{f.title}</span>
-                                                <span className={`badge ${f.severity === 'CRITICAL' ? 'badge-danger' : f.severity === 'HIGH' ? 'badge-warning' : 'badge-info'}`}>{f.severity}</span>
+                                                <StatusBadge variant={f.severity === 'CRITICAL' ? 'error' : f.severity === 'HIGH' ? 'warning' : 'info'}>{f.severity}</StatusBadge>
                                             </div>
                                         </div>
                                     ))}

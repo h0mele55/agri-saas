@@ -6,6 +6,7 @@ import { ShieldCheck, AlertTriangle, Cpu, Flame, ArrowLeft } from 'lucide-react'
 import DonutChart from '@/components/ui/DonutChart';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -57,23 +58,23 @@ function pctGradient(pct: number): string {
     return 'from-red-500 to-rose-500';
 }
 
-function statusBadge(status: string) {
-    const colors: Record<string, string> = {
-        OPEN: 'badge-warning',
-        MITIGATING: 'badge-info',
-        CLOSED: 'badge-success',
-        ACCEPTED: 'badge-neutral',
+function statusBadge(status: string): StatusBadgeVariant {
+    const colors: Record<string, StatusBadgeVariant> = {
+        OPEN: 'warning',
+        MITIGATING: 'info',
+        CLOSED: 'success',
+        ACCEPTED: 'neutral',
     };
-    return colors[status] || 'badge-neutral';
+    return colors[status] || 'neutral';
 }
 
-function critBadge(crit: string) {
-    const colors: Record<string, string> = {
-        HIGH: 'badge-danger',
-        MEDIUM: 'badge-warning',
-        LOW: 'badge-success',
+function critBadge(crit: string): StatusBadgeVariant {
+    const colors: Record<string, StatusBadgeVariant> = {
+        HIGH: 'error',
+        MEDIUM: 'warning',
+        LOW: 'success',
     };
-    return colors[crit] || 'badge-neutral';
+    return colors[crit] || 'neutral';
 }
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -109,9 +110,9 @@ export function CoverageClient({ data, tenantSlug }: CoverageClientProps) {
             accessorKey: 'status',
             header: 'Status',
             cell: ({ getValue }: any) => (
-                <span className={`badge ${statusBadge(getValue())}`}>
+                <StatusBadge variant={statusBadge(getValue())}>
                     {String(getValue()).replace(/_/g, ' ')}
-                </span>
+                </StatusBadge>
             ),
         },
     ]), []);
@@ -128,14 +129,14 @@ export function CoverageClient({ data, tenantSlug }: CoverageClientProps) {
             accessorKey: 'type',
             header: 'Type',
             cell: ({ getValue }: any) => (
-                <span className="badge badge-info">{String(getValue()).replace(/_/g, ' ')}</span>
+                <StatusBadge variant="info">{String(getValue()).replace(/_/g, ' ')}</StatusBadge>
             ),
         },
         {
             accessorKey: 'criticality',
             header: 'Criticality',
             cell: ({ getValue }: any) => (
-                <span className={`badge ${critBadge(getValue())}`}>{getValue()}</span>
+                <StatusBadge variant={critBadge(getValue())}>{getValue()}</StatusBadge>
             ),
         },
     ]), []);
@@ -227,9 +228,9 @@ export function CoverageClient({ data, tenantSlug }: CoverageClientProps) {
                             Uncovered Critical Assets
                         </h3>
                         {data.uncoveredCriticalAssets.length > 0 && (
-                            <span className="badge badge-danger text-xs ml-auto">
+                            <StatusBadge variant="error" className="ml-auto">
                                 {data.uncoveredCriticalAssets.length}
-                            </span>
+                            </StatusBadge>
                         )}
                     </div>
                     <DataTable
@@ -251,9 +252,9 @@ export function CoverageClient({ data, tenantSlug }: CoverageClientProps) {
                             Unmapped Risks
                         </h3>
                         {data.unmappedRisks.length > 0 && (
-                            <span className="badge badge-warning text-xs ml-auto">
+                            <StatusBadge variant="warning" className="ml-auto">
                                 {data.unmappedRisks.length}
-                            </span>
+                            </StatusBadge>
                         )}
                     </div>
                     <DataTable

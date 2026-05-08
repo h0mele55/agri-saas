@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useCopyToClipboard } from '@/components/ui/hooks';
 import { CopyButton } from '@/components/ui/copy-button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface ScimToken {
     id: string;
@@ -250,7 +251,7 @@ export default function ScimAdminPage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-medium text-content-emphasis">{token.label}</span>
-                                        <span className="badge badge-success text-[10px]">Active</span>
+                                        <StatusBadge variant="success" className="text-[10px]">Active</StatusBadge>
                                     </div>
                                     <div className="flex items-center gap-3 mt-1">
                                         <span className="text-xs text-content-subtle">
@@ -289,7 +290,7 @@ export default function ScimAdminPage() {
                             <div key={token.id} className="flex items-center justify-between p-4 opacity-50">
                                 <div>
                                     <span className="text-sm text-content-muted">{token.label}</span>
-                                    <span className="badge badge-error text-[10px] ml-2">Revoked</span>
+                                    <StatusBadge variant="error" className="text-[10px] ml-2">Revoked</StatusBadge>
                                     <div className="text-xs text-content-subtle mt-1">
                                         Revoked {formatDate(token.revokedAt!)}
                                     </div>

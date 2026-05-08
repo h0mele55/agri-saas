@@ -39,6 +39,7 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { ListPageShell } from '@/components/layout/ListPageShell';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // ─── Types ───
 
@@ -85,11 +86,11 @@ const RESOURCE_LABELS: Record<string, string> = {
 };
 
 const BASE_ROLES: Role[] = ['ADMIN', 'EDITOR', 'AUDITOR', 'READER'];
-const ROLE_COLORS: Record<string, string> = {
-    ADMIN: 'badge-danger',
-    EDITOR: 'badge-info',
-    AUDITOR: 'badge-warning',
-    READER: 'badge-neutral',
+const ROLE_COLORS: Record<string, StatusBadgeVariant> = {
+    ADMIN: 'error',
+    EDITOR: 'info',
+    AUDITOR: 'warning',
+    READER: 'neutral',
 };
 const BASE_ROLE_OPTIONS: ComboboxOption[] = BASE_ROLES.map(r => ({ value: r, label: r }));
 
@@ -461,9 +462,9 @@ export default function CustomRolesPage() {
                 header: 'Base Role',
                 accessorKey: 'baseRole',
                 cell: ({ row }) => (
-                    <span className={`badge ${ROLE_COLORS[row.original.baseRole] || 'badge-neutral'}`}>
+                    <StatusBadge variant={ROLE_COLORS[row.original.baseRole] || 'neutral'}>
                         {row.original.baseRole}
-                    </span>
+                    </StatusBadge>
                 ),
             },
             {

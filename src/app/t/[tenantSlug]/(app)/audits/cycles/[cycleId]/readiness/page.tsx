@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AppIcon, type AppIconName } from '@/components/icons/AppIcon';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
     const r = (size - 8) / 2;
@@ -30,8 +31,8 @@ const GAP_ICON: Record<string, AppIconName> = {
     UNMAPPED_REQUIREMENT: 'overview', MISSING_EVIDENCE: 'evidence', OVERDUE_TASK: 'clock',
     OPEN_ISSUE: 'warning', MISSING_POLICY: 'fileWarning',
 };
-const SEV_BADGE: Record<string, string> = {
-    HIGH: 'badge-danger', MEDIUM: 'badge-warning', LOW: 'badge-neutral',
+const SEV_BADGE: Record<string, StatusBadgeVariant> = {
+    HIGH: 'error', MEDIUM: 'warning', LOW: 'neutral',
 };
 
 export default function CycleReadinessPage() {
@@ -129,7 +130,7 @@ export default function CycleReadinessPage() {
                                         <span className="text-xs text-content-subtle">{g.details}</span>
                                     </div>
                                 </div>
-                                <span className={`badge ${SEV_BADGE[g.severity] || 'badge-neutral'} text-xs ml-2`}>{g.severity}</span>
+                                <StatusBadge variant={SEV_BADGE[g.severity] || 'neutral'} className="ml-2">{g.severity}</StatusBadge>
                             </div>
                         ))}
                     </div>

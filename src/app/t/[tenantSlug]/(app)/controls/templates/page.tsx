@@ -13,6 +13,7 @@ import { AppIcon } from '@/components/icons/AppIcon';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { DataTable, createColumns } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function ControlTemplatesPage() {
     const apiUrl = useTenantApiUrl();
@@ -161,11 +162,11 @@ export default function ControlTemplatesPage() {
                             { accessorKey: 'name', header: 'Name', cell: ({ getValue }: any) => <span className="font-medium text-content-emphasis">{getValue()}</span> },
                             {
                                 accessorKey: 'category', header: 'Category',
-                                cell: ({ getValue }: any) => getValue() ? <span className="badge badge-info text-xs">{getValue()}</span> : null,
+                                cell: ({ getValue }: any) => getValue() ? <StatusBadge variant="info">{getValue()}</StatusBadge> : null,
                             },
                             {
                                 accessorKey: 'frameworkTag', header: 'Framework',
-                                cell: ({ getValue }: any) => getValue() ? <span className="badge badge-neutral text-xs">{getValue()}</span> : null,
+                                cell: ({ getValue }: any) => getValue() ? <StatusBadge variant="neutral">{getValue()}</StatusBadge> : null,
                             },
                             { accessorKey: 'description', header: 'Description', cell: ({ getValue }: any) => <span className="text-xs text-content-subtle truncate max-w-xs">{getValue() || '—'}</span> },
                         ]);

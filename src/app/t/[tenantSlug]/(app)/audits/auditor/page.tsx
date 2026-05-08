@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AppIcon, type AppIconName } from '@/components/icons/AppIcon';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const FW_META: Record<string, { icon: AppIconName; label: string }> = {
     ISO27001: { icon: 'shield', label: 'ISO/IEC 27001:2022' },
@@ -82,9 +83,9 @@ export default function AuditorPortalPage() {
                                             {selectedPack.frozenAt && ` · Frozen: ${formatDate(selectedPack.frozenAt)}`}
                                         </p>
                                     </div>
-                                    <span className={`badge ${selectedPack.status === 'FROZEN' ? 'badge-info' : 'badge-neutral'}`}>
+                                    <StatusBadge variant={selectedPack.status === 'FROZEN' ? 'info' : 'neutral'}>
                                         {selectedPack.status}
-                                    </span>
+                                    </StatusBadge>
                                 </div>
 
                                 {/* Items grouped */}

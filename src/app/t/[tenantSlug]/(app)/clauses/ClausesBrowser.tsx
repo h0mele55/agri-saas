@@ -2,9 +2,10 @@
 import { useState, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const STATUS_COLORS: Record<string, string> = {
-    NOT_STARTED: 'badge-neutral', IN_PROGRESS: 'badge-info', READY: 'badge-success', NEEDS_REVIEW: 'badge-warning',
+const STATUS_COLORS: Record<string, StatusBadgeVariant> = {
+    NOT_STARTED: 'neutral', IN_PROGRESS: 'info', READY: 'success', NEEDS_REVIEW: 'warning',
 };
 
 interface ClausesBrowserProps {
@@ -58,7 +59,7 @@ export function ClausesBrowser({ clauses: initialClauses, tenantSlug }: ClausesB
                         className={`w-full text-left glass-card p-4 hover:bg-bg-elevated/30 transition ${selected?.id === c.id ? 'ring-2 ring-[var(--ring)]' : ''}`}>
                         <div className="flex items-center justify-between">
                             <span className="font-medium text-sm">{t('clause')} {c.number}</span>
-                            <span className={`badge ${STATUS_COLORS[c.status]}`}>{statusLabel(c.status)}</span>
+                            <StatusBadge variant={STATUS_COLORS[c.status]}>{statusLabel(c.status)}</StatusBadge>
                         </div>
                         <p className="text-xs text-content-muted mt-1">{c.title}</p>
                     </button>

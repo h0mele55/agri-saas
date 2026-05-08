@@ -36,6 +36,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { Sheet } from '@/components/ui/sheet';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 import { UserCombobox } from '@/components/ui/user-combobox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
@@ -70,14 +71,14 @@ type EditForm = {
 
 // ─── Static labels (match the existing detail page) ─────────────────
 
-const STATUS_BADGE: Record<string, string> = {
-    NOT_STARTED: 'badge-neutral',
-    PLANNED: 'badge-info',
-    IN_PROGRESS: 'badge-info',
-    IMPLEMENTING: 'badge-info',
-    IMPLEMENTED: 'badge-success',
-    NEEDS_REVIEW: 'badge-warning',
-    NOT_APPLICABLE: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    NOT_STARTED: 'neutral',
+    PLANNED: 'info',
+    IN_PROGRESS: 'info',
+    IMPLEMENTING: 'info',
+    IMPLEMENTED: 'success',
+    NEEDS_REVIEW: 'warning',
+    NOT_APPLICABLE: 'neutral',
 };
 
 const FREQUENCY_OPTIONS: ComboboxOption[] = [
@@ -257,20 +258,20 @@ export function ControlDetailSheet({
 
     // ── Summary chips (read-only context) ──
     const summary = useMemo(() => {
-        if (!control) return [] as { label: string; value: string; badge?: string }[];
-        const rows: { label: string; value: string; badge?: string }[] = [];
+        if (!control) return [] as { label: string; value: string; badge?: StatusBadgeVariant }[];
+        const rows: { label: string; value: string; badge?: StatusBadgeVariant }[] = [];
         if (control.code || control.annexId) {
             rows.push({ label: 'Code', value: control.annexId || control.code || '—' });
         }
         rows.push({
             label: 'Status',
             value: control.status.replace(/_/g, ' '),
-            badge: STATUS_BADGE[control.status] || 'badge-neutral',
+            badge: STATUS_BADGE[control.status] || 'neutral',
         });
         rows.push({
             label: 'Applicability',
             value: control.applicability === 'NOT_APPLICABLE' ? 'N/A' : 'Yes',
-            badge: control.applicability === 'NOT_APPLICABLE' ? 'badge-warning' : 'badge-success',
+            badge: control.applicability === 'NOT_APPLICABLE' ? 'warning' : 'success',
         });
         if (control.owner?.name) {
             rows.push({ label: 'Owner', value: control.owner.name });
@@ -333,9 +334,9 @@ export function ControlDetailSheet({
                                             {row.label}
                                         </span>
                                         {row.badge ? (
-                                            <span className={`badge ${row.badge} w-fit`}>
+                                            <StatusBadge variant={row.badge} className="w-fit">
                                                 {row.value}
-                                            </span>
+                                            </StatusBadge>
                                         ) : (
                                             <span className="text-sm text-content-emphasis">
                                                 {row.value}

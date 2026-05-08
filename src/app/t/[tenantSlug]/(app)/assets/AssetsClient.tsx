@@ -19,6 +19,7 @@ import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { NumberStepper } from '@/components/ui/number-stepper';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const ASSET_TYPES = ['INFORMATION', 'APPLICATION', 'SYSTEM', 'SERVICE', 'DATA_STORE', 'INFRASTRUCTURE', 'VENDOR', 'PROCESS', 'PEOPLE_PROCESS', 'OTHER'];
 const ASSET_TYPE_OPTIONS: ComboboxOption[] = ASSET_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }));
@@ -136,7 +137,7 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
         {
             accessorKey: 'type',
             header: t.type,
-            cell: ({ getValue }: any) => <span className="badge badge-info">{String(getValue()).replace(/_/g, ' ')}</span>,
+            cell: ({ getValue }: any) => <StatusBadge variant="info">{String(getValue()).replace(/_/g, ' ')}</StatusBadge>,
         },
         {
             id: 'classification',

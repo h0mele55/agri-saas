@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export default function TemplateLibraryPage() {
@@ -209,9 +210,9 @@ export default function TemplateLibraryPage() {
                                                 <code className="text-xs text-[var(--brand-default)] font-mono">{t.code}</code>
                                                 <span className="text-sm font-medium text-content-emphasis truncate">{t.title}</span>
                                                 {t.installed ? (
-                                                    <span className="badge badge-success text-xs flex-shrink-0">Installed</span>
+                                                    <StatusBadge variant="success" className="flex-shrink-0">Installed</StatusBadge>
                                                 ) : (
-                                                    <span className="badge badge-primary text-xs flex-shrink-0">Available</span>
+                                                    <StatusBadge variant="info" className="flex-shrink-0">Available</StatusBadge>
                                                 )}
                                             </div>
                                         </button>

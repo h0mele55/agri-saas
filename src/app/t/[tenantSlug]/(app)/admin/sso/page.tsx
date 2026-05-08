@@ -13,6 +13,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { InfoTooltip } from '@/components/ui/tooltip';
 import { ToggleGroup } from '@/components/ui/toggle-group';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface SsoProvider {
     id: string;
@@ -31,17 +32,17 @@ type Tab = 'OIDC' | 'SAML';
 // Hoisted to module scope to satisfy react-hooks/static-components.
 // Was previously declared inside `SsoAdminPage` and closed over
 // `existingProvider`; now takes it as a prop.
-function StatusBadge({ existingProvider }: { existingProvider: SsoProvider | null | undefined }) {
+function ProviderStatusBadge({ existingProvider }: { existingProvider: SsoProvider | null | undefined }) {
     if (!existingProvider) {
-        return <span className="badge badge-neutral text-xs">Not Configured</span>;
+        return <StatusBadge variant="neutral">Not Configured</StatusBadge>;
     }
     if (existingProvider.isEnforced) {
-        return <span className="badge badge-warning text-xs">Enforced</span>;
+        return <StatusBadge variant="warning">Enforced</StatusBadge>;
     }
     if (existingProvider.isEnabled) {
-        return <span className="badge badge-info text-xs">Enabled</span>;
+        return <StatusBadge variant="info">Enabled</StatusBadge>;
     }
-    return <span className="badge badge-danger text-xs">Disabled</span>;
+    return <StatusBadge variant="error">Disabled</StatusBadge>;
 }
 
 export default function SsoAdminPage() {
@@ -292,7 +293,7 @@ export default function SsoAdminPage() {
                     selectAction={(v) => setTab(v as 'OIDC' | 'SAML')}
                 />
                 <div className="ml-auto">
-                    <StatusBadge existingProvider={existingProvider} />
+                    <ProviderStatusBadge existingProvider={existingProvider} />
                 </div>
             </div>
 

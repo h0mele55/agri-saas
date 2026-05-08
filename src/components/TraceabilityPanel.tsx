@@ -8,6 +8,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useToastWithUndo } from '@/components/ui/hooks';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface TraceabilityPanelProps {
     apiBase: string;            // e.g. /api/t/acme-corp
@@ -18,8 +19,8 @@ interface TraceabilityPanelProps {
     tenantSlug?: string;        // for cache key scoping
 }
 
-const RISK_STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-danger', MITIGATING: 'badge-warning', CLOSED: 'badge-success', ACCEPTED: 'badge-info',
+const RISK_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'error', MITIGATING: 'warning', CLOSED: 'success', ACCEPTED: 'info',
 };
 
 // Cache key for traceability data
@@ -288,7 +289,7 @@ export default function TraceabilityPanel({ apiBase: apiBaseRaw, entityType, ent
                                         return (
                                             <tr key={l.id} className={l.id?.startsWith('temp:') ? 'opacity-50 animate-pulse' : ''}>
                                                 <td className="text-sm text-content-default">{r?.title || '—'}</td>
-                                                <td><span className={`badge ${RISK_STATUS_BADGE[r?.status] || 'badge-neutral'} text-xs`}>{r?.status || '—'}</span></td>
+                                                <td><StatusBadge variant={RISK_STATUS_BADGE[r?.status] || 'neutral'}>{r?.status || '—'}</StatusBadge></td>
                                                 <td className="text-sm text-white font-medium">{r?.score ?? '—'}</td>
                                                 <td className="text-xs text-content-muted">{l.rationale || '—'}</td>
                                                 {canWrite && (
@@ -347,7 +348,7 @@ export default function TraceabilityPanel({ apiBase: apiBaseRaw, entityType, ent
                                             <tr key={l.id} className={l.id?.startsWith('temp:') ? 'opacity-50 animate-pulse' : ''}>
                                                 <td className="font-mono text-xs text-[var(--brand-muted)]">{c?.code || '—'}</td>
                                                 <td className="text-sm text-content-default">{c?.name || '—'}</td>
-                                                <td><span className="badge badge-info text-xs">{c?.status || '—'}</span></td>
+                                                <td><StatusBadge variant="info">{c?.status || '—'}</StatusBadge></td>
                                                 <td className="text-xs text-content-muted">{l.rationale || '—'}</td>
                                                 {canWrite && (
                                                     <td>
@@ -404,8 +405,8 @@ export default function TraceabilityPanel({ apiBase: apiBaseRaw, entityType, ent
                                         return (
                                             <tr key={l.id} className={l.id?.startsWith('temp:') ? 'opacity-50 animate-pulse' : ''}>
                                                 <td className="text-sm text-content-default">{a?.name || '—'}</td>
-                                                <td className="text-xs"><span className="badge badge-info">{a?.type || '—'}</span></td>
-                                                <td className="text-xs">{a?.criticality ? <span className={`badge ${a.criticality === 'HIGH' ? 'badge-danger' : a.criticality === 'MEDIUM' ? 'badge-warning' : 'badge-neutral'}`}>{a.criticality}</span> : '—'}</td>
+                                                <td className="text-xs"><StatusBadge variant="info">{a?.type || '—'}</StatusBadge></td>
+                                                <td className="text-xs">{a?.criticality ? <StatusBadge variant={a.criticality === 'HIGH' ? 'error' : a.criticality === 'MEDIUM' ? 'warning' : 'neutral'}>{a.criticality}</StatusBadge> : '—'}</td>
                                                 <td className="text-xs text-content-muted">{l.rationale || '—'}</td>
                                                 {canWrite && (
                                                     <td>

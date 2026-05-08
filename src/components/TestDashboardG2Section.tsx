@@ -22,6 +22,7 @@ import DonutChart, { type DonutSegment } from '@/components/ui/DonutChart';
 import { MiniAreaChart } from '@/components/ui/mini-area-chart';
 import { useTenantHref } from '@/lib/tenant-context-provider';
 import { formatDate } from '@/lib/format-date';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -156,16 +157,11 @@ export function TestDashboardG2Section({
                         <h3 className="text-sm font-semibold">
                             Overdue scheduled
                         </h3>
-                        <span
-                            className={`badge badge-xs ${
-                                automation.overdueScheduled > 0
-                                    ? 'badge-danger'
-                                    : 'badge-success'
-                            }`}
-                            data-testid="test-dashboard-g2-overdue-count"
-                        >
+                        <StatusBadge variant={automation.overdueScheduled > 0
+                                    ? 'error'
+                                    : 'success'} size="sm" data-testid="test-dashboard-g2-overdue-count">
                             {automation.overdueScheduled}
-                        </span>
+                        </StatusBadge>
                     </div>
                     {overdueRows.length === 0 ? (
                         <p className="text-content-subtle text-sm">

@@ -19,6 +19,7 @@ import {
     toYMD,
 } from '@/components/ui/date-picker/date-utils';
 import { useFormTelemetry } from '@/lib/telemetry/form-telemetry';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const TYPE_OPTIONS: ComboboxOption[] = [
     { value: 'TASK', label: 'Task' },
@@ -377,7 +378,7 @@ export default function NewTaskPage() {
                         <div className="space-y-1" id="pending-links-list">
                             {pendingLinks.map((l, i) => (
                                 <div key={i} className="flex items-center gap-2 text-sm text-content-default bg-bg-default/50 rounded px-3 py-1.5">
-                                    <span className="badge badge-info text-xs">{l.entityType}</span>
+                                    <StatusBadge variant="info">{l.entityType}</StatusBadge>
                                     <span className="font-mono text-xs flex-1">{l.entityId}</span>
                                     <Tooltip content="Remove linked item">
                                         <button type="button" className="text-content-error text-xs hover:text-content-error" onClick={() => removePendingLink(i)} aria-label="Remove link">×</button>

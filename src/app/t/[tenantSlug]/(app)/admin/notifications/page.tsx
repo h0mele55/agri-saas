@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { ToggleGroup } from '@/components/ui/toggle-group';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface NotificationSettings {
     enabled: boolean;
@@ -87,9 +88,9 @@ export default function NotificationSettingsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                     <h1 className="text-2xl font-bold">Email Notifications</h1>
-                    <span className={`badge ${settings.enabled ? 'badge-success' : 'badge-warning'}`}>
+                    <StatusBadge variant={settings.enabled ? 'success' : 'warning'}>
                         {settings.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
+                    </StatusBadge>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button
@@ -189,9 +190,9 @@ export default function NotificationSettingsPage() {
                     {stats ? (() => {
                         const statsColumns = createColumns<{ label: string; pending: number; sent: number; failed: number; total: number }>([
                             { accessorKey: 'label', header: 'Period', cell: ({ getValue }: any) => <span className="font-medium">{getValue()}</span> },
-                            { accessorKey: 'pending', header: 'Pending', cell: ({ getValue }: any) => <span className="badge badge-warning">{getValue()}</span> },
-                            { accessorKey: 'sent', header: 'Sent', cell: ({ getValue }: any) => <span className="badge badge-success">{getValue()}</span> },
-                            { accessorKey: 'failed', header: 'Failed', cell: ({ getValue }: any) => <span className="badge badge-error">{getValue()}</span> },
+                            { accessorKey: 'pending', header: 'Pending', cell: ({ getValue }: any) => <StatusBadge variant="warning">{getValue()}</StatusBadge> },
+                            { accessorKey: 'sent', header: 'Sent', cell: ({ getValue }: any) => <StatusBadge variant="success">{getValue()}</StatusBadge> },
+                            { accessorKey: 'failed', header: 'Failed', cell: ({ getValue }: any) => <StatusBadge variant="error">{getValue()}</StatusBadge> },
                             { accessorKey: 'total', header: 'Total', cell: ({ getValue }: any) => <span className="text-content-muted">{getValue()}</span> },
                         ]);
                         const statsData = [

@@ -14,6 +14,7 @@ import {
     TestDashboardG2Section,
     type DashboardUpcomingItem,
 } from '@/components/TestDashboardG2Section';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface DashboardMetrics {
     periodDays: number;
@@ -199,7 +200,7 @@ export default function TestDashboardPage() {
                                         <span className="text-content-emphasis text-sm font-medium">{f.controlCode || f.controlName}</span>
                                         {f.controlCode && <span className="text-content-muted text-xs ml-2">{f.controlName}</span>}
                                     </div>
-                                    <span className="badge badge-xs badge-danger">{f.failCount} failures</span>
+                                    <StatusBadge variant="error" size="sm">{f.failCount} failures</StatusBadge>
                                 </Link>
                             ))}
                         </div>

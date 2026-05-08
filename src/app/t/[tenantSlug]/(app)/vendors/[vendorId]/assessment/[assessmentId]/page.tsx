@@ -12,10 +12,11 @@ import { Button } from '@/components/ui/button';
 import { SkeletonDetailPage } from '@/components/ui/skeleton';
 import { Combobox } from '@/components/ui/combobox';
 import { Tooltip } from '@/components/ui/tooltip';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const CRIT_BADGE: Record<string, string> = { LOW: 'badge-neutral', MEDIUM: 'badge-warning', HIGH: 'badge-danger', CRITICAL: 'badge-danger' };
-const STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral', IN_REVIEW: 'badge-warning', APPROVED: 'badge-success', REJECTED: 'badge-danger',
+const CRIT_BADGE: Record<string, StatusBadgeVariant> = { LOW: 'neutral', MEDIUM: 'warning', HIGH: 'error', CRITICAL: 'error' };
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral', IN_REVIEW: 'warning', APPROVED: 'success', REJECTED: 'error',
 };
 
 export default function AssessmentPage(
@@ -172,11 +173,11 @@ export default function AssessmentPage(
             <div className="card p-5 space-y-2">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold" id="assessment-title">{assessment.template?.name || 'Assessment'}</h1>
-                    <span className={`badge ${STATUS_BADGE[assessment.status]}`} id="assessment-status">{assessment.status}</span>
+                    <StatusBadge variant={STATUS_BADGE[assessment.status]} id="assessment-status">{assessment.status}</StatusBadge>
                 </div>
                 <div className="flex gap-4 text-sm text-content-muted">
                     <span>Score: <strong className="text-content-emphasis" id="assessment-score">{assessment.score != null ? assessment.score.toFixed(1) : '—'}</strong></span>
-                    <span>Rating: {assessment.riskRating ? <span className={`badge ${CRIT_BADGE[assessment.riskRating]}`} id="assessment-rating">{assessment.riskRating}</span> : '—'}</span>
+                    <span>Rating: {assessment.riskRating ? <StatusBadge variant={CRIT_BADGE[assessment.riskRating]} id="assessment-rating">{assessment.riskRating}</StatusBadge> : '—'}</span>
                     <span>Requested by: {assessment.requestedBy?.name || '—'}</span>
                 </div>
                 {assessment.decidedBy && <p className="text-sm text-content-muted">Decided by: {assessment.decidedBy.name} on {formatDate(assessment.decidedAt)}</p>}
@@ -234,7 +235,7 @@ export default function AssessmentPage(
                 {isDecided && (
                     <div className="text-sm text-content-muted">
                         Assessment is <strong className={assessment.status === 'APPROVED' ? 'text-content-success' : 'text-content-error'}>{assessment.status}</strong>.
-                        {assessment.riskRating && <span className="ml-2">Risk Rating: <span className={`badge ${CRIT_BADGE[assessment.riskRating]}`}>{assessment.riskRating}</span></span>}
+                        {assessment.riskRating && <span className="ml-2">Risk Rating: <StatusBadge variant={CRIT_BADGE[assessment.riskRating]}>{assessment.riskRating}</StatusBadge></span>}
                     </div>
                 )}
             </div>

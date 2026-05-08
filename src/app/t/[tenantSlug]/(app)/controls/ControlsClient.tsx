@@ -47,6 +47,7 @@ import {
     CONTROL_FILTER_KEYS,
     CONTROL_STATUS_LABELS,
 } from './filter-defs';
+import { StatusBadge, statusBadgeClassName, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // ─── Constants ───
 
@@ -73,14 +74,14 @@ const ALL_STATUSES = [
     'NOT_APPLICABLE',
 ] as const;
 
-const STATUS_BADGE: Record<string, string> = {
-    NOT_STARTED: 'badge-neutral',
-    PLANNED: 'badge-neutral',
-    IN_PROGRESS: 'badge-info',
-    IMPLEMENTING: 'badge-info',
-    IMPLEMENTED: 'badge-success',
-    NEEDS_REVIEW: 'badge-warning',
-    NOT_APPLICABLE: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    NOT_STARTED: 'neutral',
+    PLANNED: 'neutral',
+    IN_PROGRESS: 'info',
+    IMPLEMENTING: 'info',
+    IMPLEMENTED: 'success',
+    NEEDS_REVIEW: 'warning',
+    NOT_APPLICABLE: 'neutral',
 };
 /**
  * Status labels are sourced from the shared filter-defs module so the badge
@@ -496,16 +497,16 @@ function ControlsPageInner({
                 // through onChange.
                 if (!appPermissions.controls.edit) {
                     return (
-                        <span className={`badge ${STATUS_BADGE[c.status] || 'badge-neutral'}`}>
+                        <StatusBadge variant={STATUS_BADGE[c.status] || 'neutral'}>
                             {STATUS_LABELS[c.status] || c.status}
-                        </span>
+                        </StatusBadge>
                     );
                 }
                 return (
                     <Tooltip content="Pick a status (or click to cycle)">
                         <select
                             id={`status-pill-${c.id}`}
-                            className={`badge ${STATUS_BADGE[c.status] || 'badge-neutral'} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-[var(--brand-default)]`}
+                            className={`${statusBadgeClassName(STATUS_BADGE[c.status] ?? 'neutral')} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-[var(--brand-default)]`}
                             value={c.status}
                             onClick={(e) => {
                                 // Click-to-cycle preserved for the
@@ -547,16 +548,16 @@ function ControlsPageInner({
                 const code = c.code || c.annexId || '';
                 if (!appPermissions.controls.edit) {
                     return (
-                        <span className={`badge ${c.applicability === 'NOT_APPLICABLE' ? 'badge-warning' : 'badge-success'}`}>
+                        <StatusBadge variant={c.applicability === 'NOT_APPLICABLE' ? 'warning' : 'success'}>
                             {c.applicability === 'NOT_APPLICABLE' ? 'N/A' : 'Yes'}
-                        </span>
+                        </StatusBadge>
                     );
                 }
                 return (
                     <Tooltip content="Mark applicable / not applicable">
                         <select
                             id={`applicability-pill-${c.id}`}
-                            className={`badge ${c.applicability === 'NOT_APPLICABLE' ? 'badge-warning' : 'badge-success'} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-[var(--brand-default)]`}
+                            className={`${statusBadgeClassName(c.applicability === 'NOT_APPLICABLE' ? 'warning' : 'success')} cursor-pointer border-0 outline-none focus:ring-2 focus:ring-[var(--brand-default)]`}
                             value={c.applicability}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => {

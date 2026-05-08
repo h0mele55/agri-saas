@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { Button } from '@/components/ui/button';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface TestPlan {
     id: string;
@@ -32,11 +33,11 @@ const FREQ_LABELS: Record<string, string> = {
     AD_HOC: 'Ad Hoc', DAILY: 'Daily', WEEKLY: 'Weekly',
     MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUALLY: 'Annually',
 };
-const RESULT_BADGE: Record<string, string> = {
-    PASS: 'badge-success', FAIL: 'badge-danger', INCONCLUSIVE: 'badge-warning',
+const RESULT_BADGE: Record<string, StatusBadgeVariant> = {
+    PASS: 'success', FAIL: 'error', INCONCLUSIVE: 'warning',
 };
-const STATUS_BADGE: Record<string, string> = {
-    ACTIVE: 'badge-success', PAUSED: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    ACTIVE: 'success', PAUSED: 'warning',
 };
 
 export default function TestPlansPanel({ controlId }: { controlId: string }) {
@@ -180,9 +181,9 @@ export default function TestPlansPanel({ controlId }: { controlId: string }) {
                                         {plan.name}
                                     </Link>
                                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                        <span className={`badge badge-xs ${STATUS_BADGE[plan.status] || 'badge-neutral'}`}>
+                                        <StatusBadge variant={STATUS_BADGE[plan.status] || 'neutral'} size="sm">
                                             {plan.status}
-                                        </span>
+                                        </StatusBadge>
                                         <span className="text-xs text-content-subtle">{FREQ_LABELS[plan.frequency] || plan.frequency}</span>
                                         <span className="text-xs text-content-subtle">•</span>
                                         <span className="text-xs text-content-subtle">{plan.method}</span>
@@ -204,9 +205,9 @@ export default function TestPlansPanel({ controlId }: { controlId: string }) {
                                 </div>
                                 <div className="flex items-center gap-2 ml-4">
                                     {lastRun?.result && (
-                                        <span className={`badge badge-xs ${RESULT_BADGE[lastRun.result] || 'badge-neutral'}`}>
+                                        <StatusBadge variant={RESULT_BADGE[lastRun.result] || 'neutral'} size="sm">
                                             {lastRun.result}
-                                        </span>
+                                        </StatusBadge>
                                     )}
                                     <span className="text-xs text-content-subtle">
                                         {plan._count?.runs ?? 0} runs

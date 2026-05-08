@@ -12,6 +12,7 @@ import { ListPageShell } from '@/components/layout/ListPageShell';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { ToggleGroup } from '@/components/ui/toggle-group';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface TestPlanSummary {
     id: string;
@@ -36,8 +37,8 @@ const FREQ_LABELS: Record<string, string> = {
     AD_HOC: 'Ad Hoc', DAILY: 'Daily', WEEKLY: 'Weekly',
     MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', ANNUALLY: 'Annually',
 };
-const RESULT_BADGE: Record<string, string> = {
-    PASS: 'badge-success', FAIL: 'badge-danger', INCONCLUSIVE: 'badge-warning',
+const RESULT_BADGE: Record<string, StatusBadgeVariant> = {
+    PASS: 'success', FAIL: 'error', INCONCLUSIVE: 'warning',
 };
 
 export default function TestsRollupPage() {
@@ -156,9 +157,9 @@ export default function TestsRollupPage() {
                                     {row.original.name}
                                 </Link>
                                 <div className="flex items-center gap-1 mt-0.5">
-                                    <span className={`badge badge-xs ${row.original.status === 'ACTIVE' ? 'badge-success' : 'badge-warning'}`}>
+                                    <StatusBadge variant={row.original.status === 'ACTIVE' ? 'success' : 'warning'} size="sm">
                                         {row.original.status}
-                                    </span>
+                                    </StatusBadge>
                                 </div>
                             </div>
                         ),
@@ -186,7 +187,7 @@ export default function TestsRollupPage() {
                         cell: ({ row }) => {
                             const result = getLastResult(row.original);
                             return result ? (
-                                <span className={`badge badge-xs ${RESULT_BADGE[result] || 'badge-neutral'}`}>{result}</span>
+                                <StatusBadge variant={RESULT_BADGE[result] || 'neutral'} size="sm">{result}</StatusBadge>
                             ) : <span className="text-content-subtle text-xs">No runs</span>;
                         },
                     },

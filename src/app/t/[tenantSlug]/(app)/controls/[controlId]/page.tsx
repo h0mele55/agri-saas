@@ -9,6 +9,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSWRConfig } from 'swr';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 // Inline pencil icon to avoid lucide-react barrel import issue with Next.js 14
 const PencilIcon = ({ size = 14 }: { size?: number }) => (
     <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
@@ -67,16 +68,16 @@ import type {
 } from '@/lib/dto';
 import type { FrameworkDTO, RequirementDTO } from '@/lib/dto';
 
-const STATUS_BADGE: Record<string, string> = {
-    NOT_STARTED: 'badge-neutral', IN_PROGRESS: 'badge-info', IMPLEMENTED: 'badge-success',
-    NEEDS_REVIEW: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    NOT_STARTED: 'neutral', IN_PROGRESS: 'info', IMPLEMENTED: 'success',
+    NEEDS_REVIEW: 'warning',
 };
 const STATUS_LABELS: Record<string, string> = {
     NOT_STARTED: 'Not Started', IN_PROGRESS: 'In Progress', IMPLEMENTED: 'Implemented',
     NEEDS_REVIEW: 'Needs Review',
 };
-const TASK_STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-neutral', IN_PROGRESS: 'badge-info', DONE: 'badge-success', BLOCKED: 'badge-danger',
+const TASK_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'neutral', IN_PROGRESS: 'info', DONE: 'success', BLOCKED: 'error',
 };
 const FREQ_LABELS: Record<string, string> = {
     AD_HOC: 'Ad Hoc', DAILY: 'Daily', WEEKLY: 'Weekly',
@@ -753,12 +754,12 @@ export default function ControlDetailPage() {
                     {control.code}
                 </CopyText>
             )}
-            <span className={`badge ${STATUS_BADGE[control.status] || 'badge-neutral'}`} id="control-status">
+            <StatusBadge variant={STATUS_BADGE[control.status] || 'neutral'} id="control-status">
                 {STATUS_LABELS[control.status] || control.status}
-            </span>
-            <span className={`badge ${control.applicability === 'NOT_APPLICABLE' ? 'badge-warning' : 'badge-success'}`} id="control-applicability">
+            </StatusBadge>
+            <StatusBadge variant={control.applicability === 'NOT_APPLICABLE' ? 'warning' : 'success'} id="control-applicability">
                 {control.applicability === 'NOT_APPLICABLE' ? 'Not Applicable' : 'Applicable'}
-            </span>
+            </StatusBadge>
             <ControlExceptionHeaderBadge
                 tenantSlug={tenantSlug}
                 controlId={control.id}
@@ -768,13 +769,10 @@ export default function ControlDetailPage() {
                     title="Sync conflict"
                     content={syncError ?? 'Local and remote state diverged — resolve before editing.'}
                 >
-                    <span
-                        className="badge badge-error flex items-center gap-1 animate-pulse cursor-help"
-                        id="sync-conflict-badge"
-                    >
+                    <StatusBadge variant="error" className="flex items-center gap-1 animate-pulse cursor-help" id="sync-conflict-badge">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
                         Sync Conflict
-                    </span>
+                    </StatusBadge>
                 </Tooltip>
             )}
             {syncStatus === 'FAILED' && (
@@ -782,21 +780,18 @@ export default function ControlDetailPage() {
                     title="Last sync failed"
                     content={syncError ?? 'The integration could not reach the source system.'}
                 >
-                    <span
-                        className="badge badge-error flex items-center gap-1 cursor-help"
-                        id="sync-failed-badge"
-                    >
+                    <StatusBadge variant="error" className="flex items-center gap-1 cursor-help" id="sync-failed-badge">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
                         Sync Failed
-                    </span>
+                    </StatusBadge>
                 </Tooltip>
             )}
             {syncStatus === 'SYNCED' && (
                 <Tooltip content={syncLastAt ? `Last synced: ${formatDateTime(syncLastAt)}` : 'Synced'}>
-                    <span className="badge badge-success flex items-center gap-1 cursor-help" id="sync-ok-badge">
+                    <StatusBadge variant="success" className="flex items-center gap-1 cursor-help" id="sync-ok-badge">
                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
                         Synced
-                    </span>
+                    </StatusBadge>
                 </Tooltip>
             )}
         </>
@@ -917,7 +912,7 @@ export default function ControlDetailPage() {
                             <span className="text-xs text-content-subtle uppercase">Contributors</span>
                             <div className="text-sm text-content-default mt-1">
                                 {(control.contributors?.length ?? 0) > 0 ? control.contributors?.map((c: ContributorDTO) => (
-                                    <span key={c.user.id} className="badge badge-neutral text-xs mr-1">{c.user.name ?? '—'}</span>
+                                    <StatusBadge variant="neutral" className="mr-1" key={c.user.id}>{c.user.name ?? '—'}</StatusBadge>
                                 )) : '—'}
                             </div>
                         </div>
@@ -1007,13 +1002,11 @@ export default function ControlDetailPage() {
                                     <div>
                                         <span className="text-xs text-content-subtle">Sync Status</span>
                                         <div className="mt-1 flex items-center gap-1.5">
-                                            <span className={`badge text-xs ${
-                                                syncStatus === 'SYNCED' ? 'badge-success'
-                                                : syncStatus === 'CONFLICT' ? 'badge-error'
-                                                : syncStatus === 'FAILED' ? 'badge-error'
-                                                : syncStatus === 'STALE' ? 'badge-warning'
-                                                : 'badge-neutral'
-                                            }`}>{syncStatus}</span>
+                                            <StatusBadge variant={syncStatus === 'SYNCED' ? 'success'
+                                                : syncStatus === 'CONFLICT' ? 'error'
+                                                : syncStatus === 'FAILED' ? 'error'
+                                                : syncStatus === 'STALE' ? 'warning'
+                                                : 'neutral'}>{syncStatus}</StatusBadge>
                                             {syncLastAt && (
                                                 <span className="text-xs text-content-subtle">{formatDateTime(syncLastAt)}</span>
                                             )}
@@ -1221,7 +1214,7 @@ export default function ControlDetailPage() {
                                     {control.controlTasks?.map((t: ControlTaskDTO) => (
                                         <tr key={t.id}>
                                             <td className="text-sm text-content-emphasis">{t.title}</td>
-                                            <td><span className={`badge ${TASK_STATUS_BADGE[t.status] || 'badge-neutral'}`}>{t.status}</span></td>
+                                            <td><StatusBadge variant={TASK_STATUS_BADGE[t.status] || 'neutral'}>{t.status}</StatusBadge></td>
                                             <td className="text-xs text-content-muted">{t.assignee?.name || '—'}</td>
                                             <td className="text-xs text-content-muted">{t.dueAt ? formatDate(t.dueAt) : '—'}</td>
                                             {permissions.canWrite && (
@@ -1335,7 +1328,7 @@ export default function ControlDetailPage() {
                                     <tbody>
                                         {control.evidenceLinks?.map((el: EvidenceLinkDTO) => (
                                             <tr key={`link-${el.id}`}>
-                                                <td><span className={`badge ${el.kind === 'FILE' ? 'badge-success' : 'badge-info'} text-xs`}>{el.kind}</span></td>
+                                                <td><StatusBadge variant={el.kind === 'FILE' ? 'success' : 'info'}>{el.kind}</StatusBadge></td>
                                                 <td className="text-sm">
                                                     {el.url ? <a href={el.url} target="_blank" rel="noopener noreferrer" className="text-[var(--brand-default)] hover:underline">{el.url}</a> : (el.note || '—')}
                                                 </td>
@@ -1353,14 +1346,14 @@ export default function ControlDetailPage() {
                                         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                         {directEvidence.map((ev: any) => (
                                             <tr key={`ev-${ev.id}`}>
-                                                <td><span className={`badge ${ev.type === 'FILE' ? 'badge-success' : ev.type === 'TEXT' ? 'badge-neutral' : 'badge-info'} text-xs`}>{ev.type}</span></td>
+                                                <td><StatusBadge variant={ev.type === 'FILE' ? 'success' : ev.type === 'TEXT' ? 'neutral' : 'info'}>{ev.type}</StatusBadge></td>
                                                 <td className="text-sm">
                                                     <Link href={tenantHref(`/evidence`)} className="text-[var(--brand-default)] hover:underline">{ev.title}</Link>
                                                 </td>
                                                 <td>
-                                                    <span className={`badge text-xs ${ev.status === 'APPROVED' ? 'badge-success' : ev.status === 'REJECTED' ? 'badge-danger' : ev.status === 'SUBMITTED' ? 'badge-info' : 'badge-neutral'}`}>
+                                                    <StatusBadge variant={ev.status === 'APPROVED' ? 'success' : ev.status === 'REJECTED' ? 'error' : ev.status === 'SUBMITTED' ? 'info' : 'neutral'}>
                                                         {ev.status}
-                                                    </span>
+                                                    </StatusBadge>
                                                 </td>
                                                 <td className="text-xs text-content-muted">{ev.createdAt ? formatDate(ev.createdAt) : '—'}</td>
                                                 {permissions.canWrite && <td />}
@@ -1472,7 +1465,7 @@ export default function ControlDetailPage() {
                             {activity.map((ev: AuditLogEntry) => (
                                 <div key={ev.id} className="px-5 py-3 flex items-start gap-3">
                                     <div className="mt-0.5">
-                                        <span className="badge badge-info text-xs">{EVENT_LABELS[ev.action] || ev.action}</span>
+                                        <StatusBadge variant="info">{EVENT_LABELS[ev.action] || ev.action}</StatusBadge>
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm text-content-default">{ev.details}</p>

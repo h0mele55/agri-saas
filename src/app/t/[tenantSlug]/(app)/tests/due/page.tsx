@@ -13,6 +13,7 @@ import { ListPageShell } from '@/components/layout/ListPageShell';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface DuePlan {
     id: string;
@@ -182,8 +183,8 @@ export default function DueQueuePage() {
                     {
                         id: 'status', header: 'Status',
                         cell: ({ row }) => row.original.hasPendingRun
-                            ? <span className="badge badge-xs badge-warning">Run Pending</span>
-                            : <span className="badge badge-xs badge-danger">Needs Run</span>,
+                            ? <StatusBadge variant="warning" size="sm">Run Pending</StatusBadge>
+                            : <StatusBadge variant="error" size="sm">Needs Run</StatusBadge>,
                     },
                     {
                         id: 'actions', header: '',

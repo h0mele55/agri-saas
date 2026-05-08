@@ -46,6 +46,7 @@ import { useHydratedNow } from '@/lib/hooks/use-hydrated-now';
 import { RiskMatrix } from '@/components/ui/RiskMatrix';
 import { resolveBandForScore } from '@/lib/risk-matrix/scoring';
 import type { RiskMatrixConfigShape } from '@/lib/risk-matrix/types';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 interface RiskListItem {
     id: string;
@@ -304,22 +305,20 @@ function RisksPageInner({
         return Array.from(lookup.values());
     }, [risks]);
 
-    const getRiskLevel = (score: number) => {
-        if (score <= 5) return { label: t.low, class: 'badge-success' };
-        if (score <= 12) return { label: t.medium, class: 'badge-warning' };
-        if (score <= 18) return { label: t.high, class: 'badge-danger' };
-        return { label: t.critical, class: 'badge-danger' };
+    const getRiskLevel = (score: number): { label: string; class: StatusBadgeVariant } => {
+        if (score <= 5) return { label: t.low, class: 'success' };
+        if (score <= 12) return { label: t.medium, class: 'warning' };
+        if (score <= 18) return { label: t.high, class: 'error' };
+        return { label: t.critical, class: 'error' };
     };
 
-    // Workflow-status badge classes (Epic 44.4). The label set
-    // mirrors `RiskStatus` in the schema (OPEN / MITIGATING / ACCEPTED
-    // / CLOSED). Class mapping uses the existing `.badge-*` tokens so
-    // the visual aligns with controls / evidence / vendor pages.
-    const STATUS_CLASS: Record<string, string> = {
-        OPEN: 'badge-warning',
-        MITIGATING: 'badge-info',
-        ACCEPTED: 'badge-neutral',
-        CLOSED: 'badge-success',
+    // Workflow-status variants (Epic 44.4). The label set mirrors
+    // `RiskStatus` in the schema (OPEN / MITIGATING / ACCEPTED / CLOSED).
+    const STATUS_CLASS: Record<string, StatusBadgeVariant> = {
+        OPEN: 'warning',
+        MITIGATING: 'info',
+        ACCEPTED: 'neutral',
+        CLOSED: 'success',
     };
 
     // ── Column Definitions ──
@@ -404,7 +403,7 @@ function RisksPageInner({
             accessorFn: (r) => r.inherentScore,
             cell: ({ getValue }) => {
                 const level = getRiskLevel(getValue<number>());
-                return <span className={`badge ${level.class}`}>{level.label}</span>;
+                return <StatusBadge variant={level.class}>{level.label}</StatusBadge>;
             },
         },
         {
@@ -414,12 +413,9 @@ function RisksPageInner({
             cell: ({ row }) => {
                 const status = row.original.status ?? 'OPEN';
                 return (
-                    <span
-                        className={`badge ${STATUS_CLASS[status] ?? 'badge-neutral'}`}
-                        data-testid={`risk-status-${row.original.id}`}
-                    >
+                    <StatusBadge variant={STATUS_CLASS[status] ?? 'neutral'} data-testid={`risk-status-${row.original.id}`}>
                         {status}
-                    </span>
+                    </StatusBadge>
                 );
             },
         },

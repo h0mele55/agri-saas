@@ -43,8 +43,19 @@ const BASELINES = {
     // (admin/vendor-assessment-reviews/[id]) match the rest of the
     // admin surface's `btn btn-*` shape. Slot into the existing
     // legacy-btn migration backlog alongside the other admin pages.
-    btn: 251,
-    badge: 78,
+    // 251 → 0 with the .btn → <Button> migration on main (#8bcf699,
+    // 2026-05-08). The remaining `btn` substring matches in app pages
+    // are now all `id="*-btn"` attributes (not className tokens), and
+    // those don't match this test's regex which is anchored to
+    // `className="..."` strings.
+    btn: 0,
+    // 78 → 0 with the PR-2 .badge → <StatusBadge> migration. New
+    // dedicated eradication ratchet at
+    // `tests/guards/legacy-badge-eradication.test.ts` is the
+    // authoritative gate going forward; this baseline is kept at 0
+    // as a defence-in-depth against accidental reintroduction with
+    // an inline `className="badge ..."` string.
+    badge: 0,
 } as const;
 
 function walk(dir: string, out: string[]): string[] {
@@ -88,10 +99,12 @@ describe('Legacy UI class ratchet — Epic 51 rollout guard', () => {
         expect(actual).toBeLessThanOrEqual(BASELINES.badge);
     });
 
-    it('baseline constants are plausible (positive integers)', () => {
-        // Guard against accidental negation of the ratchet in a future PR.
-        expect(BASELINES.btn).toBeGreaterThan(0);
-        expect(BASELINES.badge).toBeGreaterThan(0);
+    it('baseline constants are non-negative integers', () => {
+        // Both surfaces drove their baselines to 0 after the .btn / .badge
+        // migrations on main. Guard against accidental negation of the
+        // ratchet in a future PR.
+        expect(BASELINES.btn).toBeGreaterThanOrEqual(0);
+        expect(BASELINES.badge).toBeGreaterThanOrEqual(0);
         expect(Number.isInteger(BASELINES.btn)).toBe(true);
         expect(Number.isInteger(BASELINES.badge)).toBe(true);
     });

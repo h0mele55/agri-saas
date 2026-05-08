@@ -71,11 +71,13 @@ describe('Controls list — UX polish', () => {
             );
         });
 
-        it('reader without edit permission sees a static badge span', () => {
+        it('reader without edit permission sees a static StatusBadge', () => {
             // The interactive control is gated by appPermissions —
-            // READER falls through to the legacy <span> render.
+            // READER falls through to a static <StatusBadge> render.
+            // Updated in PR-2 from the legacy <span className="badge ...">
+            // to the canonical <StatusBadge variant={STATUS_BADGE[...]}>.
             expect(source).toMatch(
-                /if \(!appPermissions\.controls\.edit\)\s*\{[\s\S]{0,200}<span className=\{`badge \$\{STATUS_BADGE/,
+                /if \(!appPermissions\.controls\.edit\)\s*\{[\s\S]{0,200}<StatusBadge variant=\{STATUS_BADGE/,
             );
         });
     });

@@ -26,6 +26,7 @@ import { DataTable, createColumns } from '@/components/ui/table';
 // the app.
 import { formatDateTime as formatDate } from '@/lib/format-date';
 import { toast } from 'sonner';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 // ─── Types ───
 
@@ -357,10 +358,10 @@ export default function ApiKeysPage() {
                         return (
                             <div className="flex flex-wrap gap-1">
                                 {scopes.slice(0, 3).map((s) => (
-                                    <span key={s} className="badge badge-info text-[10px]">{s}</span>
+                                    <StatusBadge variant="info" className="text-[10px]" key={s}>{s}</StatusBadge>
                                 ))}
                                 {scopes.length > 3 && (
-                                    <span className="badge badge-neutral text-[10px]">+{scopes.length - 3}</span>
+                                    <StatusBadge variant="neutral" className="text-[10px]">+{scopes.length - 3}</StatusBadge>
                                 )}
                             </div>
                         );
@@ -448,9 +449,9 @@ export default function ApiKeysPage() {
                     header: 'Status',
                     cell: ({ row }) =>
                         row.original.revokedAt ? (
-                            <span className="badge badge-danger text-[10px]">Revoked</span>
+                            <StatusBadge variant="error" className="text-[10px]">Revoked</StatusBadge>
                         ) : (
-                            <span className="badge badge-warning text-[10px]">Expired</span>
+                            <StatusBadge variant="warning" className="text-[10px]">Expired</StatusBadge>
                         ),
                 },
                 {

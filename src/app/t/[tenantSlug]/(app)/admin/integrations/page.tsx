@@ -15,6 +15,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { Combobox } from '@/components/ui/combobox';
 import { Tooltip } from '@/components/ui/tooltip';
 import { DataTable, createColumns } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface ConnectionDTO {
     id: string;
@@ -232,11 +233,11 @@ export default function AdminIntegrationsPage() {
                     ) : (
                         (() => {
                             const connCols = createColumns<ConnectionDTO>([
-                                { accessorKey: 'provider', header: 'Provider', cell: ({ getValue }: any) => <span className="badge badge-info">{getValue()}</span> },
+                                { accessorKey: 'provider', header: 'Provider', cell: ({ getValue }: any) => <StatusBadge variant="info">{getValue()}</StatusBadge> },
                                 { accessorKey: 'name', header: 'Name', cell: ({ getValue }: any) => <span className="font-medium">{getValue()}</span> },
                                 {
                                     id: 'status', header: 'Status', accessorKey: 'isEnabled',
-                                    cell: ({ row }: any) => <span className={`badge ${row.original.isEnabled ? 'badge-success' : 'badge-error'}`}>{row.original.isEnabled ? 'Active' : 'Disabled'}</span>,
+                                    cell: ({ row }: any) => <StatusBadge variant={row.original.isEnabled ? 'success' : 'error'}>{row.original.isEnabled ? 'Active' : 'Disabled'}</StatusBadge>,
                                 },
                                 { id: 'secrets', header: 'Secrets', cell: () => <span className="text-content-subtle font-mono text-xs">••••••••</span> },
                                 {
@@ -385,9 +386,9 @@ export default function AdminIntegrationsPage() {
                                 <h4 className="text-sm font-medium text-content-default mb-1">Supported Checks</h4>
                                 <div className="flex flex-wrap gap-1">
                                     {selectedProvider.supportedChecks.map(check => (
-                                        <span key={check} className="badge badge-neutral text-xs">
+                                        <StatusBadge variant="neutral" key={check}>
                                             {selectedProvider.id}.{check}
-                                        </span>
+                                        </StatusBadge>
                                     ))}
                                 </div>
                             </div>

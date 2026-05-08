@@ -7,14 +7,15 @@
 import { formatDate } from '@/lib/format-date';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const TASK_STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-neutral', TRIAGED: 'badge-info', IN_PROGRESS: 'badge-info',
-    BLOCKED: 'badge-danger', RESOLVED: 'badge-success', CLOSED: 'badge-neutral', CANCELED: 'badge-neutral',
+const TASK_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'neutral', TRIAGED: 'info', IN_PROGRESS: 'info',
+    BLOCKED: 'error', RESOLVED: 'success', CLOSED: 'neutral', CANCELED: 'neutral',
 };
-const SEVERITY_BADGE: Record<string, string> = {
-    CRITICAL: 'badge-danger', HIGH: 'badge-danger', MEDIUM: 'badge-warning', LOW: 'badge-info', INFO: 'badge-neutral',
+const SEVERITY_BADGE: Record<string, StatusBadgeVariant> = {
+    CRITICAL: 'error', HIGH: 'error', MEDIUM: 'warning', LOW: 'info', INFO: 'neutral',
 };
 
 interface LinkedTasksPanelProps {
@@ -67,9 +68,9 @@ export default function LinkedTasksPanel({ apiBase, entityType, entityId, tenant
                 >
                     {task.key && <span className="font-mono text-xs text-content-subtle w-16 truncate">{task.key}</span>}
                     <span className="flex-1 text-white truncate">{task.title}</span>
-                    <span className={`badge ${TASK_STATUS_BADGE[task.status] || 'badge-neutral'} text-xs`}>{task.status}</span>
+                    <StatusBadge variant={TASK_STATUS_BADGE[task.status] || 'neutral'}>{task.status}</StatusBadge>
                     {task.severity && (
-                        <span className={`badge ${SEVERITY_BADGE[task.severity] || 'badge-neutral'} text-xs`}>{task.severity}</span>
+                        <StatusBadge variant={SEVERITY_BADGE[task.severity] || 'neutral'}>{task.severity}</StatusBadge>
                     )}
                     {task.dueAt && (
                         <span className={`text-xs ${new Date(task.dueAt) < new Date() ? 'text-content-error' : 'text-content-muted'}`}>

@@ -15,9 +15,10 @@ import {
     startOfUtcDay,
     toYMD,
 } from '@/components/ui/date-picker/date-utils';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const SEV_BADGE: Record<string, string> = { LOW: 'badge-info', MEDIUM: 'badge-warning', HIGH: 'badge-danger', CRITICAL: 'badge-danger' };
-const STATUS_BADGE: Record<string, string> = { OPEN: 'badge-danger', IN_PROGRESS: 'badge-info', READY_FOR_VERIFICATION: 'badge-warning', CLOSED: 'badge-success' };
+const SEV_BADGE: Record<string, StatusBadgeVariant> = { LOW: 'info', MEDIUM: 'warning', HIGH: 'error', CRITICAL: 'error' };
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = { OPEN: 'error', IN_PROGRESS: 'info', READY_FOR_VERIFICATION: 'warning', CLOSED: 'success' };
 
 interface FindingsClientProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,7 +159,7 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
             accessorKey: 'severity',
             header: t.severity,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: ({ row }: any) => <span className={`badge ${SEV_BADGE[row.original.severity]}`}>{sevLabel(row.original.severity)}</span>,
+            cell: ({ row }: any) => <StatusBadge variant={SEV_BADGE[row.original.severity]}>{sevLabel(row.original.severity)}</StatusBadge>,
         },
         {
             accessorKey: 'type',
@@ -178,7 +179,7 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
             accessorKey: 'status',
             header: t.status,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: ({ row }: any) => <span className={`badge ${STATUS_BADGE[row.original.status]}`}>{statusLabel(row.original.status)}</span>,
+            cell: ({ row }: any) => <StatusBadge variant={STATUS_BADGE[row.original.status]}>{statusLabel(row.original.status)}</StatusBadge>,
         },
         {
             id: 'actions',

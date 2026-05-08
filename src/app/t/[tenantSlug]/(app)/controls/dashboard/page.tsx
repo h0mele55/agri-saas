@@ -11,6 +11,7 @@ import {
     StatusBreakdown,
     type StatusBreakdownVariant,
 } from '@/components/ui/status-breakdown';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const STATUS_LABELS: Record<string, string> = {
     NOT_STARTED: 'Not Started', IN_PROGRESS: 'In Progress', IMPLEMENTED: 'Implemented', NEEDS_REVIEW: 'Needs Review',
@@ -168,7 +169,7 @@ export default function ControlsDashboard() {
                             {data.topOwners.map((o) => (
                                 <div key={o.id} className="flex justify-between items-center text-sm">
                                     <span className="text-content-default">{o.name}</span>
-                                    <span className="badge badge-neutral">{o.openTasks} open</span>
+                                    <StatusBadge variant="neutral">{o.openTasks} open</StatusBadge>
                                 </div>
                             ))}
                         </div>

@@ -19,6 +19,7 @@ import { NewEvidenceTextModal } from './NewEvidenceTextModal';
 import { EvidenceBulkImportModal } from './EvidenceBulkImportModal';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 import { DatePicker } from '@/components/ui/date-picker/date-picker';
 import {
     parseYMD,
@@ -66,26 +67,26 @@ interface Permissions {
     canExport: boolean;
 }
 
-const STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral', SUBMITTED: 'badge-info', APPROVED: 'badge-success', REJECTED: 'badge-danger',
-    PENDING_UPLOAD: 'badge-info',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral', SUBMITTED: 'info', APPROVED: 'success', REJECTED: 'error',
+    PENDING_UPLOAD: 'info',
 };
 
 type RetentionFilter = 'active' | 'expiring' | 'archived';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getRetentionStatus(ev: any, now: Date | null): { label: string; badge: string; icon: string } {
-    if (ev.isArchived) return { label: 'Archived', badge: 'badge-neutral', icon: '' };
-    if (ev.expiredAt) return { label: 'Expired', badge: 'badge-danger', icon: '' };
+function getRetentionStatus(ev: any, now: Date | null): { label: string; badge: StatusBadgeVariant; icon: string } {
+    if (ev.isArchived) return { label: 'Archived', badge: 'neutral', icon: '' };
+    if (ev.expiredAt) return { label: 'Expired', badge: 'error', icon: '' };
     if (ev.retentionUntil) {
-        if (!now) return { label: 'Active', badge: 'badge-success', icon: '' };
+        if (!now) return { label: 'Active', badge: 'success', icon: '' };
         const until = new Date(ev.retentionUntil);
         const daysLeft = Math.ceil((until.getTime() - now.getTime()) / 86_400_000);
-        if (daysLeft <= 0) return { label: 'Expired', badge: 'badge-danger', icon: '' };
-        if (daysLeft <= 30) return { label: `Expiring (${daysLeft}d)`, badge: 'badge-warning', icon: '' };
-        return { label: 'Active', badge: 'badge-success', icon: '' };
+        if (daysLeft <= 0) return { label: 'Expired', badge: 'error', icon: '' };
+        if (daysLeft <= 30) return { label: `Expiring (${daysLeft}d)`, badge: 'warning', icon: '' };
+        return { label: 'Active', badge: 'success', icon: '' };
     }
-    return { label: 'No policy', badge: 'badge-neutral', icon: '—' };
+    return { label: 'No policy', badge: 'neutral', icon: '—' };
 }
 
 interface EvidenceClientProps {
@@ -459,9 +460,9 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                 return (
                     <div className="text-xs">
                         <div className="flex items-center gap-1.5">
-                            <span className={`badge ${rs.badge}`} id={`retention-status-${ev.id}`}>
+                            <StatusBadge variant={rs.badge} id={`retention-status-${ev.id}`}>
                                 {rs.icon} {rs.label}
-                            </span>
+                            </StatusBadge>
                         </div>
                         {ev.retentionUntil && !ev.isArchived && (
                             <TimestampTooltip
@@ -536,7 +537,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             cell: ({ row }: { row: any }) => {
                 const ev = row.original;
-                return <span className={`badge ${STATUS_BADGE[ev.status]}`}>{statusLabel(ev.status)}</span>;
+                return <StatusBadge variant={STATUS_BADGE[ev.status]}>{statusLabel(ev.status)}</StatusBadge>;
             },
         },
         {
@@ -754,7 +755,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                                 ? apiUrl(`/evidence/files/${ev.fileRecordId}/download`)
                                 : null
                         }
-                        statusBadgeClass={(s) => STATUS_BADGE[s] ?? 'badge-neutral'}
+                        statusBadgeVariant={(s) => STATUS_BADGE[s] ?? 'neutral'}
                         retentionStatus={(ev: any) => {
                             const rs = getRetentionStatus(ev, hydratedNow);
                             return { label: rs.label, badge: rs.badge };

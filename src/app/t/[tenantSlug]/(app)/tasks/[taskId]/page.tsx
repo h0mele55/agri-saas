@@ -18,18 +18,19 @@ import { UserCombobox } from '@/components/ui/user-combobox';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { CopyText } from '@/components/ui/copy-text';
 import { TERMINAL_WORK_ITEM_STATUSES } from '@/app-layer/domain/work-item-status';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-neutral', TRIAGED: 'badge-info', IN_PROGRESS: 'badge-info',
-    BLOCKED: 'badge-danger', RESOLVED: 'badge-success', CLOSED: 'badge-neutral', CANCELED: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'neutral', TRIAGED: 'info', IN_PROGRESS: 'info',
+    BLOCKED: 'error', RESOLVED: 'success', CLOSED: 'neutral', CANCELED: 'neutral',
 };
 const STATUS_LABELS: Record<string, string> = {
     OPEN: 'Open', TRIAGED: 'Triaged', IN_PROGRESS: 'In Progress',
     BLOCKED: 'Blocked', RESOLVED: 'Resolved', CLOSED: 'Closed', CANCELED: 'Canceled',
 };
-const SEVERITY_BADGE: Record<string, string> = {
-    INFO: 'badge-neutral', LOW: 'badge-neutral', MEDIUM: 'badge-warning',
-    HIGH: 'badge-danger', CRITICAL: 'badge-danger',
+const SEVERITY_BADGE: Record<string, StatusBadgeVariant> = {
+    INFO: 'neutral', LOW: 'neutral', MEDIUM: 'warning',
+    HIGH: 'error', CRITICAL: 'error',
 };
 const PRIORITY_LABELS: Record<string, string> = {
     P0: 'P0 — Critical', P1: 'P1 — High', P2: 'P2 — Medium', P3: 'P3 — Low',
@@ -299,19 +300,19 @@ export default function TaskDetailPage() {
                                 {task.key}
                             </CopyText>
                         )}
-                        <span className={`badge ${STATUS_BADGE[task.status] || 'badge-neutral'}`} id="task-status">
+                        <StatusBadge variant={STATUS_BADGE[task.status] || 'neutral'} id="task-status">
                             {STATUS_LABELS[task.status] || task.status}
-                        </span>
-                        <span className={`badge ${SEVERITY_BADGE[task.severity] || 'badge-neutral'}`} id="task-severity">
+                        </StatusBadge>
+                        <StatusBadge variant={SEVERITY_BADGE[task.severity] || 'neutral'} id="task-severity">
                             {task.severity}
-                        </span>
-                        <span className="badge badge-info text-xs">{TYPE_LABELS[task.type] || task.type}</span>
-                        {isOverdue && <span className="badge badge-danger">Overdue</span>}
-                        {sla.breach && <span className="badge badge-danger" id="sla-badge">{sla.label}</span>}
+                        </StatusBadge>
+                        <StatusBadge variant="info">{TYPE_LABELS[task.type] || task.type}</StatusBadge>
+                        {isOverdue && <StatusBadge variant="error">Overdue</StatusBadge>}
+                        {sla.breach && <StatusBadge variant="error" id="sla-badge">{sla.label}</StatusBadge>}
                         {relevance.satisfied ? (
-                            <span className="badge badge-success text-xs" id="relevance-badge">Relevance satisfied</span>
+                            <StatusBadge variant="success" id="relevance-badge">Relevance satisfied</StatusBadge>
                         ) : (
-                            <span className="badge badge-warning text-xs" id="relevance-badge">{relevance.message}</span>
+                            <StatusBadge variant="warning" id="relevance-badge">{relevance.message}</StatusBadge>
                         )}
                     </div>
                 </div>
@@ -492,7 +493,7 @@ export default function TaskDetailPage() {
                                 <tbody>
                                     {links.map((l: any) => (
                                         <tr key={l.id}>
-                                            <td><span className="badge badge-info text-xs">{l.entityType}</span></td>
+                                            <td><StatusBadge variant="info">{l.entityType}</StatusBadge></td>
                                             <td className="text-sm text-content-default font-mono">{l.entityId}</td>
                                             <td className="text-xs text-content-muted">{l.relation?.replace(/_/g, ' ') || '—'}</td>
                                             <td className="text-xs text-content-muted">{formatDate(l.createdAt)}</td>
@@ -585,7 +586,7 @@ export default function TaskDetailPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 mb-0.5">
                                             <span className="text-sm font-medium text-content-emphasis">{evt.user?.name || 'System'}</span>
-                                            <span className="badge badge-neutral text-xs">{evt.action?.replace(/_/g, ' ')}</span>
+                                            <StatusBadge variant="neutral">{evt.action?.replace(/_/g, ' ')}</StatusBadge>
                                         </div>
                                         <p className="text-xs text-content-muted truncate">{evt.details?.split('\n')[0]}</p>
                                         <span className="text-xs text-content-subtle">{formatDateTime(evt.createdAt)}</span>

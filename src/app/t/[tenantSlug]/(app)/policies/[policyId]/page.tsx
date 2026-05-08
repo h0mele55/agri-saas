@@ -25,6 +25,7 @@ import { sanitizeRichTextHtml } from '@/lib/security/sanitize';
 import type { RichTextContentType } from '@/components/ui/RichTextEditor';
 import { ApprovalBanner } from '@/components/ui/ApprovalBanner';
 import { VersionDiff } from '@/components/ui/VersionDiff';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // Lazy-load Tiptap. The editor + ProseMirror chunks land at
 // ~200KB gzipped; deferring the import means the static parts of
@@ -42,11 +43,11 @@ const RichTextEditor = dynamic(
     },
 );
 
-const STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral', PUBLISHED: 'badge-success', ARCHIVED: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral', PUBLISHED: 'success', ARCHIVED: 'warning',
 };
-const APPROVAL_BADGE: Record<string, string> = {
-    PENDING: 'badge-info', APPROVED: 'badge-success', REJECTED: 'badge-danger',
+const APPROVAL_BADGE: Record<string, StatusBadgeVariant> = {
+    PENDING: 'info', APPROVED: 'success', REJECTED: 'error',
 };
 const EVENT_ICONS: Record<string, string> = {
     POLICY_CREATED: 'create', POLICY_VERSION_CREATED: 'version', POLICY_UPDATED: 'edit',
@@ -393,8 +394,8 @@ export default function PolicyDetailPage() {
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-xl font-bold truncate" id="policy-title">{policy.title}</h1>
-                            <span className={`badge ${STATUS_BADGE[policy.status] || 'badge-neutral'}`} id="policy-status">{policy.status}</span>
-                            {isOverdue && <span className="badge badge-danger text-xs">Overdue</span>}
+                            <StatusBadge variant={STATUS_BADGE[policy.status] || 'neutral'} id="policy-status">{policy.status}</StatusBadge>
+                            {isOverdue && <StatusBadge variant="error">Overdue</StatusBadge>}
                         </div>
                         {policy.description && <p className="text-sm text-content-muted mb-3">{policy.description}</p>}
                         <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-content-subtle">
@@ -533,7 +534,7 @@ export default function PolicyDetailPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <div className="text-sm text-content-muted">
                                     Version {currentVersion.versionNumber} · {currentVersion.createdBy?.name} · {formatDate(currentVersion.createdAt)}
-                                    {currentVersion.contentType === 'EXTERNAL_LINK' && <span className="ml-2 badge badge-info text-xs">External</span>}
+                                    {currentVersion.contentType === 'EXTERNAL_LINK' && <StatusBadge variant="info" className="ml-2">External</StatusBadge>}
                                 </div>
                             </div>
                             {renderVersionContent(currentVersion)}
@@ -577,8 +578,8 @@ export default function PolicyDetailPage() {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <span className="text-sm font-semibold text-[var(--brand-default)]">v{v.versionNumber}</span>
-                                        {isCurrentPublished && <span className="badge badge-success text-xs">Published</span>}
-                                        {v.contentType === 'EXTERNAL_LINK' && <span className="badge badge-info text-xs">External Link</span>}
+                                        {isCurrentPublished && <StatusBadge variant="success">Published</StatusBadge>}
+                                        {v.contentType === 'EXTERNAL_LINK' && <StatusBadge variant="info">External Link</StatusBadge>}
                                         <span className="text-xs text-content-subtle">
                                             {v.createdBy?.name} · {formatDate(v.createdAt)}
                                         </span>
@@ -607,7 +608,7 @@ export default function PolicyDetailPage() {
                                         {vApprovals.map((a) => (
                                             <div key={a.id} className="flex items-center justify-between text-xs">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`badge text-xs ${APPROVAL_BADGE[a.status]}`}>{a.status}</span>
+                                                    <StatusBadge variant={APPROVAL_BADGE[a.status]}>{a.status}</StatusBadge>
                                                     <span className="text-content-muted">
                                                         by {a.requestedBy?.name || 'Unknown'}
                                                         {a.decidedAt && ` · ${formatDate(a.decidedAt)}`}

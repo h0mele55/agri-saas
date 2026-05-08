@@ -14,6 +14,7 @@ import { FieldGroup } from '@/components/ui/field-group';
 import { DateRangePicker } from '@/components/ui/date-picker/date-range-picker';
 import { selectDateRangePresets } from '@/components/ui/date-picker/presets-catalogue';
 import type { DateRangeValue } from '@/components/ui/date-picker/types';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // Epic 58 — audit periods are reporting windows. The curated preset
 // subset favours periods auditors actually request ("the most recent
@@ -50,8 +51,8 @@ const FW_OPTIONS: ComboboxOption<{ version: string }>[] = [
     },
 ];
 
-const STATUS_BADGE: Record<string, string> = {
-    PLANNING: 'badge-neutral', IN_PROGRESS: 'badge-info', READY: 'badge-success', COMPLETE: 'badge-warning',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    PLANNING: 'neutral', IN_PROGRESS: 'info', READY: 'success', COMPLETE: 'warning',
 };
 
 export default function AuditCyclesPage() {
@@ -218,7 +219,7 @@ export default function AuditCyclesPage() {
                                     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${meta.color} flex items-center justify-center text-lg`}>
                                         <AppIcon name={meta.icon} size={20} />
                                     </div>
-                                    <span className={`badge ${STATUS_BADGE[c.status] || 'badge-neutral'}`}>{c.status}</span>
+                                    <StatusBadge variant={STATUS_BADGE[c.status] || 'neutral'}>{c.status}</StatusBadge>
                                 </div>
                                 <h3 className="font-semibold text-sm group-hover:text-content-emphasis transition">{c.name}</h3>
                                 <p className="text-xs text-content-muted mt-1">{meta.label} · v{c.frameworkVersion}</p>

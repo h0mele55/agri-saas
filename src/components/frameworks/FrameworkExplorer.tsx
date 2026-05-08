@@ -51,6 +51,7 @@ import type {
     FrameworkTreeNode,
     FrameworkTreePayload,
 } from '@/lib/framework-tree/types';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 // ─── Coverage shapes (subset of the existing coverage usecase output) ──
 
@@ -408,16 +409,13 @@ function FrameworkTreeRow({
         } else {
             // Coverage data missing — fall back to the prompt-2 affordance.
             meta = isMapped ? (
-                <span className="badge badge-success text-[10px] py-0.5 px-1.5">
+                <StatusBadge variant="success" className="text-[10px] py-0.5 px-1.5">
                     {mappedCount}
-                </span>
+                </StatusBadge>
             ) : (
-                <span
-                    className="badge text-[10px] py-0.5 px-1.5"
-                    style={{ background: 'rgba(100,116,139,0.25)', color: '#94a3b8' }}
-                >
+                <StatusBadge variant="neutral" size="sm">
                     Unmapped
-                </span>
+                </StatusBadge>
             );
         }
     }
@@ -552,17 +550,13 @@ function RequirementDetail({
                                 <span className="text-content-default flex-1 truncate">
                                     {c.controlName}
                                 </span>
-                                <span
-                                    className={`badge text-[10px] ${
-                                        c.controlStatus === 'IMPLEMENTED'
-                                            ? 'badge-success'
+                                <StatusBadge variant={c.controlStatus === 'IMPLEMENTED'
+                                            ? 'success'
                                             : c.controlStatus === 'IN_PROGRESS'
-                                              ? 'badge-warning'
-                                              : 'badge-primary'
-                                    }`}
-                                >
+                                              ? 'warning'
+                                              : 'info'} className="text-[10px]">
                                     {c.controlStatus}
-                                </span>
+                                </StatusBadge>
                             </li>
                         ))}
                     </ul>

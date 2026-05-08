@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format-date';
 import { SkeletonCard } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface TemplateRow {
     id: string;
@@ -194,11 +195,9 @@ export function VendorTemplatesIndexClient() {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span
-                                        className={`badge badge-xs ${t.isPublished ? 'badge-success' : 'badge-warning'}`}
-                                    >
+                                    <StatusBadge variant={t.isPublished ? 'success' : 'warning'} size="sm">
                                         {t.isPublished ? 'Published' : 'Draft'}
-                                    </span>
+                                    </StatusBadge>
                                     <span className="text-xs text-content-subtle">
                                         Updated {formatDate(t.updatedAt)}
                                     </span>

@@ -14,18 +14,19 @@ import { SkeletonDetailPage } from '@/components/ui/skeleton';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { useToastWithUndo } from '@/components/ui/hooks';
 import { normaliseHref } from '@/lib/security/safe-url';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const STATUS_BADGE: Record<string, string> = {
-    ACTIVE: 'badge-success', ONBOARDING: 'badge-info', OFFBOARDING: 'badge-warning', OFFBOARDED: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    ACTIVE: 'success', ONBOARDING: 'info', OFFBOARDING: 'warning', OFFBOARDED: 'neutral',
 };
-const CRIT_BADGE: Record<string, string> = { LOW: 'badge-neutral', MEDIUM: 'badge-warning', HIGH: 'badge-danger', CRITICAL: 'badge-danger' };
+const CRIT_BADGE: Record<string, StatusBadgeVariant> = { LOW: 'neutral', MEDIUM: 'warning', HIGH: 'error', CRITICAL: 'error' };
 const DOC_TYPE_LABELS: Record<string, string> = {
     CONTRACT: 'Contract', SOC2: 'SOC 2', ISO_CERT: 'ISO 27001', DPA: 'DPA',
     SECURITY_POLICY: 'Security Policy', PEN_TEST: 'Pen Test Report', OTHER: 'Other',
 };
 const DOC_TYPES = Object.keys(DOC_TYPE_LABELS);
-const ASSESSMENT_STATUS_BADGE: Record<string, string> = {
-    DRAFT: 'badge-neutral', IN_REVIEW: 'badge-warning', APPROVED: 'badge-success', REJECTED: 'badge-danger',
+const ASSESSMENT_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral', IN_REVIEW: 'warning', APPROVED: 'success', REJECTED: 'error',
 };
 const VENDOR_STATUS_OPTIONS: ComboboxOption[] = ['ACTIVE', 'ONBOARDING', 'OFFBOARDING', 'OFFBOARDED'].map(s => ({ value: s, label: s }));
 const VENDOR_CRIT_OPTIONS: ComboboxOption[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(c => ({ value: c, label: c }));
@@ -214,8 +215,8 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                 <div className="flex items-center gap-3">
                     <Link href={tenantHref('/vendors')} className="text-content-muted hover:text-content-emphasis">← Back</Link>
                     <h1 className="text-2xl font-bold" id="vendor-detail-name">{vendor.name}</h1>
-                    <span className={`badge ${STATUS_BADGE[vendor.status]}`}>{vendor.status}</span>
-                    <span className={`badge ${CRIT_BADGE[vendor.criticality]}`}>{vendor.criticality}</span>
+                    <StatusBadge variant={STATUS_BADGE[vendor.status]}>{vendor.status}</StatusBadge>
+                    <StatusBadge variant={CRIT_BADGE[vendor.criticality]}>{vendor.criticality}</StatusBadge>
                 </div>
                 <div className="flex gap-2">
                     {canWrite && (vendor.domain || vendor.websiteUrl) && (
@@ -251,7 +252,7 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                         <div><span className="text-content-muted">Owner:</span> <span className="ml-2">{vendor.owner?.name || '—'}</span></div>
                         <div><span className="text-content-muted">Data Access:</span> <span className="ml-2">{vendor.dataAccess || '—'}</span></div>
                         <div><span className="text-content-muted">Sub-processor:</span> <span className="ml-2">{vendor.isSubprocessor ? 'Yes' : 'No'}</span></div>
-                        <div><span className="text-content-muted">Inherent Risk:</span> <span className="ml-2">{vendor.inherentRisk ? <span className={`badge ${CRIT_BADGE[vendor.inherentRisk]}`}>{vendor.inherentRisk}</span> : '—'}</span></div>
+                        <div><span className="text-content-muted">Inherent Risk:</span> <span className="ml-2">{vendor.inherentRisk ? <StatusBadge variant={CRIT_BADGE[vendor.inherentRisk]}>{vendor.inherentRisk}</StatusBadge> : '—'}</span></div>
                         <div><span className="text-content-muted">Next Review:</span> <span className="ml-2">{fmtDate(vendor.nextReviewAt)}</span></div>
                         <div><span className="text-content-muted">Contract Renewal:</span> <span className="ml-2">{fmtDate(vendor.contractRenewalAt)}</span></div>
                     </div>
@@ -263,7 +264,7 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 {normaliseHref(vendor.privacyPolicyUrl) && <div><span className="text-content-muted">Privacy Policy:</span> <a href={normaliseHref(vendor.privacyPolicyUrl)!} target="_blank" rel="noopener noreferrer" className="text-content-info underline ml-1" id="enrichment-privacy">View ↗</a></div>}
                                 {normaliseHref(vendor.securityPageUrl) && <div><span className="text-content-muted">Security Page:</span> <a href={normaliseHref(vendor.securityPageUrl)!} target="_blank" rel="noopener noreferrer" className="text-content-info underline ml-1" id="enrichment-security">View ↗</a></div>}
                                 {vendor.certificationsJson && Array.isArray(vendor.certificationsJson) && (
-                                    <div className="col-span-2"><span className="text-content-muted">Certifications:</span> {(vendor.certificationsJson as string[]).map((c: string) => <span key={c} className="badge badge-info ml-1">{c}</span>)}</div>
+                                    <div className="col-span-2"><span className="text-content-muted">Certifications:</span> {(vendor.certificationsJson as string[]).map((c: string) => <StatusBadge variant="info" className="ml-1" key={c}>{c}</StatusBadge>)}</div>
                                 )}
                             </div>
                             {vendor.enrichmentLastRunAt && <p className="text-xs text-content-subtle">Last enriched: {fmtDate(vendor.enrichmentLastRunAt)} ({vendor.enrichmentStatus})</p>}
@@ -353,7 +354,7 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                             <tbody>
                                 {docs.map(d => (
                                     <tr key={d.id} className="border-b border-border-subtle">
-                                        <td className="p-3"><span className="badge badge-info">{DOC_TYPE_LABELS[d.type] || d.type}</span></td>
+                                        <td className="p-3"><StatusBadge variant="info">{DOC_TYPE_LABELS[d.type] || d.type}</StatusBadge></td>
                                         <td className="p-3">{d.title || '—'}</td>
                                         <td className="p-3">{d.validTo ? formatDate(d.validTo) : '—'}</td>
                                         <td className="p-3 text-content-muted">{d.uploadedBy?.name || '—'}</td>
@@ -412,9 +413,9 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 {assessments.map((a: any) => (
                                     <tr key={a.id} className="border-b border-border-subtle">
                                         <td className="p-3">{a.template?.name || '—'}</td>
-                                        <td className="p-3"><span className={`badge ${ASSESSMENT_STATUS_BADGE[a.status]}`}>{a.status}</span></td>
+                                        <td className="p-3"><StatusBadge variant={ASSESSMENT_STATUS_BADGE[a.status]}>{a.status}</StatusBadge></td>
                                         <td className="p-3">{a.score != null ? a.score.toFixed(1) : '—'}</td>
-                                        <td className="p-3">{a.riskRating ? <span className={`badge ${CRIT_BADGE[a.riskRating]}`}>{a.riskRating}</span> : '—'}</td>
+                                        <td className="p-3">{a.riskRating ? <StatusBadge variant={CRIT_BADGE[a.riskRating]}>{a.riskRating}</StatusBadge> : '—'}</td>
                                         <td className="p-3 text-content-muted">{formatDate(a.startedAt)}</td>
                                         <td className="p-3">
                                             <Link href={tenantHref(`/vendors/${params.vendorId}/assessment/${a.id}`)} className="text-content-info hover:underline text-xs" id={`open-assessment-${a.id}`}>
@@ -471,7 +472,7 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 <h3 className="text-sm font-semibold text-content-default">{type}s ({typeLinks.length})</h3>
                                 {typeLinks.map((l: any) => (
                                     <div key={l.id} className="flex items-center justify-between text-sm border-b border-border-subtle py-1">
-                                        <span><code className="text-xs text-content-info">{l.entityId}</code> <span className="badge badge-neutral text-xs ml-1">{l.relation}</span></span>
+                                        <span><code className="text-xs text-content-info">{l.entityId}</code> <StatusBadge variant="neutral" className="ml-1">{l.relation}</StatusBadge></span>
                                         {canWrite && <button className="text-content-error text-xs" onClick={async () => {
                                             await fetch(apiUrl(`/vendors/${params.vendorId}/links/${l.id}`), { method: 'DELETE' }); fetchLinks();
                                         }}>Remove</button>}
@@ -506,7 +507,7 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 <div>
                                     <span className="font-medium">{b.name}</span>
                                     <span className="ml-2 text-xs text-content-muted">{b._count?.items || 0} items</span>
-                                    {b.frozenAt && <span className="badge badge-success ml-2">Frozen</span>}
+                                    {b.frozenAt && <StatusBadge variant="success" className="ml-2">Frozen</StatusBadge>}
                                 </div>
                                 {canWrite && !b.frozenAt && (
                                     <Button variant="secondary" size="xs" id={`freeze-bundle-${b.id}`} onClick={async () => {
@@ -560,8 +561,8 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                     <tr key={s.id} className="border-b border-border-subtle">
                                         <td className="p-3 font-medium">{s.subprocessor?.name || s.subprocessorVendorId}</td>
                                         <td className="p-3 text-content-muted">{s.subprocessor?.country || s.country || '—'}</td>
-                                        <td className="p-3"><span className={`badge ${CRIT_BADGE[s.subprocessor?.criticality] || 'badge-neutral'}`}>{s.subprocessor?.criticality || '—'}</span></td>
-                                        <td className="p-3">{s.subprocessor?.inherentRisk ? <span className={`badge ${CRIT_BADGE[s.subprocessor.inherentRisk]}`}>{s.subprocessor.inherentRisk}</span> : '—'}</td>
+                                        <td className="p-3"><StatusBadge variant={CRIT_BADGE[s.subprocessor?.criticality] || 'neutral'}>{s.subprocessor?.criticality || '—'}</StatusBadge></td>
+                                        <td className="p-3">{s.subprocessor?.inherentRisk ? <StatusBadge variant={CRIT_BADGE[s.subprocessor.inherentRisk]}>{s.subprocessor.inherentRisk}</StatusBadge> : '—'}</td>
                                         <td className="p-3 text-content-muted text-xs">{s.purpose || '—'}</td>
                                         {canWrite && <td className="p-3"><button className="text-content-error text-xs" onClick={async () => {
                                             await fetch(apiUrl(`/vendors/${params.vendorId}/subprocessors?relationId=${s.id}`), { method: 'DELETE' }); fetchSubs();

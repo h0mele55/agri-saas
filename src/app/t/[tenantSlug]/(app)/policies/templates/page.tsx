@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Combobox } from '@/components/ui/combobox';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FileText, SearchX } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function TemplatesPage() {
     const apiUrl = useTenantApiUrl();
@@ -122,7 +123,7 @@ export default function TemplatesPage() {
                             <div>
                                 <h3 className="font-semibold text-content-emphasis text-sm mb-1">{tpl.title}</h3>
                                 <div className="flex gap-2 mb-2">
-                                    {tpl.category && <span className="badge badge-neutral text-xs">{tpl.category}</span>}
+                                    {tpl.category && <StatusBadge variant="neutral">{tpl.category}</StatusBadge>}
                                     {tpl.language && <span className="text-xs text-content-subtle">{tpl.language.toUpperCase()}</span>}
                                 </div>
                                 {tpl.tags && (

@@ -8,6 +8,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { FrameworkExplorer } from '@/components/frameworks/FrameworkExplorer';
 import { FrameworkBuilder } from '@/components/ui/FrameworkBuilder';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { useCelebration } from '@/components/ui/hooks';
 import { MILESTONES, scopedMilestone } from '@/lib/celebrations';
 import type { FrameworkTreePayload } from '@/lib/framework-tree/types';
@@ -114,7 +115,7 @@ export default function FrameworkDetailPage() {
                     </div>
                     <h1 className="text-2xl font-bold text-content-emphasis mt-2" id="framework-detail-heading">{framework.name}</h1>
                     <div className="flex items-center gap-2 mt-1">
-                        {framework.version && <span className="badge badge-primary text-xs">v{framework.version}</span>}
+                        {framework.version && <StatusBadge variant="info">v{framework.version}</StatusBadge>}
                         {framework.kind && <span className="text-xs text-content-subtle">{framework.kind.replace('_', ' ')}</span>}
                     </div>
                     {framework.description && <p className="text-sm text-content-muted mt-2">{framework.description}</p>}

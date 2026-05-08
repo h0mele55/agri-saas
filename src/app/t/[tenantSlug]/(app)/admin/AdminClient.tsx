@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { ToggleGroup } from '@/components/ui/toggle-group';
 import { ListPageShell } from '@/components/layout/ListPageShell';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface AdminClientProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -62,7 +63,7 @@ export function AdminClient({ auditLog, tenantSlug, translations: t }: AdminClie
             accessorKey: 'action',
             header: t.action,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            cell: ({ getValue }: any) => <span className="badge badge-info">{getValue()}</span>,
+            cell: ({ getValue }: any) => <StatusBadge variant="info">{getValue()}</StatusBadge>,
         },
         {
             accessorKey: 'entity',

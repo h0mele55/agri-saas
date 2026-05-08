@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { RequirePermission } from '@/components/require-permission';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const SCALE_OPTIONS: ComboboxOption[] = [1,2,3,4,5].map(v => ({ value: String(v), label: String(v) }));
 
@@ -210,10 +211,10 @@ export default function AIRiskAssessmentPage() {
     // ─── Risk Level Badge ───
     const riskBadge = (l: number, i: number) => {
         const score = l * i;
-        if (score <= 5) return <span className="badge badge-success">Low</span>;
-        if (score <= 12) return <span className="badge badge-warning">Medium</span>;
-        if (score <= 18) return <span className="badge badge-danger">High</span>;
-        return <span className="badge badge-danger">Critical</span>;
+        if (score <= 5) return <StatusBadge variant="success">Low</StatusBadge>;
+        if (score <= 12) return <StatusBadge variant="warning">Medium</StatusBadge>;
+        if (score <= 18) return <StatusBadge variant="error">High</StatusBadge>;
+        return <StatusBadge variant="error">Critical</StatusBadge>;
     };
 
     const confidenceBadge = (c: string | null) => {
@@ -248,7 +249,7 @@ export default function AIRiskAssessmentPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="badge badge-info text-xs">AI-Powered</span>
+                    <StatusBadge variant="info">AI-Powered</StatusBadge>
                 </div>
             </div>
 
@@ -310,7 +311,7 @@ export default function AIRiskAssessmentPage() {
                                         />
                                         <span className="text-content-emphasis">{a.name}</span>
                                         <span className="text-xs text-content-muted">{a.type.replace(/_/g, ' ')}</span>
-                                        {a.criticality && <span className={`badge text-xs ${a.criticality === 'HIGH' ? 'badge-danger' : a.criticality === 'MEDIUM' ? 'badge-warning' : 'badge-success'}`}>{a.criticality}</span>}
+                                        {a.criticality && <StatusBadge variant={a.criticality === 'HIGH' ? 'error' : a.criticality === 'MEDIUM' ? 'warning' : 'success'}>{a.criticality}</StatusBadge>}
                                     </label>
                                 ))}
                             </div>
@@ -420,9 +421,9 @@ export default function AIRiskAssessmentPage() {
                                             ) : (
                                                 <h3 className="text-sm font-semibold text-content-emphasis">{item.title}</h3>
                                             )}
-                                            {item.category && <span className="badge badge-info text-xs">{item.category}</span>}
+                                            {item.category && <StatusBadge variant="info">{item.category}</StatusBadge>}
                                             {confidenceBadge(item.confidence)}
-                                            <span className="badge badge-neutral text-xs">{item.isFallback ? 'Baseline' : 'AI Suggested'}</span>
+                                            <StatusBadge variant="neutral">{item.isFallback ? 'Baseline' : 'AI Suggested'}</StatusBadge>
                                         </div>
 
                                         {/* Description */}

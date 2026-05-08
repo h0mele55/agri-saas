@@ -38,18 +38,19 @@ import {
     toYMD,
 } from '@/components/ui/date-picker/date-utils';
 import { useHydratedNow } from '@/lib/hooks/use-hydrated-now';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-neutral', TRIAGED: 'badge-info', IN_PROGRESS: 'badge-info',
-    BLOCKED: 'badge-danger', RESOLVED: 'badge-success', CLOSED: 'badge-neutral', CANCELED: 'badge-neutral',
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'neutral', TRIAGED: 'info', IN_PROGRESS: 'info',
+    BLOCKED: 'error', RESOLVED: 'success', CLOSED: 'neutral', CANCELED: 'neutral',
 };
 const STATUS_LABELS: Record<string, string> = {
     OPEN: 'Open', TRIAGED: 'Triaged', IN_PROGRESS: 'In Progress',
     BLOCKED: 'Blocked', RESOLVED: 'Resolved', CLOSED: 'Closed', CANCELED: 'Canceled',
 };
-const SEVERITY_BADGE: Record<string, string> = {
-    INFO: 'badge-neutral', LOW: 'badge-neutral', MEDIUM: 'badge-warning',
-    HIGH: 'badge-danger', CRITICAL: 'badge-danger',
+const SEVERITY_BADGE: Record<string, StatusBadgeVariant> = {
+    INFO: 'neutral', LOW: 'neutral', MEDIUM: 'warning',
+    HIGH: 'error', CRITICAL: 'error',
 };
 const TYPE_LABELS: Record<string, string> = {
     AUDIT_FINDING: 'Audit Finding', CONTROL_GAP: 'Control Gap',
@@ -353,13 +354,13 @@ function TasksPageInner({
                                 {task.key && <span className="text-xs font-mono text-content-muted mr-2">{task.key}</span>}
                                 {task.title}
                             </Link>
-                            {isOverdue(task) && <span className="badge badge-danger text-xs ml-2">Overdue</span>}
+                            {isOverdue(task) && <StatusBadge variant="error" className="ml-2">Overdue</StatusBadge>}
                             {slaLabel && (
                                 <Tooltip
                                     title="SLA Breached"
                                     content={slaLabel}
                                 >
-                                    <span className="badge badge-danger text-xs ml-1 cursor-help">SLA</span>
+                                    <StatusBadge variant="error" className="ml-1 cursor-help">SLA</StatusBadge>
                                 </Tooltip>
                             )}
                         </div>
@@ -375,18 +376,18 @@ function TasksPageInner({
                 accessorKey: 'severity',
                 header: 'Severity',
                 cell: ({ row }) => (
-                    <span className={`badge ${SEVERITY_BADGE[row.original.severity] || 'badge-neutral'}`}>
+                    <StatusBadge variant={SEVERITY_BADGE[row.original.severity] || 'neutral'}>
                         {row.original.severity}
-                    </span>
+                    </StatusBadge>
                 ),
             },
             {
                 accessorKey: 'status',
                 header: 'Status',
                 cell: ({ row }) => (
-                    <span className={`badge ${STATUS_BADGE[row.original.status] || 'badge-neutral'}`}>
+                    <StatusBadge variant={STATUS_BADGE[row.original.status] || 'neutral'}>
                         {STATUS_LABELS[row.original.status] || row.original.status}
-                    </span>
+                    </StatusBadge>
                 ),
             },
             {

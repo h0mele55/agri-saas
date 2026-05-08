@@ -6,6 +6,7 @@ import { getPermissionsForRole, type PermissionSet } from '@/lib/permissions';
 import prisma from '@/lib/prisma';
 import type { Role } from '@prisma/client';
 import { Check } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,7 +67,7 @@ export default async function RbacPage({
                 <h1 className="text-2xl font-bold">Roles &amp; Access</h1>
                 <p className="text-sm text-content-muted mt-1">
                     Permission matrix for <span className="text-content-emphasis font-medium">{tenantCtx.tenant.name}</span>.
-                    Your role: <span className="badge badge-info">{tenantCtx.role}</span>
+                    Your role: <StatusBadge variant="info">{tenantCtx.role}</StatusBadge>
                 </p>
             </div>
 
@@ -91,12 +92,10 @@ export default async function RbacPage({
                                     </td>
                                     <td className="text-xs text-content-muted">{m.user.email}</td>
                                     <td>
-                                        <span className={`badge ${
-                                            m.role === 'ADMIN' ? 'badge-danger' :
-                                            m.role === 'EDITOR' ? 'badge-info' :
-                                            m.role === 'AUDITOR' ? 'badge-warning' :
-                                            'badge-neutral'
-                                        }`}>{m.role}</span>
+                                        <StatusBadge variant={m.role === 'ADMIN' ? 'error' :
+                                            m.role === 'EDITOR' ? 'info' :
+                                            m.role === 'AUDITOR' ? 'warning' :
+                                            'neutral'}>{m.role}</StatusBadge>
                                     </td>
                                     <td className="text-xs text-content-subtle">{formatDate(m.createdAt)}</td>
                                 </tr>

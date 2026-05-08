@@ -9,13 +9,14 @@ import Link from 'next/link';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { StatusBreakdown, type StatusBreakdownItem } from '@/components/ui/status-breakdown';
+import { type StatusBadgeVariant } from '@/components/ui/status-badge';
 
-const CRIT_BADGE: Record<string, string> = { LOW: 'badge-neutral', MEDIUM: 'badge-warning', HIGH: 'badge-danger', CRITICAL: 'badge-danger' };
+const CRIT_BADGE: Record<string, StatusBadgeVariant> = { LOW: 'neutral', MEDIUM: 'warning', HIGH: 'error', CRITICAL: 'error' };
 
-function MetricCard({ label, value, badge, href }: { label: string; value: number | string; badge?: string; href?: string }) {
+function MetricCard({ label, value, accentClass, href }: { label: string; value: number | string; accentClass?: string; href?: string }) {
     const inner = (
         <div className={`card p-4 text-center ${href ? 'hover:bg-bg-elevated/50 cursor-pointer' : ''}`}>
-            <div className={`text-2xl font-bold ${badge || ''}`}>{value}</div>
+            <div className={`text-2xl font-bold ${accentClass || ''}`}>{value}</div>
             <div className="text-xs text-content-muted mt-1">{label}</div>
         </div>
     );
@@ -79,12 +80,12 @@ export default function VendorDashboardPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 <MetricCard label="Total Vendors" value={metrics.totalVendors} />
-                <MetricCard label="Overdue Reviews" value={metrics.overdueReview} badge={metrics.overdueReview > 0 ? 'text-content-error' : 'text-content-success'}
+                <MetricCard label="Overdue Reviews" value={metrics.overdueReview} accentClass={metrics.overdueReview > 0 ? 'text-content-error' : 'text-content-success'}
                     href={tenantHref('/vendors?reviewDue=overdue')} />
-                <MetricCard label="Upcoming Reviews" value={metrics.upcomingReview} badge="text-content-warning" />
-                <MetricCard label="Overdue Renewals" value={metrics.overdueRenewal} badge={metrics.overdueRenewal > 0 ? 'text-content-error' : 'text-content-success'} />
-                <MetricCard label="Upcoming Renewals" value={metrics.upcomingRenewal} badge="text-content-warning" />
-                <MetricCard label="High Risk (No Assessment)" value={metrics.highRiskNoAssessment} badge={metrics.highRiskNoAssessment > 0 ? 'text-content-error' : 'text-content-success'} />
+                <MetricCard label="Upcoming Reviews" value={metrics.upcomingReview} accentClass="text-content-warning" />
+                <MetricCard label="Overdue Renewals" value={metrics.overdueRenewal} accentClass={metrics.overdueRenewal > 0 ? 'text-content-error' : 'text-content-success'} />
+                <MetricCard label="Upcoming Renewals" value={metrics.upcomingRenewal} accentClass="text-content-warning" />
+                <MetricCard label="High Risk (No Assessment)" value={metrics.highRiskNoAssessment} accentClass={metrics.highRiskNoAssessment > 0 ? 'text-content-error' : 'text-content-success'} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

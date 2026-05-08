@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { BillingActions } from './BillingActions';
 import { BillingEventLog } from './BillingEventLog';
 import { getBillingMode } from '@/lib/billing/entitlements';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,26 +108,22 @@ export default async function BillingPage({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <p className="text-xs text-content-subtle uppercase tracking-wider mb-1">Plan</p>
-                        <span className={`badge ${
-                            plan === 'ENTERPRISE' ? 'badge-warning' :
-                            plan === 'PRO' ? 'badge-info' :
-                            plan === 'TRIAL' ? 'badge-neutral' :
-                            'badge-neutral'
-                        } text-sm`}>
+                        <StatusBadge variant={plan === 'ENTERPRISE' ? 'warning' :
+                            plan === 'PRO' ? 'info' :
+                            plan === 'TRIAL' ? 'neutral' :
+                            'neutral'} className="text-sm">
                             {plan}
-                        </span>
+                        </StatusBadge>
                     </div>
                     <div>
                         <p className="text-xs text-content-subtle uppercase tracking-wider mb-1">Status</p>
-                        <span className={`badge ${
-                            status === 'ACTIVE' ? 'badge-info' :
-                            status === 'TRIALING' ? 'badge-warning' :
-                            status === 'PAST_DUE' ? 'badge-danger' :
-                            status === 'CANCELED' ? 'badge-danger' :
-                            'badge-neutral'
-                        } text-sm`}>
+                        <StatusBadge variant={status === 'ACTIVE' ? 'info' :
+                            status === 'TRIALING' ? 'warning' :
+                            status === 'PAST_DUE' ? 'error' :
+                            status === 'CANCELED' ? 'error' :
+                            'neutral'} className="text-sm">
                             {status.replace('_', ' ')}
-                        </span>
+                        </StatusBadge>
                     </div>
                     <div>
                         <p className="text-xs text-content-subtle uppercase tracking-wider mb-1">Renewal</p>
@@ -189,7 +186,7 @@ export default async function BillingPage({
                         <div className="glass-card p-6 border border-[var(--brand-default)]/30 hover:border-[var(--brand-default)]/60 transition">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-content-emphasis font-semibold">Pro</h3>
-                                <span className="badge badge-info">Recommended</span>
+                                <StatusBadge variant="info">Recommended</StatusBadge>
                             </div>
                             <ul className="text-sm text-content-muted space-y-1 mb-4">
                                 <li>Unlimited controls & policies</li>
@@ -202,7 +199,7 @@ export default async function BillingPage({
                         <div className="glass-card p-6 border border-purple-500/30 hover:border-purple-500/60 transition">
                             <div className="flex items-center justify-between mb-3">
                                 <h3 className="text-content-emphasis font-semibold">Enterprise</h3>
-                                <span className="badge badge-warning">Premium</span>
+                                <StatusBadge variant="warning">Premium</StatusBadge>
                             </div>
                             <ul className="text-sm text-content-muted space-y-1 mb-4">
                                 <li>Everything in Pro</li>

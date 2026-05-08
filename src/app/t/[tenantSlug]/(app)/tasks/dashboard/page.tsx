@@ -17,6 +17,7 @@ import {
     StatusBreakdown,
     type StatusBreakdownVariant,
 } from '@/components/ui/status-breakdown';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 const STATUS_LABELS: Record<string, string> = {
     OPEN: 'Open', TRIAGED: 'Triaged', IN_PROGRESS: 'In Progress',
@@ -52,9 +53,9 @@ const TYPE_LABELS: Record<string, string> = {
     AUDIT_FINDING: 'Audit Finding', CONTROL_GAP: 'Control Gap',
     INCIDENT: 'Incident', IMPROVEMENT: 'Improvement', TASK: 'Task',
 };
-const TASK_STATUS_BADGE: Record<string, string> = {
-    OPEN: 'badge-neutral', TRIAGED: 'badge-info', IN_PROGRESS: 'badge-info',
-    BLOCKED: 'badge-danger', RESOLVED: 'badge-success', CLOSED: 'badge-neutral', CANCELED: 'badge-neutral',
+const TASK_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    OPEN: 'neutral', TRIAGED: 'info', IN_PROGRESS: 'info',
+    BLOCKED: 'error', RESOLVED: 'success', CLOSED: 'neutral', CANCELED: 'neutral',
 };
 
 interface Metrics {
@@ -150,7 +151,7 @@ export default function TaskDashboardPage() {
                             >
                                 <span className="font-mono text-xs text-content-subtle w-16 truncate">{task.key}</span>
                                 <span className="flex-1 text-content-emphasis truncate">{task.title}</span>
-                                <span className={`badge ${TASK_STATUS_BADGE[task.status] || 'badge-neutral'} text-xs`}>{task.status}</span>
+                                <StatusBadge variant={TASK_STATUS_BADGE[task.status] || 'neutral'}>{task.status}</StatusBadge>
                                 {task.dueAt && (
                                     <span className={`text-xs ${new Date(task.dueAt) < new Date() ? 'text-content-error' : 'text-content-muted'}`}>
                                         {formatDate(task.dueAt)}
@@ -250,7 +251,7 @@ export default function TaskDashboardPage() {
                             >
                                 <span className="font-mono text-xs text-content-subtle w-20 truncate">{ctrl.code}</span>
                                 <span className="flex-1 text-content-emphasis truncate">{ctrl.name}</span>
-                                <span className="badge badge-warning text-xs">{ctrl.openTaskCount} open</span>
+                                <StatusBadge variant="warning">{ctrl.openTaskCount} open</StatusBadge>
                             </Link>
                         ))}
                     </div>
@@ -267,11 +268,11 @@ export default function TaskDashboardPage() {
                                 key={`${entity.entityType}:${entity.entityId}`}
                                 className="flex items-center gap-3 p-2 rounded-lg bg-bg-default/30 text-sm"
                             >
-                                <span className={`badge text-xs ${entity.entityType === 'ASSET' ? 'badge-info' : 'badge-warning'}`}>
+                                <StatusBadge variant={entity.entityType === 'ASSET' ? 'info' : 'warning'}>
                                     {entity.entityType}
-                                </span>
+                                </StatusBadge>
                                 <span className="flex-1 text-content-default font-mono text-xs truncate">{entity.entityId}</span>
-                                <span className="badge badge-neutral text-xs">{entity.count} tasks</span>
+                                <StatusBadge variant="neutral">{entity.count} tasks</StatusBadge>
                             </div>
                         ))}
                     </div>
@@ -291,7 +292,7 @@ export default function TaskDashboardPage() {
                             >
                                 <span className="font-mono text-xs text-content-subtle">{task.key}</span>
                                 <span className="flex-1 text-content-emphasis truncate">{task.title}</span>
-                                <span className="badge badge-danger text-xs">{task.severity}</span>
+                                <StatusBadge variant="error">{task.severity}</StatusBadge>
                                 <span className="text-xs text-content-error">
                                     Due {formatDate(task.dueAt)}
                                 </span>

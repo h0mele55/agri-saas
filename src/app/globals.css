@@ -73,22 +73,17 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────────
- * Status badges (legacy class layer).
+ * Status badges — retired (PR-2, 2026-05-08).
  *
- * These `.badge-*` classes share tokens with `<StatusBadge>` from
- * `src/components/ui/status-badge.tsx`. New code should prefer
- * `<StatusBadge variant="…">` — the CVA variant carries a11y labels
- * and icon slots out of the box. See `tests/unit/legacy-ui-ratchet.test.ts`
- * for the migration ratchet that keeps usage from growing.
+ * The `.badge` / `.badge-success` / `.badge-warning` / `.badge-danger` /
+ * `.badge-info` / `.badge-neutral` CSS class layer was removed in PR-2
+ * after every call site migrated to `<StatusBadge variant="…">` from
+ * `src/components/ui/status-badge.tsx`. The CVA variant carries a11y
+ * labels and icon slots out of the box, plus subtle/emphasis tiers
+ * the CSS layer never had. The eradication ratchet at
+ * `tests/guards/legacy-badge-eradication.test.ts` keeps the classes
+ * from coming back.
  * ────────────────────────────────────────────────────────────────── */
-.badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-}
-.badge-success { background: var(--bg-success);   color: var(--content-success);   }
-.badge-warning { background: var(--bg-warning);   color: var(--content-warning);   }
-.badge-danger  { background: var(--bg-error);     color: var(--content-error);     }
-.badge-info    { background: var(--bg-info);      color: var(--content-info);      }
-.badge-neutral { background: var(--bg-subtle);    color: var(--content-muted);     }
 
 /* ──────────────────────────────────────────────────────────────────
  * Buttons (legacy class layer).

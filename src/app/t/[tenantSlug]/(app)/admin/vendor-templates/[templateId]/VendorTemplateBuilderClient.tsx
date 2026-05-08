@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { SkeletonDetailPage } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface Question {
     id: string;
@@ -340,11 +341,9 @@ export function VendorTemplateBuilderClient({
                         <span>·</span>
                         <span>v{tree.version}</span>
                         <span>·</span>
-                        <span
-                            className={`badge badge-xs ${tree.isPublished ? 'badge-success' : 'badge-warning'}`}
-                        >
+                        <StatusBadge variant={tree.isPublished ? 'success' : 'warning'} size="sm">
                             {tree.isPublished ? 'Published' : 'Draft'}
-                        </span>
+                        </StatusBadge>
                     </div>
                 </div>
                 {dirty && editable && (
@@ -518,13 +517,13 @@ function SectionCard({
                             </span>
                         )}
                         <span className="flex-1 text-sm">{q.prompt}</span>
-                        <span className="badge badge-xs badge-info">
+                        <StatusBadge variant="info" size="sm">
                             {q.answerType}
-                        </span>
+                        </StatusBadge>
                         {q.required && (
-                            <span className="badge badge-xs badge-warning">
+                            <StatusBadge variant="warning" size="sm">
                                 required
-                            </span>
+                            </StatusBadge>
                         )}
                         <span className="text-xs text-content-subtle">
                             w={q.weight}

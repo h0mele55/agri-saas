@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useCelebration } from '@/components/ui/hooks';
 import { scopedMilestone } from '@/lib/celebrations';
 import { Package } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 const ENTITY_ICON: Record<string, AppIconName> = {
     CONTROL: 'controls', POLICY: 'policies', EVIDENCE: 'evidence', FILE: 'overview', ISSUE: 'warning',
@@ -119,7 +120,7 @@ export default function PackDetailPage() {
                         <h1 className="text-xl font-bold" id="pack-name">{pack.name}</h1>
                         <p className="text-sm text-content-muted">
                             {pack.cycle?.frameworkKey} · {pack._count?.items || 0} items ·
-                            <span className={`badge ml-2 ${isDraft ? 'badge-neutral' : 'badge-info'}`} id="pack-status">{pack.status}</span>
+                            <StatusBadge variant={isDraft ? 'neutral' : 'info'} className="ml-2" id="pack-status">{pack.status}</StatusBadge>
                         </p>
                         {pack.frozenAt && (
                             <p className="text-xs text-content-subtle mt-1">
@@ -215,7 +216,7 @@ export default function PackDetailPage() {
                                             {snap.description && <span className="text-xs text-content-subtle truncate block">{snap.description}</span>}
                                         </div>
                                         <div className="flex items-center gap-2 ml-4">
-                                            {status && <span className="badge badge-neutral text-xs">{status}</span>}
+                                            {status && <StatusBadge variant="neutral">{status}</StatusBadge>}
                                             {snap.taskCompletion && (
                                                 <span className="text-xs text-content-subtle">
                                                     Tasks: {snap.taskCompletion.done}/{snap.taskCompletion.total}

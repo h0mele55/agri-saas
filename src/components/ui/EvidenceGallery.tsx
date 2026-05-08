@@ -40,6 +40,7 @@ import {
     resolveFileTypeIcon,
 } from '@/components/ui/file-type-icon';
 import { FreshnessBadge } from '@/components/ui/FreshnessBadge';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -80,11 +81,11 @@ export interface EvidenceGalleryProps<T extends EvidenceGalleryRow> {
      */
     onRowClick?: (row: T) => void;
     /** Status badge resolver (re-uses the table's STATUS_BADGE map). */
-    statusBadgeClass?: (status: string) => string;
+    statusBadgeVariant?: (status: string) => StatusBadgeVariant;
     /** Retention status resolver (re-uses the table's getRetentionStatus). */
     retentionStatus?: (
         row: T,
-    ) => { label: string; badge: string } | null;
+    ) => { label: string; badge: StatusBadgeVariant } | null;
     /** A11y: gallery region label. */
     'aria-label'?: string;
     /** Outer test id. */
@@ -101,7 +102,7 @@ export function EvidenceGallery<T extends EvidenceGalleryRow>({
     emptyState,
     fileUrl,
     onRowClick,
-    statusBadgeClass,
+    statusBadgeVariant,
     retentionStatus,
     'aria-label': ariaLabel = 'Evidence gallery',
     'data-testid': dataTestId = 'evidence-gallery',
@@ -151,7 +152,7 @@ export function EvidenceGallery<T extends EvidenceGalleryRow>({
                     row={row}
                     fileUrl={fileUrl}
                     onRowClick={onRowClick}
-                    statusBadgeClass={statusBadgeClass}
+                    statusBadgeVariant={statusBadgeVariant}
                     retentionStatus={retentionStatus}
                 />
             ))}
@@ -165,15 +166,15 @@ interface GalleryCardProps<T extends EvidenceGalleryRow> {
     row: T;
     fileUrl: (row: T) => string | null;
     onRowClick?: (row: T) => void;
-    statusBadgeClass?: (status: string) => string;
-    retentionStatus?: (row: T) => { label: string; badge: string } | null;
+    statusBadgeVariant?: (status: string) => StatusBadgeVariant;
+    retentionStatus?: (row: T) => { label: string; badge: StatusBadgeVariant } | null;
 }
 
 function GalleryCard<T extends EvidenceGalleryRow>({
     row,
     fileUrl,
     onRowClick,
-    statusBadgeClass,
+    statusBadgeVariant,
     retentionStatus,
 }: GalleryCardProps<T>) {
     const mime =
@@ -186,7 +187,7 @@ function GalleryCard<T extends EvidenceGalleryRow>({
     const isPdf = match.label === 'PDF' && url !== null;
 
     const retention = retentionStatus?.(row) ?? null;
-    const statusClass = statusBadgeClass?.(row.status) ?? 'badge-neutral';
+    const statusVariant: StatusBadgeVariant = statusBadgeVariant?.(row.status) ?? 'neutral';
 
     const isPending = String(row.id).startsWith('temp:');
 
@@ -294,14 +295,14 @@ function GalleryCard<T extends EvidenceGalleryRow>({
                         data-testid={`evidence-gallery-freshness-${row.id}`}
                     />
                     {retention && (
-                        <span className={`badge ${retention.badge}`}>
+                        <StatusBadge variant={retention.badge}>
                             {retention.label}
-                        </span>
+                        </StatusBadge>
                     )}
                     {row.status && row.status !== 'PENDING_UPLOAD' && (
-                        <span className={`badge ${statusClass}`}>
+                        <StatusBadge variant={statusVariant}>
                             {row.status}
-                        </span>
+                        </StatusBadge>
                     )}
                 </div>
             </div>

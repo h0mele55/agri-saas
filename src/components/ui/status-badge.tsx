@@ -56,6 +56,15 @@ const defaultIcons: Record<string, Icon> = {
   "error-subtle": CircleWarning,
 };
 
+/**
+ * Concrete variant union for `<StatusBadge variant={...}>`. Exported so
+ * call sites that build per-page mapping objects (`{ OPEN: 'error', ...}`)
+ * can type the values with the same union the component itself accepts.
+ */
+type StatusBadgeVariant = NonNullable<
+  VariantProps<typeof statusBadgeVariants>["variant"]
+>;
+
 interface StatusBadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof statusBadgeVariants> {
@@ -98,5 +107,16 @@ function StatusBadge({
   );
 }
 
-export { StatusBadge, statusBadgeVariants };
-export type { StatusBadgeProps };
+/**
+ * Returns just the className portion of a status badge for surfaces that
+ * can't be a `<StatusBadge>` element (e.g. interactive `<select>` /
+ * `<button>` elements that need the badge visual but a different DOM
+ * shape). Prefer `<StatusBadge>` everywhere it fits — only reach for
+ * this helper when the parent element MUST be something else.
+ */
+function statusBadgeClassName(variant: StatusBadgeVariant): string {
+  return statusBadgeVariants({ variant });
+}
+
+export { StatusBadge, statusBadgeVariants, statusBadgeClassName };
+export type { StatusBadgeProps, StatusBadgeVariant };

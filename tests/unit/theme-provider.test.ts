@@ -127,9 +127,16 @@ describe('globals.css — legacy → semantic alias bridge', () => {
         expect(btnBlock).not.toMatch(/bg-brand-600/);
     });
 
-    it('.badge-* rules consume semantic status tokens', () => {
-        expect(src).toMatch(/\.badge-success\s*\{\s*background:\s*var\(--bg-success\)/);
-        expect(src).toMatch(/\.badge-danger\s*\{\s*background:\s*var\(--bg-error\)/);
+    it('.badge-* CSS classes are retired (PR-2 — every site migrated to <StatusBadge>)', () => {
+        // The legacy `.badge` / `.badge-success` / `.badge-warning` /
+        // `.badge-danger` / `.badge-info` / `.badge-neutral` CSS classes
+        // were deleted from globals.css in PR-2. Every call site now
+        // uses `<StatusBadge variant="…">` from
+        // `src/components/ui/status-badge.tsx`. Forward enforcement
+        // lives in `tests/guards/legacy-badge-eradication.test.ts`.
+        expect(src).not.toMatch(/^\s*\.badge\s*\{/m);
+        expect(src).not.toMatch(/^\s*\.badge-success\s*\{/m);
+        expect(src).not.toMatch(/^\s*\.badge-danger\s*\{/m);
     });
 
     it('.glass-card picks up --glass-bg / --glass-border so theme toggle flips glass too', () => {
