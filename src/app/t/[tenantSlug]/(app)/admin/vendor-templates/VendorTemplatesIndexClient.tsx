@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { formatDate } from '@/lib/format-date';
 import { SkeletonCard } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Heading } from '@/components/ui/typography';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
@@ -180,9 +181,11 @@ export function VendorTemplatesIndexClient() {
                 {loading ? (
                     <SkeletonCard lines={3} />
                 ) : items === null || items.length === 0 ? (
-                    <p className="text-sm text-content-subtle">
-                        No templates yet. Use the form above to create one.
-                    </p>
+                    <EmptyState
+                        variant="no-records"
+                        title="No templates yet"
+                        description="Use the form above to create your first vendor questionnaire template."
+                    />
                 ) : (
                     <div className="divide-y divide-border-default/40">
                         {items.map((t) => (
