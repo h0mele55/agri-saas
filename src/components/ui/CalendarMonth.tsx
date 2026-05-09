@@ -171,6 +171,27 @@ export function CalendarMonth({
                     const visible = dayEvents.slice(0, maxDotsPerDay);
                     const overflow = dayEvents.length - visible.length;
 
+                    // v2-fu-6 — the entire cell is clickable, not
+                    // just the day number. We keep the number `<button>`
+                    // as the keyboard-accessible target (so screen
+                    // readers can tab into individual days), and add
+                    // pointer-click handling to the outer cell so
+                    // mouse users get the natural "click anywhere
+                    // in the box" affordance. Inner `<Link>` event
+                    // navigation uses `stopPropagation` so opening
+                    // an event doesn't also fire day selection.
+                    const handleCellClick = onSelectDate
+                        ? (e: React.MouseEvent<HTMLDivElement>) => {
+                              // Don't trigger when the click is on a
+                              // child link / button — the child's own
+                              // handler runs (number button still
+                              // calls onSelectDate; event Link
+                              // navigates).
+                              const target = e.target as HTMLElement;
+                              if (target.closest('a, button')) return;
+                              onSelectDate(ymd);
+                          }
+                        : undefined;
                     return (
                         <div
                             key={ymd}
@@ -180,10 +201,13 @@ export function CalendarMonth({
                                     ? 'bg-bg-default'
                                     : 'bg-bg-muted/30 opacity-60',
                                 isToday && 'ring-1 ring-[var(--brand-default)] ring-inset',
+                                onSelectDate &&
+                                    'cursor-pointer hover:bg-bg-muted/50 transition-colors duration-150 ease-out',
                             )}
                             data-ymd={ymd}
                             data-in-month={cell.inMonth}
                             data-today={isToday || undefined}
+                            onClick={handleCellClick}
                         >
                             <button
                                 type="button"

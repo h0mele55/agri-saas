@@ -174,6 +174,78 @@ describe('<CalendarMonth />', () => {
         await user.click(dayBtn);
         expect(onSelectDate).toHaveBeenCalledWith('2026-06-15');
     });
+
+    // v2-fu-6 — the entire cell must be clickable (not just the
+    // number). User reported that clicking the empty area in a day
+    // box did nothing.
+    it('fires onSelectDate when an empty area inside the cell is clicked', async () => {
+        const user = userEvent.setup();
+        const onSelectDate = jest.fn();
+        render(
+            <CalendarMonth
+                month={MONTH}
+                events={[]}
+                today={TODAY}
+                onSelectDate={onSelectDate}
+            />,
+        );
+        // Click the cell `<div data-ymd>` directly — NOT the
+        // number button. The cell is the outer container; clicking
+        // anywhere inside it (other than a child link/button) should
+        // fire onSelectDate.
+        const cell = document.querySelector(
+            '[data-ymd="2026-06-15"]',
+        ) as HTMLElement;
+        expect(cell).not.toBeNull();
+        await user.click(cell);
+        expect(onSelectDate).toHaveBeenCalledWith('2026-06-15');
+    });
+
+    it('does NOT fire onSelectDate when an event link inside the cell is clicked', async () => {
+        const user = userEvent.setup();
+        const onSelectDate = jest.fn();
+        render(
+            <CalendarMonth
+                month={MONTH}
+                events={[
+                    makeEvent({
+                        id: 'TASK:t-1:task',
+                        title: 'Pay invoice',
+                        category: 'task',
+                        date: '2026-06-15T00:00:00.000Z',
+                    }),
+                ]}
+                today={TODAY}
+                onSelectDate={onSelectDate}
+            />,
+        );
+        // Click the event link — should navigate (we just check
+        // onSelectDate is NOT fired; navigation is a Next.js Link).
+        const eventLink = screen.getByTitle(/Pay invoice/);
+        await user.click(eventLink);
+        expect(onSelectDate).not.toHaveBeenCalled();
+    });
+
+    it('shows cursor-pointer + hover on cells when onSelectDate is supplied', () => {
+        const { container } = render(
+            <CalendarMonth
+                month={MONTH}
+                events={[]}
+                today={TODAY}
+                onSelectDate={() => undefined}
+            />,
+        );
+        const cell = container.querySelector('[data-ymd="2026-06-15"]');
+        expect(cell?.className).toContain('cursor-pointer');
+    });
+
+    it('does NOT add cursor-pointer when onSelectDate is omitted (read-only calendar)', () => {
+        const { container } = render(
+            <CalendarMonth month={MONTH} events={[]} today={TODAY} />,
+        );
+        const cell = container.querySelector('[data-ymd="2026-06-15"]');
+        expect(cell?.className).not.toContain('cursor-pointer');
+    });
 });
 
 // ─── GanttTimeline ───────────────────────────────────────────────────
