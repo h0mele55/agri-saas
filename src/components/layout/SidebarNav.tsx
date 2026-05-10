@@ -74,21 +74,26 @@ export function useNavSections(): NavSectionDef[] {
                 { href: tenantHref('/risks'), label: t('risks'), icon: AlertTriangle },
                 { href: tenantHref('/controls'), label: t('controls'), icon: ShieldCheck },
                 { href: tenantHref('/evidence'), label: t('evidence'), icon: Paperclip },
-                { href: tenantHref('/policies'), label: t('policies'), icon: FileText },
                 { href: tenantHref('/tasks'), label: t('tasks'), icon: ClipboardList },
                 { href: tenantHref('/tests'), label: 'Test', icon: FlaskConical },
                 {
                     href: tenantHref('/calendar'),
-                    label: 'Calendar',
+                    label: t('calendar'),
                     icon: CalendarIcon,
                     badge: calendarBadge,
                 },
-                { href: tenantHref('/audits'), label: 'Audits', icon: ClipboardCheck },
+                { href: tenantHref('/audits'), label: t('audits'), icon: ClipboardCheck },
             ],
         },
         {
             title: 'Management',
             items: [
+                // Roadmap-2 PR-14 — Policies promoted to Management
+                // (alongside Vendor, Framework, Reports, Admin)
+                // since the typical interaction pattern (author /
+                // approve / acknowledge) is a management activity,
+                // not the day-to-day workspace flow.
+                { href: tenantHref('/policies'), label: t('policies'), icon: FileText },
                 { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck },
                 { href: tenantHref('/frameworks'), label: 'Framework', icon: Map },
                 { href: tenantHref('/reports'), label: t('reports'), icon: BarChart3, visible: perms.reports.view },
