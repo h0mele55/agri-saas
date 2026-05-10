@@ -131,13 +131,22 @@ describe("v2-PR-9 Card elevation ratchet", () => {
     });
 
     describe("Card primitive contract", () => {
+        // Roadmap-5 hotfix — `cardVariants` lives in
+        // `card-variants.ts` (a non-"use client" sibling) so server
+        // components can call it. The CVA definition + variant
+        // bodies are asserted on that file; the JSX-level wiring is
+        // asserted on card.tsx.
+        const variants = fs.readFileSync(
+            path.join(ROOT, "src/components/ui/card-variants.ts"),
+            "utf8",
+        );
         const src = fs.readFileSync(
             path.join(ROOT, "src/components/ui/card.tsx"),
             "utf8",
         );
 
         it("declares the elevation axis", () => {
-            const elevationBlock = src.match(
+            const elevationBlock = variants.match(
                 /elevation:\s*\{([\s\S]*?)\},\s*density:/,
             );
             expect(elevationBlock).not.toBeNull();
@@ -151,19 +160,19 @@ describe("v2-PR-9 Card elevation ratchet", () => {
             // The consumer-facing default. Must not silently switch
             // visuals — every existing <Card> without an explicit
             // elevation prop renders identically to before.
-            expect(src).toMatch(/raised:\s*["']glass-card["']/);
+            expect(variants).toMatch(/raised:\s*["']glass-card["']/);
         });
 
         it("`flat` elevation uses bg-bg-page (matches page background)", () => {
-            expect(src).toMatch(/flat:\s*["'][^"']*\bbg-bg-page\b/);
+            expect(variants).toMatch(/flat:\s*["'][^"']*\bbg-bg-page\b/);
         });
 
         it("`floating` elevation uses bg-bg-elevated", () => {
-            expect(src).toMatch(/floating:\s*["'][^"']*\bbg-bg-elevated\b/);
+            expect(variants).toMatch(/floating:\s*["'][^"']*\bbg-bg-elevated\b/);
         });
 
         it("default elevation is `raised` (preserves existing visual)", () => {
-            expect(src).toMatch(/elevation:\s*["']raised["']/);
+            expect(variants).toMatch(/elevation:\s*["']raised["']/);
         });
 
         it("forwards the `elevation` prop to the cardVariants call", () => {

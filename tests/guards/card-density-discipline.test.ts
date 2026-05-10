@@ -150,9 +150,12 @@ describe("<Card> primitive contract", () => {
   // Defence-in-depth: even if the eradication ratchet is bypassed by
   // some clever className composition, the Card primitive itself must
   // expose only the canonical density rungs.
-  it("only exposes `comfortable` / `compact` / `none` density variants", () => {
+  it("only exposes `comfortable` / `compact` / `spacious` / `none` density variants", () => {
+    // Roadmap-5 hotfix — the cva definition lives in
+    // `card-variants.ts` (server-safe sibling). The `spacious` rung
+    // landed in Roadmap-5 PR-2 alongside the existing trio.
     const src = fs.readFileSync(
-      path.join(ROOT, "src/components/ui/card.tsx"),
+      path.join(ROOT, "src/components/ui/card-variants.ts"),
       "utf8",
     );
     // Strip docstring + line comments so the assertion runs against

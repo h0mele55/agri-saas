@@ -44,38 +44,13 @@
 "use client";
 
 import { cn } from "@dub/utils";
-import { cva, type VariantProps } from "class-variance-authority";
+import { type VariantProps } from "class-variance-authority";
 import { forwardRef, type ElementType, type HTMLAttributes } from "react";
 
-const cardVariants = cva("", {
-  variants: {
-    elevation: {
-      // Matches page background — for nested sub-cards.
-      flat: "bg-bg-page border border-border-subtle rounded-lg",
-      // Faint tint for sub-panels inside a raised/floating parent
-      // (diff blocks, rich-text chrome, evidence preview tiles).
-      // Reads as "inset" not "next card on the same plane".
-      inset: "rounded-lg border border-border-default bg-bg-subtle",
-      // Default section-level card. Maps to the existing glass-card
-      // recipe so the visual is unchanged for every consumer that
-      // doesn't pass `elevation`.
-      raised: "glass-card",
-      // Above the `raised` plane — modal panels, popovers, active-
-      // state surfaces.
-      floating: "bg-bg-elevated border border-border-default rounded-lg",
-    },
-    density: {
-      comfortable: "p-6",
-      compact: "p-4",
-      spacious: "p-12",
-      none: "",
-    },
-  },
-  defaultVariants: {
-    elevation: "raised",
-    density: "comfortable",
-  },
-});
+// `cardVariants` lives in a sibling non-`"use client"` module so
+// SERVER components can import + call it. Re-exported here for
+// existing callers that grab `{ Card, cardVariants }` together.
+import { cardVariants } from "./card-variants";
 
 type CardTag = "div" | "section" | "article" | "aside" | "li";
 

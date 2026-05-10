@@ -41,6 +41,7 @@ import * as path from 'path';
 
 const ROOT = path.resolve(__dirname, '../..');
 const PRIMITIVE = 'src/components/ui/card.tsx';
+const VARIANTS = 'src/components/ui/card-variants.ts';
 
 interface Offence {
     file: string;
@@ -50,10 +51,18 @@ interface Offence {
 
 describe('Card-primitive eradication of glass-card (Roadmap-5 PR-1)', () => {
     it('the primitive still owns the legacy class internally', () => {
-        const src = fs.readFileSync(path.join(ROOT, PRIMITIVE), 'utf-8');
+        // Roadmap-5 hotfix — `cardVariants` now lives in
+        // `card-variants.ts` (a non-"use client" sibling) so
+        // server components can call it without hitting a client-
+        // reference boundary.
+        const variantsSrc = fs.readFileSync(path.join(ROOT, VARIANTS), 'utf-8');
         // cardVariants's `raised` elevation must still emit
         // `glass-card` so existing CSS keeps painting.
-        expect(src).toMatch(/raised:\s*"glass-card"/);
+        expect(variantsSrc).toMatch(/raised:\s*"glass-card"/);
+        const src = fs.readFileSync(path.join(ROOT, PRIMITIVE), 'utf-8');
+        // The primitive still re-exports cardVariants for callers
+        // that grab `{ Card, cardVariants }` together.
+        expect(src).toMatch(/from\s+['"]\.\/card-variants['"]/);
         // The primitive exports both surfaces.
         expect(src).toMatch(/export\s*\{\s*[^}]*\bCard\b[^}]*\}/);
         expect(src).toMatch(/export\s*\{\s*[^}]*\bcardVariants\b[^}]*\}/);

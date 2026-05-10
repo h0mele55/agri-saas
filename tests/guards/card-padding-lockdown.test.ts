@@ -46,6 +46,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const ROOT = path.resolve(__dirname, '../..');
+const VARIANTS = 'src/components/ui/card-variants.ts';
 const PRIMITIVE = 'src/components/ui/card.tsx';
 
 interface Offence {
@@ -62,7 +63,9 @@ const VIOLATION_RE = /cardVariants\([^)]*\)[^']*'[^']*\bp-\d+\b[^']*'/;
 
 describe('Card padding lockdown (Roadmap-5 PR-2)', () => {
     it('the primitive exposes the four-rung density axis', () => {
-        const src = fs.readFileSync(path.join(ROOT, PRIMITIVE), 'utf-8');
+        // Roadmap-5 hotfix — the cva definition lives in
+        // `card-variants.ts` (server-safe sibling).
+        const src = fs.readFileSync(path.join(ROOT, VARIANTS), 'utf-8');
         expect(src).toMatch(/density:\s*\{[\s\S]*?comfortable:\s*"p-6"/);
         expect(src).toMatch(/compact:\s*"p-4"/);
         expect(src).toMatch(/spacious:\s*"p-12"/);
