@@ -6,8 +6,7 @@ import { useTenantApiUrl, useTenantHref } from '@/lib/tenant-context-provider';
 import { Button } from '@/components/ui/button';
 import { AppIcon } from '@/components/icons/AppIcon';
 import { useOptimisticUpdate } from '@/components/ui/hooks';
-import { Heading } from '@/components/ui/typography';
-import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 
@@ -72,17 +71,14 @@ export default function NotificationsPage() {
 
     return (
         <div className="space-y-section animate-fadeIn">
-            <div>
-                <PageBreadcrumbs
-                    items={[
-                        { label: 'Dashboard', href: tenantHref('/dashboard') },
-                        { label: t('title') },
-                    ]}
-                    className="mb-1"
-                />
-                <Heading level={1}>{t('title')}</Heading>
-                <p className="text-sm text-content-muted mt-1">Recent activity across your compliance program</p>
-            </div>
+            <PageHeader
+                breadcrumbs={[
+                    { label: 'Dashboard', href: tenantHref('/dashboard') },
+                    { label: t('title') },
+                ]}
+                title={t('title')}
+                description="Recent activity across your compliance program"
+            />
             <div className="space-y-tight">
                 {optimisticList.map(n => (
                     <div key={n.id} className={cn(cardVariants({ density: 'compact' }), 'flex items-start gap-compact', !n.read ? 'border-l-2 border-[var(--brand-default)]' : 'opacity-60')}>

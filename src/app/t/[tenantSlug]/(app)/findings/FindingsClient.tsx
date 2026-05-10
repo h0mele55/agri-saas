@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/date-picker/date-utils';
 import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 import { Heading } from '@/components/ui/typography';
-import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 
@@ -212,23 +212,17 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
     return (
         <ListPageShell className="gap-section">
             <ListPageShell.Header>
-                <div className="flex items-center justify-between">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <div>
-                        <PageBreadcrumbs
-                            items={[
-                                { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
-                                { label: t.title },
-                            ]}
-                            className="mb-1"
-                        />
-                        <Heading level={1}>{t.title}</Heading>
-                        {t.listDescription && (
-                            <p className="text-sm text-content-muted mt-1">{t.listDescription}</p>
-                        )}
-                    </div>
-                    <Button variant="primary" onClick={() => setShowForm(!showForm)}>{t.newFinding}</Button>
-                </div>
+                <PageHeader
+                    breadcrumbs={[
+                        { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
+                        { label: t.title },
+                    ]}
+                    title={t.title}
+                    description={t.listDescription || undefined}
+                    actions={
+                        <Button variant="primary" onClick={() => setShowForm(!showForm)}>{t.newFinding}</Button>
+                    }
+                />
             </ListPageShell.Header>
 
             {showForm && (

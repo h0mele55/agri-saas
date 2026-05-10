@@ -8,8 +8,8 @@ import type { CappedList } from '@/lib/list-backfill-cap';
 import { TruncationBanner } from '@/components/ui/TruncationBanner';
 import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 import { Heading } from '@/components/ui/typography';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { CardHeader } from '@/components/ui/card-header';
-import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 
@@ -131,22 +131,17 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
 
     return (
         <>
-            <div className="flex flex-wrap items-center justify-between gap-compact">
-                <div>
-                    <PageBreadcrumbs
-                        items={[
-                            { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
-                            { label: t.title },
-                        ]}
-                        className="mb-1"
-                    />
-                    <Heading level={1}>{t.title}</Heading>
-                    {t.listDescription && (
-                        <p className="text-sm text-content-muted mt-1">{t.listDescription}</p>
-                    )}
-                </div>
-                <Button variant="primary" onClick={() => setShowForm(!showForm)} id="new-audit-btn">{t.newAudit}</Button>
-            </div>
+            <PageHeader
+                breadcrumbs={[
+                    { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
+                    { label: t.title },
+                ]}
+                title={t.title}
+                description={t.listDescription || undefined}
+                actions={
+                    <Button variant="primary" onClick={() => setShowForm(!showForm)} id="new-audit-btn">{t.newAudit}</Button>
+                }
+            />
 
             <TruncationBanner truncated={truncated} />
 
