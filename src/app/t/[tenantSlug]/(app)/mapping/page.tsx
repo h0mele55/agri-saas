@@ -66,7 +66,7 @@ export default function MappingPage() {
                                 {/* Epic 59 ProgressBar primitive. */}
                                 <ProgressBar
                                     value={item.coverage}
-                                    size="md"
+                                    size="sm"
                                     variant={
                                         item.coverage >= 80
                                             ? 'success'

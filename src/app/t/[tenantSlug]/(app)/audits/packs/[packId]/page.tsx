@@ -220,7 +220,7 @@ export default function PackDetailPage() {
                             value={shareLink}
                             label="Copy share link"
                             successMessage="Share link copied"
-                            size="md"
+                            size="sm"
                         />
                     </div>
                 </div>

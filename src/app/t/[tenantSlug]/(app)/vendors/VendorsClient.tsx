@@ -200,7 +200,7 @@ function VendorsPageInner({ initialVendors, initialFilters, tenantSlug, permissi
                         </p>
                     </div>
                     <div className="flex gap-tight">
-                        <Link href={tenantHref('/vendors/dashboard')} className={cn(buttonVariants({ variant: 'secondary', size: 'md' }))} id="vendor-dashboard-btn">
+                        <Link href={tenantHref('/vendors/dashboard')} className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }))} id="vendor-dashboard-btn">
                             Dashboard
                         </Link>
                         {permissions.canCreate && (

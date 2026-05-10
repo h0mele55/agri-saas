@@ -162,7 +162,7 @@ export default function ControlsDashboard() {
                         <StatusBreakdown
                             ariaLabel="Control status distribution"
                             showDot={false}
-                            size="md"
+                            size="sm"
                             items={Object.entries(
                                 data.statusDistribution || {},
                             ).map(([status, count]) => ({

@@ -249,7 +249,7 @@ export default function FrameworkDetailPage() {
                         </div>
                         <ProgressBar
                             value={coverage.coveragePercent}
-                            size="lg"
+                            size="sm"
                             variant={coverage.coveragePercent === 100 ? 'success' : 'brand'}
                             aria-label="Framework coverage"
                         />

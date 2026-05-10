@@ -64,6 +64,7 @@ import {
     type BreadcrumbItem,
 } from "@/components/ui/breadcrumbs";
 import { useBreadcrumbs } from "@/components/layout/breadcrumbs-store";
+import { PageActions } from "@/components/layout/PageActions";
 import {
     Caption,
     Eyebrow,
@@ -190,12 +191,15 @@ export function PageHeader({
                 )}
             </div>
             {actions && (
-                <div
-                    className="flex gap-tight flex-wrap"
-                    data-testid="page-header-actions"
-                >
+                // Roadmap-3 PR-1 — the page-header action cluster
+                // routes through `<PageActions>` so every page
+                // header inherits the same right-aligned, gap-tight,
+                // wrap-reverse cluster geometry. Pages don't need
+                // to wrap their own actions — passing fragment
+                // children to the slot is enough.
+                <PageActions data-testid="page-header-actions">
                     {actions}
-                </div>
+                </PageActions>
             )}
         </header>
     );

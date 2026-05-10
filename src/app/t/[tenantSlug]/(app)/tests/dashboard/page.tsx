@@ -155,7 +155,7 @@ export default function TestDashboardPage() {
                                 progress={metrics.passRate / 100}
                                 label={`${metrics.passRate}%`}
                                 variant={metrics.passRate >= 80 ? 'success' : metrics.passRate >= 50 ? 'warning' : 'error'}
-                                size="md"
+                                size="sm"
                                 aria-label="Overall pass rate"
                             />
                             <div className="flex-1 space-y-compact">

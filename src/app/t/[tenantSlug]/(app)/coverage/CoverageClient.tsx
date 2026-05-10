@@ -397,7 +397,7 @@ function CoverageBar({
             </div>
             <ProgressBar
                 value={Math.min(pct, 100)}
-                size="md"
+                size="sm"
                 variant={variant}
                 aria-label={`${label} coverage`}
             />

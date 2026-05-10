@@ -168,7 +168,7 @@ function BreakdownBar({ label, score, detail, weight }: { label: string; score: 
             </div>
             <ProgressBar
                 value={score}
-                size="md"
+                size="sm"
                 variant={variant}
                 aria-label={`${label} readiness score`}
             />

@@ -284,7 +284,7 @@ function LoginForm() {
                                     <label htmlFor="login-password" className="input-label">{t('password')}</label>
                                     <input id="login-password" className="input" type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder={t('passwordPlaceholder')} minLength={6} />
                                 </div>
-                                <Button type="submit" variant="primary" size="lg" className="w-full" disabled={loading}>
+                                <Button type="submit" variant="primary" size="sm" className="w-full" disabled={loading}>
                                     {loading ? t('pleaseWait') : mode === 'login' ? t('submitLogin') : t('submitRegister')}
                                 </Button>
                             </form>
