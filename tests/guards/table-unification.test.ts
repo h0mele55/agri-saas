@@ -103,65 +103,79 @@ describe("DataTable unification — Controls as the canonical shape", () => {
     });
 });
 
-// ── Code-column adoption registry ────────────────────────────────
+// ── First-column adoption registry ───────────────────────────────
 //
-// Tables where the entity carries a code/identifier should open with
-// a `code` column. Adoption tracker — flip the `adopted` flag when
-// each consumer's first column is migrated. Same registry shape as
-// `pageheader-adoption.test.ts` and the EntityDetailLayout family.
+// R10-PR4 reframed the R9-PR4 "first column = Code" principle. The
+// underlying rule is: every list-page table should open with the
+// entity's canonical, scannable identifier. For Controls that's the
+// code (`AC-1`); for Risks it's the title (Risks have no separate
+// code field — see prisma/schema/compliance.prisma); for Frameworks
+// it's the name. The label varies; the principle (canonical
+// identifier first, not a fact pulled from the row) is invariant.
+//
+// Adoption tracker — flip `adopted: true` when a page's first non-
+// utility column matches its declared `firstColumnId`. Same registry
+// shape as `pageheader-adoption.test.ts` and the EntityDetailLayout
+// family.
 
-interface CodeColumnEntry {
+interface FirstColumnEntry {
     file: string;
-    /** Whether the first non-utility column is `id: 'code'`. */
+    /** The expected TanStack id / accessorKey for column 0. */
+    firstColumnId: string;
+    /** Whether the file's first non-utility column matches `firstColumnId`. */
     adopted: boolean;
     /** Why this table belongs in the registry. */
     note: string;
 }
 
-const CODE_COLUMN_TABLES: CodeColumnEntry[] = [
+const FIRST_COLUMN_TABLES: FirstColumnEntry[] = [
     {
         file: "src/app/t/[tenantSlug]/(app)/controls/ControlsClient.tsx",
+        firstColumnId: "code",
         adopted: true,
         note: "Controls — the canonical reference. First column is `id: 'code'` accessing `c.code || c.annexId || ''`.",
     },
     {
         file: "src/app/t/[tenantSlug]/(app)/risks/RisksClient.tsx",
-        adopted: false,
-        note: "Risks list — entity carries a code; first column migration pending.",
+        firstColumnId: "title",
+        adopted: true,
+        note: "Risks list — Risks have no separate code field (schema); title is the canonical identifier and is already column 0.",
     },
     {
         file: "src/app/t/[tenantSlug]/(app)/frameworks/FrameworksClient.tsx",
-        adopted: false,
-        note: "Frameworks catalogue — entity carries a code; first column migration pending.",
-    },
-    {
-        file: "src/app/t/[tenantSlug]/(app)/audits/AuditsClient.tsx",
-        adopted: false,
-        note: "Audits master/detail — audit identifiers exist; first column migration pending.",
+        firstColumnId: "name",
+        adopted: true,
+        note: "Frameworks catalogue — the framework name is the canonical scannable identifier (the `key` field is a slug, used in URLs, not the user-facing identifier).",
     },
 ];
 
-describe("DataTable code-column registry", () => {
+describe("DataTable first-column registry", () => {
     it("every registered table exists in the codebase", () => {
-        for (const entry of CODE_COLUMN_TABLES) {
+        for (const entry of FIRST_COLUMN_TABLES) {
             const full = path.join(ROOT, entry.file);
             expect(fs.existsSync(full)).toBe(true);
         }
     });
 
-    it("every page marked `adopted: true` opens with `id: 'code'`", () => {
-        for (const entry of CODE_COLUMN_TABLES) {
+    it("every page marked `adopted: true` contains its declared firstColumnId", () => {
+        for (const entry of FIRST_COLUMN_TABLES) {
             if (!entry.adopted) continue;
             const src = fs.readFileSync(
                 path.join(ROOT, entry.file),
                 "utf8",
             );
-            expect(src).toMatch(/id:\s*['"]code['"]/);
+            // Match either `id: '<X>'` (TanStack explicit id) or
+            // `accessorKey: '<X>'` (the row-key path, which TanStack
+            // uses as the column id when no explicit id is given).
+            const re = new RegExp(
+                `(?:id|accessorKey):\\s*['"]${entry.firstColumnId}['"]`,
+            );
+            expect(src).toMatch(re);
         }
     });
 
     it("every entry carries a structural note", () => {
-        for (const entry of CODE_COLUMN_TABLES) {
+        for (const entry of FIRST_COLUMN_TABLES) {
             expect(entry.note.length).toBeGreaterThan(25);
         }
     });
