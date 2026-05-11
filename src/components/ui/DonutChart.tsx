@@ -201,7 +201,7 @@ export default function DonutChart({
                             strokeDashoffset={-offset}
                             strokeLinecap="butt"
                             transform={`rotate(-90 ${center} ${center})`}
-                            className="transition-all duration-500"
+                            className="transition-all duration-500 ease-out"
                         >
                             <title>{`${seg.label}: ${seg.value} (${(segPercent * 100).toFixed(1)}%)`}</title>
                         </circle>
