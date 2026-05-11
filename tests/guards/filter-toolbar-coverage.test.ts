@@ -77,6 +77,8 @@ const EXEMPTIONS: Record<string, string> = {
         "Detail-tab sub-table inside the billing page — chronological event log with fixed scope.",
     "src/app/t/[tenantSlug]/(app)/admin/rbac/MembersTable.tsx":
         "Members sub-table on the RBAC admin dashboard — fixed list of tenant memberships with no faceting (members admin owns the writes; RBAC is read-only matrix).",
+    "src/app/t/[tenantSlug]/(app)/access-reviews/[reviewId]/AccessReviewDetailClient.tsx":
+        "Detail-page roster sub-table — fixed scope (decisions in this campaign) with inline per-row decision controls; not a faceted-filter surface.",
     "src/app/t/[tenantSlug]/(app)/admin/integrations/page.tsx":
         "Integrations admin — small fixed catalogue with inline toggle controls.",
     "src/app/t/[tenantSlug]/(app)/admin/members/page.tsx":
