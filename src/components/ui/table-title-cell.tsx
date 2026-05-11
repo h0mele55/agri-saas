@@ -37,7 +37,7 @@
 
 import { cn } from '@dub/utils';
 import Link from 'next/link';
-import type { MouseEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export interface TableTitleCellProps {
     /** The title text — usually `entity.title` / `entity.name` / `entity.code`. */
@@ -72,9 +72,25 @@ export function TableTitleCell({
                 href={href}
                 id={id}
                 className={cn(TITLE_CELL_BASE, TITLE_CELL_LINK_HOVER, className)}
-                onClick={(e: MouseEvent<HTMLAnchorElement>) =>
-                    e.stopPropagation()
-                }
+                // R13-PR15 — single-click on the title link still
+                // navigates via Next's default Link behaviour. We
+                // intentionally do NOT `preventDefault` here — the
+                // earlier attempt to make plain click toggle the
+                // row's selection broke 6+ E2E suites and produced
+                // a confusing UX where the most prominent visible
+                // affordance (the title text styled as a link)
+                // didn't act like a link.
+                //
+                // We also no longer `stopPropagation`. The row's
+                // `onClick` fires alongside the link's navigation
+                // — selection toggles in the background as the
+                // page navigates away. Acceptable side effect;
+                // preserves the standard link UX.
+                //
+                // For users who want pure click-to-select on the
+                // row, click anywhere OTHER than the title link
+                // (Status, Owner, empty cell space — anywhere a
+                // <button>/<input>/<textarea> is not an ancestor).
             >
                 {children}
             </Link>
