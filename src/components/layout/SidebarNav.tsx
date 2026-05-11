@@ -92,6 +92,11 @@ export function useNavSections(): NavSectionDef[] {
         {
             title: 'Comply',
             items: [
+                // R13-PR16 — Audit moved from "Manage" to the top of
+                // "Comply" because audits are a daily-cadence
+                // workflow (Plan / Schedule / Review / Docs), not
+                // ongoing governance configuration.
+                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck },
                 { href: tenantHref('/tasks'), label: 'Plan', icon: ClipboardList },
                 {
                     href: tenantHref('/calendar'),
@@ -110,7 +115,7 @@ export function useNavSections(): NavSectionDef[] {
                 // The page stays reachable via the Frameworks pill on
                 // the Audits page header (R13-PR9) and via the command
                 // palette (⌘K → "Frameworks").
-                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck },
+                // R13-PR16 — Audit moved up to Comply (see above).
                 { href: tenantHref('/policies'), label: 'Policy', icon: FileText },
                 { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck },
                 { href: tenantHref('/reports'), label: 'Report', icon: BarChart3, visible: perms.reports.view },
