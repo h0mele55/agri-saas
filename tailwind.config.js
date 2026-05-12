@@ -185,6 +185,23 @@ module.exports = {
                     '0%': { transform: 'translateX(-100%)' },
                     '100%': { transform: 'translateX(100%)' },
                 },
+                // R13-PR3 — slow vertical pan on the NavItem brand
+                // band. The band's `::before` paints a 3-stop
+                // gradient at `background-size: 100% 200%` (twice
+                // its own height). This keyframe pans the gradient
+                // position from top to bottom and back — the band
+                // visibly "breathes", a slow pulse of brand light
+                // travelling along its length. ease-in-out + the
+                // 0% / 50% / 100% palindrome avoids the visible
+                // jump that a linear infinite loop would have at
+                // the seam between asymmetric gradient endpoints.
+                // `prefers-reduced-motion: reduce` flattens the
+                // duration to 1ms via tokens.css — no per-component
+                // opt-in needed.
+                'nav-band-shimmer': {
+                    '0%, 100%': { 'background-position': '0% 0%' },
+                    '50%': { 'background-position': '0% 100%' },
+                },
             },
             animation: {
                 'slide-up-fade': 'slide-up-fade 0.2s ease-out',
@@ -194,6 +211,13 @@ module.exports = {
                 'table-pinned-shadow': 'table-pinned-shadow cubic-bezier(0, 0, 1, 0)',
                 'shimmer-pulse': 'shimmer-pulse 1.6s ease-in-out infinite',
                 'shimmer-sweep': 'shimmer-sweep 1.6s ease-in-out infinite',
+                // 4s is deliberately slow — the band shouldn't read
+                // as a loading indicator. Closer to a quiet pulse of
+                // brand light than to the 1.6s skeleton-shimmer
+                // tempo. ease-in-out gives the motion its natural
+                // breathing curve; `infinite` keeps it going as long
+                // as the band is visible.
+                'nav-band-shimmer': 'nav-band-shimmer 4s ease-in-out infinite',
             },
         },
     },

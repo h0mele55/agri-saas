@@ -190,6 +190,14 @@ const NAV_ITEM_BAND_BASE = [
     // to. The R12-PR5 ratchet still passes because `from-default` +
     // `to-emphasis` are both present — `via-muted` is additive.
     'before:bg-gradient-to-b before:from-[var(--brand-default)] before:via-[var(--brand-muted)] before:to-[var(--brand-emphasis)]',
+    // R13-PR3 — `background-size: 100% 200%` makes the gradient
+    // twice the band's height, so the `nav-band-shimmer` keyframe
+    // can pan it along its own length. Without this the gradient
+    // would already cover 100% of the band and the pan would be a
+    // no-op. The shimmer animation itself is gated to hover + active
+    // (see NAV_ITEM_DEFAULT / NAV_ITEM_ACTIVE) — running while the
+    // band is opacity-0 would waste CPU on every sidebar row.
+    'before:[background-size:100%_200%]',
     // Outer glow — `--nav-band-glow` resolves per theme to the
     // brand hue at 35% over a 6px blur. Softens the band's edges
     // into a halo, fixing the "stamped line" feel of the R12
@@ -270,7 +278,7 @@ export const NAV_ITEM_BASE = [
  * colour only — locked by the motion-language ratchet.
  */
 export const NAV_ITEM_DEFAULT =
-    'text-content-muted hover:text-content-emphasis hover:before:opacity-100';
+    'text-content-muted hover:text-content-emphasis hover:before:opacity-100 hover:before:animate-nav-band-shimmer';
 
 /**
  * Active state — conviction. (R12-PR6 lock.)
@@ -322,7 +330,7 @@ export const NAV_ITEM_DEFAULT =
  *            arrives (the "settled in" surface)
  */
 export const NAV_ITEM_ACTIVE =
-    'text-content-emphasis bg-[var(--brand-subtle)] before:opacity-100 font-medium';
+    'text-content-emphasis bg-[var(--brand-subtle)] before:opacity-100 before:animate-nav-band-shimmer font-medium';
 
 /**
  * Badge recipe — aligned + breathing. (R12-PR8 lock.)
