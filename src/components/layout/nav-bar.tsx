@@ -61,6 +61,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { Menu } from 'lucide-react';
 
 // ─── Geometry tokens (R14-PR2) ─────────────────────────────────────
 //
@@ -239,8 +240,18 @@ export const NAV_BAR_TOP_GLOSS =
  * bar. R14-PR12 unifies the two; until then the mobile bar is
  * the authoritative mobile surface.
  */
+/**
+ * R14-PR12 retired the `hidden md:flex` gate — the shell now
+ * renders on all viewports. The mobile-only top bar inside
+ * `<AppShell>` was deleted in the same diff; this NavBar is the
+ * single chrome surface across mobile + desktop.
+ *
+ * Responsive slot behaviour is handled inside each slot's own
+ * recipe (search → icon-only below lg, breadcrumbs → hidden
+ * below md, tenant switcher → hidden below sm).
+ */
 export const NAV_BAR_SHELL = [
-    'hidden md:flex',
+    'flex',
     NAV_BAR_POSITION,
     NAV_BAR_HEIGHT,
     // `relative` anchors the `::before` (bottom hairline) and
@@ -391,6 +402,44 @@ export function NavBarBrand({
         >
             <span aria-hidden="true">{initials}</span>
         </Link>
+    );
+}
+
+// ─── Mobile menu button (R14-PR12) ────────────────────────────────
+
+/**
+ * Hamburger button that opens the sidebar drawer on mobile. Hidden
+ * at `md+` where the desktop sidebar is always-visible.
+ *
+ * R14-PR12 unified the chrome — the pre-R14 `<AppShell>` rendered
+ * a SEPARATE mobile-only top bar carrying its own hamburger; this
+ * button is the canonical mobile hamburger now. AppShell owns the
+ * drawer state and passes `onClick` through `<TopChrome>` to this
+ * component.
+ */
+export interface NavBarMobileMenuProps {
+    onClick: () => void;
+    /** A11y label override — defaults to "Open navigation menu". */
+    ariaLabel?: string;
+    /** Test id — defaults to "nav-toggle"; org variant overrides. */
+    dataTestId?: string;
+}
+
+export function NavBarMobileMenu({
+    onClick,
+    ariaLabel = 'Open navigation menu',
+    dataTestId = 'nav-toggle',
+}: NavBarMobileMenuProps) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`md:hidden inline-flex items-center justify-center h-8 w-8 rounded-lg text-content-muted transition-colors hover:bg-bg-muted hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`}
+            aria-label={ariaLabel}
+            data-testid={dataTestId}
+        >
+            <Menu className="h-5 w-5" aria-hidden="true" />
+        </button>
     );
 }
 

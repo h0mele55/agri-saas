@@ -57,7 +57,14 @@ import { NAV_BAR_SLOT_PRESS } from './nav-bar';
  * visible difference between the R2 pill and the R14 switcher.
  */
 const SWITCHER_PILL_CLASS =
-    `inline-flex items-center gap-tight rounded-full border border-border-subtle bg-bg-default px-3 py-1 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/50 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
+    // R14-PR12 — `hidden sm:inline-flex` hides the workspace
+    // switcher on the narrowest viewports (mobile portrait).
+    // The unified chrome puts a lot of slots in the right-hand
+    // region; on a 375px iPhone SE viewport the switcher would
+    // crowd the bell + avatar. Users on those viewports can
+    // switch workspaces via the `/tenants` picker page (linked
+    // from the user menu footer).
+    `hidden sm:inline-flex items-center gap-tight rounded-full border border-border-subtle bg-bg-default px-3 py-1 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/50 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
 const AVATAR_CLASS =
     'flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-subtle)] text-[10px] font-semibold text-[var(--brand-emphasis)]';

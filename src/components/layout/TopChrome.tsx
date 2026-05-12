@@ -43,10 +43,16 @@ import { SearchAnchor } from './search-anchor';
 import { NotificationsBell } from './notifications-bell';
 import { EnvironmentBadge } from './environment-badge';
 import type { AppShellVariant } from './AppShell';
-import { NavBar, NavBarBrand } from './nav-bar';
+import { NavBar, NavBarBrand, NavBarMobileMenu } from './nav-bar';
 
 interface TopChromeProps {
     variant: AppShellVariant;
+    /**
+     * R14-PR12 — handler for the mobile-only menu button. Opens
+     * the sidebar drawer. AppShell owns the drawer-open state and
+     * passes the setter through.
+     */
+    onMobileMenuClick: () => void;
 }
 
 /**
@@ -59,7 +65,7 @@ interface TopChromeProps {
  * variant + URL params: tenant → `/t/<slug>/dashboard`,
  * org → `/org/<slug>` (org root).
  */
-export function TopChrome({ variant }: TopChromeProps) {
+export function TopChrome({ variant, onMobileMenuClick }: TopChromeProps) {
     const breadcrumbs = useCurrentBreadcrumbs();
     const params = useParams();
     // R14-PR4 — tenant variant now mounts the workspace switcher
@@ -87,20 +93,38 @@ export function TopChrome({ variant }: TopChromeProps) {
         <NavBar
             left={
                 <>
+                    <NavBarMobileMenu
+                        onClick={onMobileMenuClick}
+                        ariaLabel={
+                            variant === 'org'
+                                ? 'Open organization navigation menu'
+                                : 'Open navigation menu'
+                        }
+                        dataTestId={
+                            variant === 'org' ? 'org-nav-toggle' : 'nav-toggle'
+                        }
+                    />
                     <NavBarBrand href={brandHref} />
                     <EnvironmentBadge />
-                    {breadcrumbs.length > 0 ? (
-                        <Breadcrumbs
-                            items={breadcrumbs}
-                            data-testid="top-chrome-breadcrumbs"
-                        />
-                    ) : (
-                        // No breadcrumbs pushed yet — empty sentinel
-                        // for layout stability so the chrome's
-                        // height doesn't jump when a page resolves
-                        // its breadcrumbs after first paint.
-                        <span className="sr-only">No breadcrumbs</span>
-                    )}
+                    {/* Breadcrumbs hidden below md — the brand mark
+                        + env badge + hamburger already crowd the
+                        left slot on small viewports. Mobile users
+                        navigate via the drawer + the brand-mark
+                        click. */}
+                    <span className="hidden md:inline-flex items-center">
+                        {breadcrumbs.length > 0 ? (
+                            <Breadcrumbs
+                                items={breadcrumbs}
+                                data-testid="top-chrome-breadcrumbs"
+                            />
+                        ) : (
+                            // No breadcrumbs pushed yet — empty sentinel
+                            // for layout stability so the chrome's
+                            // height doesn't jump when a page resolves
+                            // its breadcrumbs after first paint.
+                            <span className="sr-only">No breadcrumbs</span>
+                        )}
+                    </span>
                 </>
             }
             center={<SearchAnchor />}

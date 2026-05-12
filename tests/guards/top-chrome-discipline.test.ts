@@ -97,17 +97,18 @@ describe('Top-chrome discipline (Roadmap-2 PR-2)', () => {
         expect(src).toMatch(/useBreadcrumbs\s*\(/);
     });
 
-    it('TopChrome is hidden on mobile (avoids two-bar pile-up)', () => {
-        // The chrome is the desktop affordance; mobile already has
-        // the in-shell mobile top bar. Stacking both eats vertical
-        // space the mobile UX cannot spare.
-        //
-        // R14-PR1 extracted the shell into `<NavBar>` — the
-        // `hidden md:flex` responsibility moved with it. The
-        // assertion follows: it now checks `nav-bar.tsx`'s
-        // SHELL recipe, not `TopChrome.tsx`. R14-PR12 will unify
-        // mobile + desktop and retire this assertion entirely.
-        const src = read('src/components/layout/nav-bar.tsx');
-        expect(src).toMatch(/hidden\s+md:flex/);
+    it('TopChrome no longer renders a parallel mobile-only top bar (R14-PR12)', () => {
+        // R14-PR12 unified the chrome — the pre-R14 `<AppShell>`
+        // rendered a SEPARATE mobile-only top bar with its own
+        // hamburger + wordmark + theme toggle. That bar is GONE;
+        // the NavBar (mounted by TopChrome) is the single chrome
+        // surface across mobile + desktop. AppShell should no
+        // longer contain a mobile-only `<header>` or sticky-top
+        // hamburger row.
+        const src = read('src/components/layout/AppShell.tsx');
+        // The retired mobile bar had `md:hidden sticky top-0`
+        // on a top-level div. A regression that re-introduces it
+        // would re-stack two bars on mobile.
+        expect(src).not.toMatch(/md:hidden\s+sticky\s+top-0/);
     });
 });
