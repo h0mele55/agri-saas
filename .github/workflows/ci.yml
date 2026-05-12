@@ -25,6 +25,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Weekly scheduled scan — GitHub's Code Scanning UI expects a
+  # periodic refresh of CodeQL + Trivy results on the default branch,
+  # independent of PR cadence. Without this the Security tab can
+  # complain about stale analyses. Sunday at 06:00 UTC is during
+  # off-hours for the team but during weekday-morning for any
+  # security-team triage.
+  schedule:
+    - cron: "0 6 * * 0"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -744,14 +752,16 @@ jobs:
     name: "CodeQL SAST"
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Non-blocking: CodeQL SARIF upload requires repo-level "Code
-    # Scanning" to be enabled (Security tab → Code scanning → Set up).
-    # Private repos need an Advanced Security license. Until that's
-    # enabled, the analyze step succeeds but the upload fails with
-    # "Code scanning is not enabled for this repository". Keep the job
-    # so results are computable, but don't block merges on the upload.
-    # Flip back to required once Code Scanning is enabled.
-    continue-on-error: true
+    # Code Scanning is enabled on this repo (public + Advanced
+    # Security free). The `continue-on-error: true` guard was added
+    # as a workaround pre-enablement; it's no longer needed and was
+    # also responsible for the "Code scanning configuration error"
+    # banner on the Security tab — failed uploads emitted warnings
+    # that the UI surfaced as configuration errors even though the
+    # workflow itself succeeded. With the guard removed, SARIF
+    # upload failures (which should not happen) will fail the job
+    # loudly and we'll see them as actual CI failures, not silent
+    # Security-tab warnings.
 
     permissions:
       security-events: write
@@ -770,8 +780,14 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
-          # Use extended query suite for deeper analysis
-          queries: security-extended
+          # `.github/codeql/codeql-config.yml` pins the language list,
+          # paths-ignore, and query suite. Removes the autodetection
+          # mismatch that produced the configuration-error banner —
+          # autodetection thought the repo needed `actions` +
+          # `javascript` + `typescript` scans on top of
+          # `javascript-typescript`; the config file makes the
+          # workflow's scope explicit and matches what gets uploaded.
+          config-file: ./.github/codeql/codeql-config.yml
 
       # CodeQL auto-builds JavaScript/TypeScript — no manual build needed.
       # The autobuild step handles source extraction.
@@ -879,4 +895,8 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
           category: "trivy-container-scan"
-        continue-on-error: true
+        # `continue-on-error: true` removed (same reasoning as the
+        # CodeQL job above): the upload now needs to either succeed
+        # or fail the job loudly. Silent upload failures were
+        # showing up as "Code scanning configuration error" banners
+        # on the Security tab without breaking CI.

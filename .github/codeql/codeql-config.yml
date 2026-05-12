@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────
+# CodeQL configuration — explicit pinning to remove the
+# "configuration error" banner on the Security tab.
+#
+# Why this file exists:
+#   GitHub's Code Scanning UI compares the configured language list
+#   (autodetected when no config is present) against the language
+#   the workflow actually uploads. Our autodetection used to include
+#   `actions`, `javascript`, `javascript-typescript`, and `typescript`
+#   — but our workflow only uploads `javascript-typescript`. The
+#   mismatch surfaced as a "Code scanning configuration error" on
+#   the repo's Security tab.
+#
+# What this file pins:
+#   - `name`             one canonical config identifier, helps GH
+#                        match runs to config
+#   - `paths`            scan all src + tests
+#   - `paths-ignore`     bypass generated / vendored / declarative
+#                        directories that produce false positives
+#                        and slow analysis without value
+#   - `queries`          `security-extended` is the suite the
+#                        workflow already uses (ci.yml:774); pinning
+#                        here means a future workflow tweak can't
+#                        silently drop coverage
+# ─────────────────────────────────────────────────────────────────
+
+name: "Inflect Compliance — security-extended"
+
+queries:
+    - uses: security-extended
+
+paths:
+    - src
+    - tests
+    - scripts
+
+paths-ignore:
+    # Build artifacts + generated code.
+    - "**/node_modules"
+    - "**/.next"
+    - "**/dist"
+    - "**/build"
+    - "**/coverage"
+    - "**/playwright-report"
+
+    # Prisma client is generated on every install — scanning it
+    # produces noisy false-positives from query-builder ergonomics
+    # the CodeQL JS suite flags as "untrusted data flows into …".
+    - "src/generated"
+    - "**/prisma/client"
+
+    # Lockfiles + declarative configs aren't executable code.
+    - "**/package-lock.json"
+    - "**/*.lock"
+
+    # Test fixtures often carry intentionally-malformed data
+    # (sample SARIF payloads, mock JWT secrets, etc.). Scoped to
+    # the canonical fixtures dir; real tests under `tests/unit`,
+    # `tests/integration`, `tests/rendered`, `tests/guards` still
+    # get scanned.
+    - "tests/fixtures"
