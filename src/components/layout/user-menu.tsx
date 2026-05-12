@@ -38,11 +38,12 @@ import { LogOut } from 'lucide-react';
 
 import { Popover } from '@/components/ui/popover';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
 // ─── Recipe ────────────────────────────────────────────────────────
 
 const AVATAR_BUTTON_CLASS =
-    'flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-subtle)] text-[11px] font-semibold text-[var(--brand-emphasis)] transition-[filter] duration-150 ease-out hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-page';
+    `flex h-8 w-8 items-center justify-center rounded-full bg-[var(--brand-subtle)] text-[11px] font-semibold text-[var(--brand-emphasis)] transition-[filter] duration-150 ease-out hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-page ${NAV_BAR_SLOT_PRESS}`;
 
 const MENU_ROW_CLASS =
     'flex w-full cursor-pointer select-none items-center gap-compact rounded-md px-2.5 py-1.5 text-left text-sm text-content-default transition-colors duration-100 ease-out hover:bg-bg-muted hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';

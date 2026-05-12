@@ -41,16 +41,17 @@ import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 
 import { useCommandPalette } from '@/components/command-palette/command-palette-provider';
+import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
 // ─── Recipes ───────────────────────────────────────────────────────
 
 const PILL_CLASS =
     // lg+ form — full pill with label + kbd hint
-    'hidden lg:inline-flex items-center gap-compact rounded-full border border-border-subtle bg-bg-default/60 px-3 py-1.5 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
+    `hidden lg:inline-flex items-center gap-compact rounded-full border border-border-subtle bg-bg-default/60 px-3 py-1.5 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
 const ICON_BUTTON_CLASS =
     // below-lg form — icon-only round button
-    'inline-flex lg:hidden items-center justify-center h-8 w-8 rounded-full text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
+    `inline-flex lg:hidden items-center justify-center h-8 w-8 rounded-full text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
 const KBD_CHIP_CLASS =
     'inline-flex items-center rounded border border-border-subtle bg-bg-default px-1.5 py-0.5 text-[10px] font-medium text-content-subtle';

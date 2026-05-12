@@ -37,6 +37,7 @@ import { Bell, CheckCheck } from 'lucide-react';
 
 import { Popover } from '@/components/ui/popover';
 import { EmptyState } from '@/components/ui/empty-state';
+import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
 // ─── Types ─────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ interface NotificationRow {
 // ─── Recipes ───────────────────────────────────────────────────────
 
 const BELL_BUTTON_CLASS =
-    'relative inline-flex items-center justify-center h-8 w-8 rounded-full text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
+    `relative inline-flex items-center justify-center h-8 w-8 rounded-full text-content-muted transition-colors hover:bg-bg-muted/60 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
 const BADGE_OVERLAY_CLASS =
     // Pill chip pinned to the bell's top-right corner. Negative

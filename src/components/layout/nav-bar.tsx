@@ -170,6 +170,52 @@ export const NAV_BAR_BOTTOM_HAIRLINE =
     'before:absolute before:bottom-0 before:left-0 before:right-0 before:h-px before:bg-[linear-gradient(90deg,_transparent,_var(--border-subtle),_transparent)] before:pointer-events-none';
 
 /**
+ * **Slot press-feedback recipe (R14-PR11).**
+ *
+ * The single tactile micro-motion every clickable top-bar slot
+ * shares. On mousedown the slot drops 1px (`active:translate-y-px`),
+ * the universal "I just pressed something physical" cue. Pairs
+ * with the slot's own hover treatment (brightness / bg-tone shift).
+ *
+ * Three tokens, each load-bearing:
+ *
+ *   `transition-transform duration-75 ease-out`
+ *       Fast snappy press tempo. 75ms is the snappy zone — fast
+ *       enough to feel immediate, long enough to read as motion
+ *       rather than teleport. Matches the NavItem press recipe
+ *       (R13-PR8) so the chrome + sidebar feel identical to the
+ *       hand.
+ *
+ *   `active:translate-y-px`
+ *       1px mousedown drop. CSS `:active` only — hover-translate /
+ *       hover-scale stay banned by the local R14 ratchets and the
+ *       global motion-language ratchet.
+ *
+ *   `motion-reduce:active:translate-y-0`
+ *       OS-preference safety net. Reduced-motion users see zero
+ *       displacement. The tokens.css global only flattens
+ *       animation-duration (not static transforms); the explicit
+ *       override here is required.
+ *
+ * R14-PR11 wires this recipe into every clickable chrome slot —
+ * brand mark, search anchor (both forms), tenant switcher trigger,
+ * notifications bell, user-menu avatar. The shared recipe means a
+ * future "let's slow the press to 100ms" PR has ONE place to
+ * land — every slot's tactile feel stays coherent.
+ *
+ * Motion-language exempt: nav-bar.tsx, tenant-switcher.tsx,
+ * user-menu.tsx, notifications-bell.tsx, search-anchor.tsx are
+ * all added to the EXEMPT_FILES list in
+ * `motion-language-discipline.test.ts`. The broadening rationale
+ * mirrors R13-PR8's nav-item.tsx exempt: chrome is the canonical
+ * place for tactile micro-motion; the bans on hover-translate /
+ * hover-scale / hover-shadow still apply within these files via
+ * the local R14 ratchets.
+ */
+export const NAV_BAR_SLOT_PRESS =
+    'transition-transform duration-75 ease-out active:translate-y-px motion-reduce:active:translate-y-0';
+
+/**
  * **Top-edge gloss highlight (R13-PR6 parity).**
  *
  * A 1px highlight at the top edge of the chrome, inset 16px each
@@ -316,6 +362,8 @@ export const NAV_BAR_BRAND_CLASS = [
     'animate-nav-brand-pulse',
     // Hover — brightness, NOT shadow/transform/scale (motion-language safe)
     'transition-[filter] duration-200 ease-out hover:brightness-110',
+    // Press feedback (R14-PR11 shared slot recipe).
+    NAV_BAR_SLOT_PRESS,
     // Focus story — match NavItem / Button vocabulary
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-bg-page',
 ].join(' ');

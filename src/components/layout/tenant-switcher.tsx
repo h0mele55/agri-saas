@@ -47,6 +47,7 @@ import { Check, ChevronsUpDown } from 'lucide-react';
 
 import { Popover } from '@/components/ui/popover';
 import { useTenantContext } from '@/lib/tenant-context-provider';
+import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
 // ─── Recipe (extracted so PR-11 can compose the unified slot recipe) ──
 
@@ -56,7 +57,7 @@ import { useTenantContext } from '@/lib/tenant-context-provider';
  * visible difference between the R2 pill and the R14 switcher.
  */
 const SWITCHER_PILL_CLASS =
-    'inline-flex items-center gap-tight rounded-full border border-border-subtle bg-bg-default px-3 py-1 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/50 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
+    `inline-flex items-center gap-tight rounded-full border border-border-subtle bg-bg-default px-3 py-1 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/50 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
 const AVATAR_CLASS =
     'flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-subtle)] text-[10px] font-semibold text-[var(--brand-emphasis)]';
