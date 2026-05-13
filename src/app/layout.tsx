@@ -37,6 +37,40 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         // the baseline palette. ThemeProvider rehydrates from localStorage /
         // prefers-color-scheme on the client and flips the attribute if needed.
         <html lang={locale} data-theme="dark" suppressHydrationWarning>
+            <head>
+                {/*
+                    2026-05-14 — CSP `strict-dynamic` + webpack chunk
+                    loader bridge. Next.js auto-applies the request
+                    nonce to its server-rendered `<script>` and
+                    `<link>` tags, but DYNAMICALLY-loaded webpack
+                    chunks (Next's `chunks/*.js` for code-split
+                    components like the R16 visx/motion charts) are
+                    injected at runtime via `document.createElement
+                    ('script')`. Those don't inherit the nonce
+                    automatically — they need webpack to set
+                    `script.nonce` at injection time, which webpack
+                    does only when `__webpack_nonce__` is defined.
+                    Setting it on `window` (and `globalThis` for
+                    completeness in stricter runtimes) BEFORE any
+                    chunk loads kicks in is what unblocks
+                    strict-dynamic for the chart code.
+
+                    The script itself carries the nonce so CSP
+                    allows it. Inline content is deterministic
+                    (just `var __webpack_nonce__ = '<nonce>';`),
+                    no user input — no XSS surface beyond the
+                    nonce itself (which is per-request +
+                    cryptographically random).
+                */}
+                {nonce && (
+                    <script
+                        nonce={nonce}
+                        dangerouslySetInnerHTML={{
+                            __html: `window.__webpack_nonce__=${JSON.stringify(nonce)};globalThis.__webpack_nonce__=${JSON.stringify(nonce)};`,
+                        }}
+                    />
+                )}
+            </head>
             <body suppressHydrationWarning nonce={nonce}>
                 <Providers>
                     <NextIntlClientProvider messages={messages} locale={locale}>
