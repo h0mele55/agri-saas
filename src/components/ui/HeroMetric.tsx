@@ -167,11 +167,20 @@ export function HeroMetric({
         <section
             className={cn(
                 cardVariants(),
+                "relative isolate overflow-hidden",
                 "flex flex-col gap-tight md:flex-row md:items-end md:justify-between",
                 "transition-colors duration-150 ease-out",
+                // R17-PR1 — ambient brand glow behind the 72px value.
+                // Soft radial wash anchored under the value (left bias,
+                // vertical centre), brand-subtle alpha that fades to
+                // transparent. Static for PR-1; PR-2 introduces the
+                // breath animation on top of this same gradient.
+                "before:content-[''] before:absolute before:inset-0 before:-z-10 before:pointer-events-none",
+                "before:bg-[radial-gradient(ellipse_640px_400px_at_18%_60%,var(--brand-subtle)_0%,transparent_72%)]",
                 className,
             )}
             data-hero-metric
+            data-hero-ambient-glow
             data-testid={dataTestId}
         >
             <div className="min-w-0 flex-1">
