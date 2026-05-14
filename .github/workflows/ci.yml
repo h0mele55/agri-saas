@@ -363,7 +363,13 @@ jobs:
     name: E2E
     needs: [build]
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The Playwright suite runs serially (workers: 1, fullyParallel:
+    # false — specs share seeded-tenant state) and is ~25 min wall-clock
+    # even all-green. 25 was too tight: a single flaky-retry pushed the
+    # job past the cap and it died as `cancelled` before Playwright
+    # could even print the failure summary. 40 gives real headroom for
+    # the 2-retry budget without masking failures behind a timeout.
+    timeout-minutes: 40
 
     env:
       AUTH_TEST_MODE: "1"

@@ -19,6 +19,7 @@ import { forbidden, notFound } from '@/lib/errors/types';
 import { sanitizeProviderInput, describePayload } from '@/app-layer/ai/risk-assessment/privacy-sanitizer';
 import { checkRateLimit, recordGeneration } from '@/app-layer/ai/risk-assessment/rate-limiter';
 import { enforceFeatureGate } from '@/app-layer/ai/risk-assessment/feature-gate';
+import { bumpEntityCacheVersion } from '@/lib/cache/list-cache';
 
 // ─── Generate Risk Suggestions ───
 
@@ -215,7 +216,7 @@ export async function applySession(ctx: RequestContext, sessionId: string, input
         throw forbidden('Only editors and admins can apply AI risk suggestions');
     }
 
-    return runInTenantContext(ctx, async (db) => {
+    const { updatedSession, createdRiskCount } = await runInTenantContext(ctx, async (db) => {
         const session = await db.riskSuggestionSession.findFirst({
             where: { id: sessionId, tenantId: ctx.tenantId },
             include: { items: true },
@@ -311,8 +312,19 @@ export async function applySession(ctx: RequestContext, sessionId: string, input
             },
         });
 
-        return updatedSession;
+        return { updatedSession, createdRiskCount: createdRisks.length };
     });
+
+    // applySession creates/links Risk rows directly (not via the
+    // `createRisk` usecase), so it must invalidate the risk list cache
+    // itself — every other Risk-mutating usecase in `risk.ts` does the
+    // same. Without this, AI-applied risks stay invisible in the Risk
+    // Register until the cache TTL expires.
+    if (createdRiskCount > 0) {
+        await bumpEntityCacheVersion(ctx, 'risk');
+    }
+
+    return updatedSession;
 }
 
 // ─── Dismiss Session ───

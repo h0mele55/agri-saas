@@ -18,11 +18,9 @@ test.describe('Issue Management', () => {
         tenantSlug = await loginAndGetTenant(page);
         await gotoAndVerify(page, `/t/${tenantSlug}/tasks`, 'h1');
         await expect(page.locator('#new-task-btn')).toBeVisible({ timeout: 10000 });
-        // `#task-search` is the FilterToolbar searchId on this page.
-        // Epic 53 consolidated status/type/severity into a single Filter
-        // popover — the old `#task-status-filter` / `#task-type-filter`
-        // / `#task-severity-filter` inputs no longer exist.
-        await expect(page.locator('#task-search')).toBeVisible();
+        // R14 (#443) removed the FilterToolbar text-search input from every
+        // list page — the navbar ⌘K palette is the sole search affordance
+        // now. No `#task-search` element to assert.
     });
 
     test('create a new issue and see detail', async ({ page }) => {

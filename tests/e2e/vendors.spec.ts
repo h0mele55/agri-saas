@@ -14,7 +14,8 @@ test.describe('Vendor Management', () => {
         await gotoAndVerify(page, `/t/${tenantSlug}/vendors`, 'h1');
         await expect(page.locator('h1')).toContainText('Vendor Register', { timeout: 15000 });
         await expect(page.locator('#new-vendor-btn')).toBeVisible();
-        await expect(page.locator('#vendor-search')).toBeVisible();
+        // R14 (#443) removed the FilterToolbar text-search input from every
+        // list page — no `#vendor-search` element to assert.
     });
 
     test('create vendor and navigate to detail', async ({ page }) => {

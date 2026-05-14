@@ -2,12 +2,11 @@ import { test, expect } from '@playwright/test';
 import { loginAndGetTenant, safeGoto } from './e2e-utils';
 
 /**
- * FilterToolbar contract — Tasks, Vendors, and URL persistence.
+ * FilterToolbar contract — Tasks and Vendors.
  *
  * The Controls page has its own canonical coverage in
  * `controls-filter-epic53.spec.ts`. This spec extends that contract to
- * the two other migrated list pages (Tasks, Vendors) and pins the
- * browser-refresh persistence invariant across reload.
+ * the two other migrated list pages (Tasks, Vendors).
  *
  * The pre-Epic-53 version of this file exercised the deprecated
  * `CompactFilterBar` DOM (`filter-dd-status`, `filter-chip-overdue`,
@@ -17,26 +16,18 @@ import { loginAndGetTenant, safeGoto } from './e2e-utils';
  *   1. Click the trigger → the cmdk listbox appears.
  *   2. Click the top-level filter (e.g. "Type") → value options appear.
  *   3. Click a value → the URL picks up the param.
+ *
+ * NOTE: R14 (#443) removed the free-text search input from every list
+ * page — the per-page `search input writes q param` tests and the
+ * `URL persistence` block (both driven by `#task-search` / `#vendor-search`
+ * / `#control-search`) were deleted. The navbar ⌘K palette is the sole
+ * search affordance now.
  */
 
 test.describe('FilterToolbar — Tasks', () => {
     test.describe.configure({ mode: 'serial' });
 
     let tenantSlug: string;
-
-    test('search input writes q param to the URL on Enter', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await safeGoto(page, `/t/${tenantSlug}/tasks`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        const search = page.locator('#task-search');
-        await expect(search).toBeVisible({ timeout: 15000 });
-
-        await search.fill('zzz-no-match-zzz');
-        await search.press('Enter');
-
-        await expect(page).toHaveURL(/[?&]q=zzz-no-match-zzz/, { timeout: 10000 });
-    });
 
     test('picking a type filter pushes it into the URL', async ({ page }) => {
         tenantSlug = await loginAndGetTenant(page);
@@ -86,20 +77,6 @@ test.describe('FilterToolbar — Vendors', () => {
 
     let tenantSlug: string;
 
-    test('search input writes q param to the URL on Enter', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await safeGoto(page, `/t/${tenantSlug}/vendors`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        const search = page.locator('#vendor-search');
-        await expect(search).toBeVisible({ timeout: 15000 });
-
-        await search.fill('zzz-no-match-zzz');
-        await search.press('Enter');
-
-        await expect(page).toHaveURL(/[?&]q=zzz-no-match-zzz/, { timeout: 10000 });
-    });
-
     test('picking a criticality filter pushes it into the URL', async ({ page }) => {
         tenantSlug = await loginAndGetTenant(page);
         await safeGoto(page, `/t/${tenantSlug}/vendors`);
@@ -117,25 +94,5 @@ test.describe('FilterToolbar — Vendors', () => {
         await high.click();
 
         await expect(page).toHaveURL(/[?&]criticality=HIGH/, { timeout: 10000 });
-    });
-});
-
-test.describe('FilterToolbar — URL persistence', () => {
-    test('filters survive a page refresh', async ({ page }) => {
-        const tenantSlug = await loginAndGetTenant(page);
-        await safeGoto(page, `/t/${tenantSlug}/controls?status=IMPLEMENTED&q=policy`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        // Search input rehydrates with the q param value.
-        const search = page.locator('#control-search');
-        await expect(search).toBeVisible({ timeout: 15000 });
-        await expect(search).toHaveValue('policy', { timeout: 10000 });
-
-        // Reload — URL params come back verbatim.
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        expect(page.url()).toContain('status=IMPLEMENTED');
-        expect(page.url()).toContain('q=policy');
     });
 });

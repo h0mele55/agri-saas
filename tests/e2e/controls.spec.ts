@@ -17,7 +17,8 @@ test.describe('Controls Center', () => {
         await page.waitForSelector('h1', { timeout: 15000 });
         await expect(page.locator('#new-control-btn')).toBeVisible({ timeout: 5000 });
         await expect(page.locator('#install-templates-btn')).toBeVisible();
-        await expect(page.locator('#control-search')).toBeVisible();
+        // R14 (#443) removed the FilterToolbar text-search input from every
+        // list page — no `#control-search` element to assert.
         // Epic 53: the per-field `#control-status-filter` dropdown has been
         // replaced by the consolidated FilterSelect picker. Assert the picker
         // trigger is visible (the shared primitive renders a `ListFilter`

@@ -26,7 +26,6 @@ test.describe('DataTable Platform — Cross-page regression', () => {
         heading?: string;
         testId?: string;
         minHeaders?: number;
-        filterSelector?: string;
     }) {
         await page.goto(`/t/${tenantSlug}${path}`);
         await page.waitForLoadState('networkidle').catch(() => {});
@@ -82,7 +81,6 @@ test.describe('DataTable Platform — Cross-page regression', () => {
         tenantSlug = await loginAndGetTenant(page);
         await assertTableRendered(page, '/controls', {
             heading: 'Controls',
-            filterSelector: '#control-search',
             minHeaders: 3,
         });
     });
@@ -217,45 +215,9 @@ test.describe('DataTable Platform — Row click navigation', () => {
     });
 });
 
-test.describe('DataTable Platform — Filter interaction', () => {
-    let tenantSlug: string;
-
-    test('Controls search filter works', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await page.goto(`/t/${tenantSlug}/controls`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForSelector('h1', { timeout: 15000 });
-
-        const searchInput = page.locator('#control-search');
-        if (await searchInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-            // Type a nonsense query that shouldn't match anything.
-            // CompactFilterBar submits on Enter (not on every keystroke) so the query
-            // is applied to filters.q only after the keyboard event.
-            await searchInput.fill('zzz-no-match-zzz');
-            await searchInput.press('Enter');
-            await page.waitForLoadState('networkidle').catch(() => {});
-
-            // Should show empty state or filtered results
-            const tableRows = await page.locator('tbody tr').count();
-            const emptyState = await page.locator('text=/no .+ found|no .+ match/i').isVisible().catch(() => false);
-            expect(tableRows === 0 || emptyState).toBe(true);
-
-            // Clear filter
-            await searchInput.fill('');
-            await searchInput.press('Enter');
-            await page.waitForLoadState('networkidle').catch(() => {});
-        }
-    });
-
-    test('Tasks filter bar is interactive', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await page.goto(`/t/${tenantSlug}/tasks`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-        await page.waitForSelector('h1', { timeout: 15000 });
-
-        // Check filter bar exists
-        const searchInput = page.locator('#task-search');
-        const filterVisible = await searchInput.isVisible({ timeout: 3000 }).catch(() => false);
-        expect(filterVisible).toBe(true);
-    });
-});
+// R14 (#443) removed the FilterToolbar text-search input from every list
+// page (the navbar ⌘K palette is the sole search affordance now). The
+// "Filter interaction" describe block here drove `#control-search` /
+// `#task-search` directly and was deleted — list-page filter coverage
+// now lives in `controls-filter-epic53.spec.ts` (the FilterSelect popover
+// path, which is the surviving filter UI).

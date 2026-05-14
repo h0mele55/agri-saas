@@ -46,10 +46,9 @@ test.describe('Control Tests (Test-of-Control)', () => {
         tenantSlug = await loginAndGetTenant(page);
         await gotoAndVerify(page, `/t/${tenantSlug}/controls`, 'h1');
 
-        // Use search to find the specific control
-        await page.locator('#control-search').fill(`Test Ctrl ${uid}`);
-        await page.locator('#control-search').press('Enter');
-        await page.waitForLoadState('networkidle').catch(() => {}); /* replaced wait */
+        // R14 (#443) removed the list-page search input — the controls
+        // list renders every control (no server-side page cap), so click
+        // the row link directly.
         await page.click(`text=Test Ctrl ${uid}`);
         await page.waitForLoadState('networkidle').catch(() => {});
         await page.waitForSelector('#control-title', { timeout: 30000 });
@@ -77,10 +76,8 @@ test.describe('Control Tests (Test-of-Control)', () => {
         tenantSlug = await loginAndGetTenant(page);
         await gotoAndVerify(page, `/t/${tenantSlug}/controls`, 'h1');
 
-        // Use search to find the specific control
-        await page.locator('#control-search').fill(`Test Ctrl ${uid}`);
-        await page.locator('#control-search').press('Enter');
-        await page.waitForLoadState('networkidle').catch(() => {});
+        // R14 (#443) removed the list-page search input — click the row
+        // link directly (the controls list renders every control).
         await page.click(`text=Test Ctrl ${uid}`);
         await page.waitForSelector('#control-title', { timeout: 10000 });
         await page.click('#tab-tests');
@@ -127,10 +124,8 @@ test.describe('Control Tests (Test-of-Control)', () => {
         tenantSlug = await loginAndGetTenant(page);
         await gotoAndVerify(page, `/t/${tenantSlug}/controls`, 'h1');
 
-        // Use search to find the specific control
-        await page.locator('#control-search').fill(`Test Ctrl ${uid}`);
-        await page.locator('#control-search').press('Enter');
-        await page.waitForLoadState('networkidle').catch(() => {});
+        // R14 (#443) removed the list-page search input — click the row
+        // link directly (the controls list renders every control).
         await page.click(`text=Test Ctrl ${uid}`);
         await page.waitForSelector('#control-title', { timeout: 10000 });
         await page.click('#tab-tests');

@@ -109,16 +109,9 @@ test.describe('Epic 54 — New Risk modal', () => {
         // Modal closes on success.
         await expect(page.locator('#risk-title')).toBeHidden({ timeout: 10000 });
 
-        // List refreshes — the newly created risk appears.
-        // Serial-mode E2E runs accumulate rows across tests, so the new
-        // risk may land on page 2 of the register. Narrow the view via
-        // the search box (submit-on-Enter) so the assertion is
-        // pagination-independent.
-        const searchBox = page.getByPlaceholder(/Search risks/i).first();
-        if (await searchBox.count() > 0) {
-            await searchBox.fill(title);
-            await searchBox.press('Enter');
-        }
+        // List refreshes — the newly created risk appears. R14 (#443)
+        // removed the risks-page search box; the register renders every
+        // row (LIST_BACKFILL_CAP, no pagination), so assert directly.
         await expect(page.locator('[data-testid="risks-table"]')).toContainText(
             title,
             { timeout: 15000 },

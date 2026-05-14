@@ -96,27 +96,11 @@ test.describe('AI-Assisted Risk Assessment', () => {
         await page.waitForURL('**/risks', { timeout: 30000 });
         await page.waitForLoadState('networkidle').catch(() => {});
 
-        // Verify the risk is in the register. Serial-mode E2E runs
-        // accumulate dozens of risks; the AI-applied row often lands on
-        // page 2+ of the default sort. Narrow via the search box (the
-        // same pattern the new-risk-modal spec uses) so the assertion is
-        // pagination-independent.
+        // Verify the risk is in the register. R14 (#443) removed the
+        // risks-page search box; the register now renders every row
+        // (LIST_BACKFILL_CAP, no pagination — internal scroll only), so
+        // assert against the full table directly.
         if (firstTitle) {
-            const searchBox = page.getByPlaceholder(/Search risks/i).first();
-            await searchBox.waitFor({ state: 'visible', timeout: 15000 });
-            await searchBox.fill(firstTitle);
-            // Wait for the API refetch the URL change triggers, so the
-            // table has the filtered rows by the time we assert.
-            await Promise.all([
-                page.waitForResponse(
-                    (r) =>
-                        r.url().includes('/api/t/') &&
-                        r.url().includes('/risks') &&
-                        r.url().includes('q='),
-                    { timeout: 15000 },
-                ).catch(() => undefined),
-                searchBox.press('Enter'),
-            ]);
             await expect(page.locator('[data-testid="risks-table"]')).toContainText(
                 firstTitle,
                 { timeout: 15000 },

@@ -57,12 +57,17 @@ jest.mock('../../../src/app-layer/events/audit', () => ({
     logEvent: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('@/lib/cache/list-cache', () => ({
+    bumpEntityCacheVersion: jest.fn().mockResolvedValue(undefined),
+}));
+
 import {
     generateRiskSuggestions,
     applySession,
     dismissSession,
 } from '@/app-layer/usecases/risk-suggestions';
 import { runInTenantContext } from '@/lib/db-context';
+import { bumpEntityCacheVersion } from '@/lib/cache/list-cache';
 import { getProvider } from '@/app-layer/ai/risk-assessment';
 import { sanitizeProviderInput } from '@/app-layer/ai/risk-assessment/privacy-sanitizer';
 import {
@@ -80,6 +85,7 @@ const mockCheckRateLimit = checkRateLimit as jest.MockedFunction<typeof checkRat
 const mockRecordGeneration = recordGeneration as jest.MockedFunction<typeof recordGeneration>;
 const mockEnforceGate = enforceFeatureGate as jest.MockedFunction<typeof enforceFeatureGate>;
 const mockLog = logEvent as jest.MockedFunction<typeof logEvent>;
+const mockBumpCache = bumpEntityCacheVersion as jest.MockedFunction<typeof bumpEntityCacheVersion>;
 
 beforeEach(() => {
     jest.clearAllMocks();
@@ -325,6 +331,56 @@ describe('applySession — idempotency + state guard', () => {
             expect.objectContaining({ id: 'i1', status: 'ACCEPTED' }),
             expect.objectContaining({ id: 'i2', status: 'REJECTED' }),
         ]));
+    });
+
+    it('invalidates the risk list cache after creating risks', async () => {
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) =>
+            fn({
+                riskSuggestionSession: {
+                    findFirst: jest.fn().mockResolvedValue({
+                        id: 's1', status: 'GENERATED', provider: 'm', modelName: 'm',
+                        items: [{ id: 'i1', title: 't1', status: 'PENDING' }],
+                    }),
+                    update: jest.fn().mockResolvedValue({}),
+                },
+                riskSuggestionItem: { update: jest.fn() },
+                tenant: { findUnique: jest.fn().mockResolvedValue({ maxRiskScale: 5 }) },
+                risk: {
+                    findFirst: jest.fn().mockResolvedValue(null),
+                    create: jest.fn().mockResolvedValue({ id: 'r-new' }),
+                },
+            } as never),
+        );
+
+        const ctx = makeRequestContext('ADMIN');
+        await applySession(ctx, 's1', { acceptedItemIds: ['i1'] });
+
+        // Regression: applySession creates Risk rows directly (not via
+        // the `createRisk` usecase), so it must bump the risk list-cache
+        // version itself. Without this, AI-applied risks stay invisible
+        // in the Risk Register until the cache TTL expires.
+        expect(mockBumpCache).toHaveBeenCalledWith(ctx, 'risk');
+    });
+
+    it('does NOT bump the cache when nothing is accepted (no Risk rows written)', async () => {
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) =>
+            fn({
+                riskSuggestionSession: {
+                    findFirst: jest.fn().mockResolvedValue({
+                        id: 's1', status: 'GENERATED', provider: 'm', modelName: 'm',
+                        items: [{ id: 'i1', title: 't1', status: 'PENDING' }],
+                    }),
+                    update: jest.fn().mockResolvedValue({}),
+                },
+                riskSuggestionItem: { update: jest.fn() },
+                tenant: { findUnique: jest.fn().mockResolvedValue({ maxRiskScale: 5 }) },
+                risk: { findFirst: jest.fn(), create: jest.fn() },
+            } as never),
+        );
+
+        await applySession(makeRequestContext('ADMIN'), 's1', { acceptedItemIds: [] });
+
+        expect(mockBumpCache).not.toHaveBeenCalled();
     });
 });
 

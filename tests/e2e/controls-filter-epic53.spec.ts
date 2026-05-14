@@ -5,11 +5,15 @@ import { loginAndGetTenant, safeGoto } from './e2e-utils';
  * Epic 53 E2E — Controls page on the new enterprise filter system.
  *
  * Exercises the observable migration contract:
- *   1. The free-text `#control-search` input still drives the `q` URL param.
- *   2. The consolidated FilterSelect picker opens, drills into a filter, and
+ *   1. The consolidated FilterSelect picker opens, drills into a filter, and
  *      applies a value that lands in the URL.
- *   3. Clear-all wipes active filters from the URL without breaking the page.
- *   4. Empty-state copy renders when a filter matches nothing.
+ *   2. Empty-state copy renders when a filter matches nothing.
+ *
+ * NOTE: R14 (#443) removed the free-text `#control-search` input from
+ * every list page — the navbar ⌘K palette is the sole search affordance
+ * now. The two search-driven tests that used to live here (q-param write,
+ * clear-search) were deleted; the FilterSelect popover is the surviving
+ * filter UI.
  *
  * Tenant safety: we read/assert URLs scoped under `/t/{slug}/controls` and
  * exercise real API calls — no filter-state mocking.
@@ -19,41 +23,6 @@ test.describe('Controls — Epic 53 filter system', () => {
     test.describe.configure({ mode: 'serial' });
 
     let tenantSlug: string;
-
-    test('search input writes q param to the URL on Enter', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await safeGoto(page, `/t/${tenantSlug}/controls`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        const search = page.locator('#control-search');
-        await expect(search).toBeVisible({ timeout: 15000 });
-
-        await search.fill('zzz-no-match-zzz');
-        await search.press('Enter');
-
-        // URL should now carry q=…; router.replace is synchronous after input.
-        await expect(page).toHaveURL(/[?&]q=zzz-no-match-zzz/, { timeout: 10000 });
-
-        // Empty-state copy should surface under the no-match filter.
-        await expect(
-            page.locator('text=/no .+ match|no .+ found/i').first(),
-        ).toBeVisible({ timeout: 10000 });
-    });
-
-    test('clearing the search returns to the unfiltered list', async ({ page }) => {
-        tenantSlug = await loginAndGetTenant(page);
-        await safeGoto(page, `/t/${tenantSlug}/controls?q=zzz`);
-        await page.waitForLoadState('networkidle').catch(() => {});
-
-        const search = page.locator('#control-search');
-        await expect(search).toHaveValue('zzz');
-
-        await search.fill('');
-        await search.press('Enter');
-
-        // q should drop out of the URL entirely.
-        await expect(page).not.toHaveURL(/[?&]q=/);
-    });
 
     test('FilterSelect trigger opens the command palette', async ({ page }) => {
         tenantSlug = await loginAndGetTenant(page);
