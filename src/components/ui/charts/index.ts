@@ -118,6 +118,10 @@ export {
     CHART_HOVER_LIFT,
     CHART_HOVER_POINT_SCALE,
     CHART_FLOW_PERIOD_MS,
+    // R18-PR2 — bubbly-settle entrance spring
+    useChartSpring,
+    CHART_SPRING_DURATION_MS,
+    CHART_SPRING_OVERSHOOT,
 } from './chart-motion';
 
 // ─── Roadmap-16 — LineChart primitive ───────────────────────────────

@@ -294,3 +294,124 @@ export function useChartFlow({
 
     return ref;
 }
+
+// ─── Roadmap-18 PR-2 — useChartSpring ────────────────────────────────
+
+/**
+ * R18-PR2 — the "bubbly settle" entrance curve.
+ *
+ * Period (ms) of the spring entrance. ~520ms is the sweet spot:
+ * long enough for the eye to register the overshoot + settle as
+ * deliberate buoyancy, short enough that an impatient user isn't
+ * waiting for the chart to "arrive."
+ */
+export const CHART_SPRING_DURATION_MS = 520;
+
+/**
+ * Default overshoot magnitude. The `easeOutBack` curve peaks ~10%
+ * past the target before settling — a chart segment that grows to
+ * 110% then eases back to 100% reads as "bubbly," buoyant, alive.
+ * Larger values read as cartoonish; smaller ones lose the bubble.
+ */
+export const CHART_SPRING_OVERSHOOT = 0.1;
+
+interface UseChartSpringArgs {
+    /**
+     * When this flips `false → true` the spring runs once from 0.
+     * Charts pass `true` on mount for an entrance; pass a changing
+     * value (e.g. a data-version key via `key=`) to re-trigger.
+     * Defaults to `true` — mount-entrance is the common case.
+     */
+    enabled?: boolean;
+    /** Override the entrance duration. Defaults to CHART_SPRING_DURATION_MS. */
+    durationMs?: number;
+    /** Override the overshoot magnitude. Defaults to CHART_SPRING_OVERSHOOT. */
+    overshoot?: number;
+}
+
+/**
+ * `easeOutBack` — the overshoot-and-settle curve. Standard form:
+ *
+ *   f(t) = 1 + c3·(t-1)³ + c1·(t-1)²
+ *   where c1 = overshoot tuning, c3 = c1 + 1
+ *
+ * At `overshoot = 0.1` the curve peaks ~1.10 around t≈0.74 then
+ * eases back to exactly 1.0 at t=1. Returns values that can
+ * momentarily exceed 1 — consumers map the return value onto a
+ * `scale()` or arc-radius so the shape visibly bulges then settles.
+ */
+function easeOutBack(t: number, overshoot: number): number {
+    // c1 derived so the visible peak height tracks `overshoot`.
+    const c1 = overshoot * 10 * 0.1738; // ≈1.738×overshoot, tuned
+    const c3 = c1 + 1;
+    const p = t - 1;
+    return 1 + c3 * p * p * p + c1 * p * p;
+}
+
+/**
+ * Drives a single normalised `progress` value through an
+ * overshoot-and-settle spring on mount (or when `enabled` flips
+ * true). Consumers map `progress` onto a `scale()`, an arc
+ * `outerRadius`, a bar height — anything that should "bubble in."
+ *
+ * Contract:
+ *   - Returns a number that starts at 0, rises PAST 1 (the
+ *     overshoot peak), then settles to exactly 1.
+ *   - `prefers-reduced-motion: reduce` → returns 1 immediately,
+ *     no animation. The chart appears at its final size with no
+ *     entrance.
+ *   - SSR-safe: the first render returns 1 (final state) so the
+ *     server markup matches the settled chart; the spring only
+ *     runs after the mount effect fires on the client. This
+ *     avoids a hydration-mismatch flash — the same lesson R17-PR5
+ *     (count-up) was deferred over.
+ *
+ * Pure value out — no DOM writes, no refs. Consumers decide what
+ * the number means.
+ */
+export function useChartSpring({
+    enabled = true,
+    durationMs = CHART_SPRING_DURATION_MS,
+    overshoot = CHART_SPRING_OVERSHOOT,
+}: UseChartSpringArgs = {}): number {
+    const reduced = useReducedMotion();
+    // SSR + first client render: 1 (settled). The spring only
+    // engages after the mount effect — server markup and the
+    // hydrated first paint both show the final chart.
+    const [progress, setProgress] = useState(1);
+
+    useEffect(() => {
+        if (!enabled || reduced) {
+            setProgress(1);
+            return undefined;
+        }
+
+        let startTime: number | null = null;
+        let raf = 0;
+        // Kick off from 0 so the entrance is visible.
+        setProgress(0);
+        const tick = (t: number) => {
+            if (startTime === null) startTime = t;
+            const elapsed = t - startTime;
+            const linear = Math.min(elapsed / durationMs, 1);
+            setProgress(easeOutBack(linear, overshoot));
+            if (linear < 1) {
+                raf = requestAnimationFrame(tick);
+            } else {
+                // Land on EXACTLY 1 — easeOutBack(1) is 1
+                // analytically, but float drift could leave a
+                // sliver. Snap to be certain.
+                setProgress(1);
+            }
+        };
+        raf = requestAnimationFrame(tick);
+        return () => {
+            cancelAnimationFrame(raf);
+            // Settle on cleanup so a deps-change re-run doesn't
+            // start from a mid-overshoot value.
+            setProgress(1);
+        };
+    }, [enabled, durationMs, overshoot, reduced]);
+
+    return progress;
+}
