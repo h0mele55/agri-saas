@@ -39,9 +39,25 @@ interface SkeletonProps {
  * border-radius; `relative` is required for the absolutely-positioned
  * `::after` overlay.
  *
- * `motion-reduce:after:hidden motion-reduce:animate-pulse` honours
- * `prefers-reduced-motion` — fall back to the old opacity pulse for
- * accessibility instead of a static block.
+ * Skeleton-shimmer visibility fix (regression — "static skeleton
+ * again"):
+ *
+ *   1. The sweep band was `via-white/[0.06]` — 6% white on the
+ *      dark `bg-bg-subtle` navy. The animation ran, but at 6%
+ *      opacity the gloss was imperceptible — it READ as static.
+ *      Bumped to `via-white/[0.16]` so the sweep actually shows
+ *      as a travelling gloss highlight.
+ *
+ *   2. The reduced-motion fallback hid the `::after` sweep and
+ *      fell back to a pulse animation — but the GLOBAL
+ *      `prefers-reduced-motion` rule in tokens.css flattens every
+ *      `animation-duration` to 1ms `!important`. So the pulse
+ *      fallback was itself killed → reduced-motion users got a
+ *      FULLY static block. The fix: keep the `::after` gloss
+ *      VISIBLE under reduced-motion but PARK it centred
+ *      (`animate-none` + `translate-x-0`) — a static gloss
+ *      highlight reads as an intentional polished surface, not a
+ *      dead grey rectangle. No animation, but never static-blank.
  */
 export function Skeleton({ className = '' }: SkeletonProps) {
     return (
@@ -49,9 +65,14 @@ export function Skeleton({ className = '' }: SkeletonProps) {
             className={cn(
                 'relative overflow-hidden rounded bg-bg-subtle',
                 'after:absolute after:inset-0 after:translate-x-[-100%]',
-                'after:bg-gradient-to-r after:from-transparent after:via-white/[0.06] after:to-transparent',
+                'after:bg-gradient-to-r after:from-transparent after:via-white/[0.16] after:to-transparent',
                 'after:animate-shimmer-sweep',
-                'motion-reduce:after:hidden motion-reduce:animate-pulse',
+                // Reduced-motion: stop the sweep, park the gloss band
+                // centred + visible. A static highlight, not a dead
+                // block. (The prior hide-sweep + pulse fallback was
+                // killed by tokens.css's global reduced-motion
+                // `animation-duration: 1ms` rule.)
+                'motion-reduce:after:animate-none motion-reduce:after:translate-x-0',
                 className,
             )}
             aria-hidden="true"

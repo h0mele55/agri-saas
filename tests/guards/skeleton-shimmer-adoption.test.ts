@@ -56,9 +56,24 @@ describe('Skeleton shimmer adoption (R11-PR2)', () => {
         );
         // Canonical shimmer signature on the primitive.
         expect(src).toMatch(/after:animate-shimmer-sweep/);
-        // Motion-reduce fallback to the prior opacity pulse.
-        expect(src).toMatch(/motion-reduce:after:hidden/);
-        expect(src).toMatch(/motion-reduce:animate-pulse/);
+        // The sweep band must be visible — `via-white/[0.06]` (6%)
+        // read as static. Locked at a perceptible opacity (≥ 0.12)
+        // so a future "tidy" can't quietly fade it back to
+        // imperceptible.
+        const viaMatch = src.match(/after:via-white\/\[(0\.\d+)\]/);
+        expect(viaMatch).not.toBeNull();
+        expect(Number(viaMatch![1])).toBeGreaterThanOrEqual(0.12);
+        // Reduced-motion fallback: the sweep is STOPPED + the band
+        // PARKED centred (a static gloss highlight), NOT hidden +
+        // `animate-pulse`. The old `animate-pulse` fallback was
+        // dead — tokens.css's global reduced-motion rule flattens
+        // every `animation-duration` to 1ms, so the pulse never
+        // ran and reduced-motion users got a fully static block.
+        expect(src).toMatch(/motion-reduce:after:animate-none/);
+        expect(src).toMatch(/motion-reduce:after:translate-x-0/);
+        // And the dead fallback is gone.
+        expect(src).not.toMatch(/motion-reduce:after:hidden/);
+        expect(src).not.toMatch(/motion-reduce:animate-pulse/);
     });
 
     test('the tailwind config defines shimmer-sweep keyframes + animation', () => {
