@@ -79,6 +79,20 @@ export type {
     ChartGradientDirection,
 } from './chart-gradient';
 
+// ─── Roadmap-18 — ChartGloss specular-highlight primitive ───────────
+//
+// The "light" layer that sits ON TOP of a ChartGradient colour
+// layer. A white → transparent ramp consumers paint as an overlay
+// shape (same `d`, stacked) to give chart surfaces a glass
+// catch-light. See chart-gloss.tsx for the two-layer paint
+// contract.
+
+export { ChartGloss, chartGlossId } from './chart-gloss';
+export type {
+    ChartGlossDirection,
+    ChartGlossIntensity,
+} from './chart-gloss';
+
 // ─── Roadmap-16 — ChartFrame wrapper ────────────────────────────────
 //
 // Responsive container + state-driven branch rendering. Every R16
