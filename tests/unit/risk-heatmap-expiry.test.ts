@@ -54,14 +54,16 @@ describe('RiskHeatmap Widget', () => {
         expect(content).toContain('No risks registered yet');
     });
 
-    test('color-codes by risk score', () => {
-        expect(content).toContain('score >= 15');
-        expect(content).toContain('score >= 10');
-        expect(content).toContain('score >= 5');
-        expect(content).toContain('bg-red-500');
-        expect(content).toContain('bg-orange-500');
-        expect(content).toContain('bg-amber-500');
-        expect(content).toContain('bg-emerald-500');
+    test('color-codes by risk score via R21-PR-C useHeatScale', () => {
+        // R21-PR-C replaced the bespoke score-bucket palette
+        // (bg-red-500 / bg-orange-500 / bg-amber-500 / bg-emerald-500)
+        // with a continuous OKLAB ramp driven by `useHeatScale`
+        // from the chart-series 4 (pink) token family. The cells
+        // colour-map via `heat.colorFor(score)` where score is
+        // likelihood × impact.
+        expect(content).toContain('useHeatScale');
+        expect(content).toContain('heat.colorFor(score)');
+        expect(content).toContain('likelihood * impact');
     });
 
     test('uses likelihood × impact lookup', () => {
@@ -75,11 +77,14 @@ describe('RiskHeatmap Widget', () => {
         expect(content).toContain('Impact');
     });
 
-    test('has legend', () => {
-        expect(content).toContain('Low');
-        expect(content).toContain('Medium');
-        expect(content).toContain('High');
-        expect(content).toContain('Critical');
+    test('has a gradient legend (R21-PR-C ChartLegend)', () => {
+        // R21-PR-C replaced the discrete Low/Medium/High/Critical
+        // 4-swatch legend with a continuous-ramp `<ChartLegend
+        // variant="gradient">` painted from the same tokens the
+        // cells consume.
+        expect(content).toContain('ChartLegend');
+        expect(content).toContain('variant="gradient"');
+        expect(content).toContain('heatScale={heat}');
     });
 
     test('supports className and id props', () => {
@@ -306,26 +311,29 @@ describe('ExpiryCalendar Urgency Logic', () => {
 
 // ─── Risk Heatmap Score Logic Unit Tests ─────────────────────────────
 
-describe('RiskHeatmap Score Logic', () => {
+describe('RiskHeatmap Score Logic (post R21-PR-C heatmap rebuild)', () => {
     const content = fs.readFileSync(path.join(UI_DIR, 'RiskHeatmap.tsx'), 'utf-8');
 
-    test('critical threshold: score >= 15', () => {
-        expect(content).toContain('score >= 15');
+    // R21-PR-C replaced the discrete score-bucket thresholds with
+    // a continuous OKLAB heat scale over the [1, scale²] domain.
+    // The Low/Medium/High/Critical labels + getScoreLabel function
+    // are gone; the colour gradation IS the severity readout, and
+    // the tooltip shows the raw score plus count.
+
+    test('continuous score domain spans [1, scoreMax]', () => {
+        expect(content).toContain('scoreMax = scale * scale');
+        expect(content).toContain('domain: [1, scoreMax]');
     });
 
-    test('high threshold: score >= 10', () => {
-        expect(content).toContain('score >= 10');
+    test('cell colour interpolates via the heat scale, not a bucket lookup', () => {
+        expect(content).toContain('heat.colorFor(score)');
     });
 
-    test('medium threshold: score >= 5', () => {
-        expect(content).toContain('score >= 5');
-    });
-
-    test('getScoreLabel function exists for accessibility', () => {
-        expect(content).toContain('function getScoreLabel');
-    });
-
-    test('cell tooltips include score and label', () => {
-        expect(content).toContain('getScoreLabel(score)');
+    test('cell tooltips include likelihood × impact + count', () => {
+        // The score + cell count are surfaced in the tooltip
+        // string. Severity buckets aren't a separate label any
+        // more — the colour communicates severity directly.
+        expect(content).toContain('L${likelihood} × I${impact} = ${score}');
+        expect(content).toContain('${count} risk');
     });
 });

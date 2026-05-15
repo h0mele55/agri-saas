@@ -68,7 +68,10 @@ describe('<CalendarHeatmap />', () => {
         ) as HTMLElement;
         expect(cell0215).toBeInTheDocument();
         expect(cell0215.dataset.count).toBe('3');
-        expect(cell0215.dataset.intensity).toBe('4');
+        // R21-PR-C — `data-intensity` is now the continuous OKLAB
+        // intensity (0..1, default floor 0.15) instead of the
+        // discrete bucket (0..4). count=max maps to the ceiling.
+        expect(cell0215.dataset.intensity).toBe('1.00');
         const cell0301 = container.querySelector(
             'button[data-ymd="2026-03-01"]',
         ) as HTMLElement;
@@ -82,11 +85,14 @@ describe('<CalendarHeatmap />', () => {
         expect(
             container.querySelector('[data-testid="calendar-heatmap"]'),
         ).toBeInTheDocument();
-        // Every cell should have intensity 0.
+        // R21-PR-C — every cell should paint at the heat-scale's
+        // floor intensity (0.15 default) — not bucket 0. The
+        // floor keeps "no events" days FAINTLY visible rather
+        // than vanishing into the bg.
         const cells = container.querySelectorAll('button[data-ymd]');
         expect(cells.length).toBeGreaterThan(80); // ~90 days
         cells.forEach((c) => {
-            expect((c as HTMLElement).dataset.intensity).toBe('0');
+            expect((c as HTMLElement).dataset.intensity).toBe('0.15');
         });
     });
 
