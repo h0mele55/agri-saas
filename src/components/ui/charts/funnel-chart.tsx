@@ -187,7 +187,25 @@ function FunnelChartInner({
 
   return (
     <div className="relative">
-      <svg width={width} height={height}>
+      <svg
+        width={width}
+        height={height}
+        // R21-PR-D-hotfix — the per-stage `<rect>` carried its own
+        // `onPointerLeave` that reset `tooltip` to the default. When
+        // the cursor crossed an adjacent stage boundary, leave fired
+        // on stage A → tooltip flipped to default → and only THEN
+        // did enter fire on stage B. One frame at the default state
+        // caused every stage's `isolationMultiplier` to snap from
+        // 0.3 → 1 → 0.3, reading as a flicker.
+        //
+        // The leave-to-default behaviour belongs at the chart
+        // boundary, not the per-stage boundary: when the cursor
+        // truly exits the chart, restore the default. Crossing
+        // between adjacent stages is a pure enter on the new stage.
+        onPointerLeave={() =>
+          !isMobile && setTooltip(defaultTooltipStepId ?? null)
+        }
+      >
         {/* R21-PR-D — gradient defs for every series in use. */}
         <defs>
           {seriesIndicesInUse.map((seriesIndex) => (
@@ -226,9 +244,6 @@ function FunnelChartInner({
                   className="fill-transparent transition-colors hover:fill-[var(--brand-subtle)]"
                   onPointerEnter={() => setTooltip(id)}
                   onPointerDown={() => setTooltip(id)}
-                  onPointerLeave={() =>
-                    !isMobile && setTooltip(defaultTooltipStepId ?? null)
-                  }
                 />
               )}
 
