@@ -280,6 +280,11 @@ const ghostGlass = [
 export const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-tight whitespace-nowrap",
+    // R22-PR-C — icon discipline. `[&_svg]:shrink-0` keeps icons
+    // from being squished in dense flex contexts (the canonical
+    // defensive Tailwind pattern). Per-size icon sizing lives on
+    // the size variants.
+    "[&_svg]:shrink-0",
     // R20-PR-C — per-size letter-spacing (tracking) replaces the
     // R19 flat `-0.01em` baseline. The new scale gives tiny labels
     // breathing room (small text wants OPEN tracking to stay
@@ -439,10 +444,19 @@ export const buttonVariants = cva(
         // close in tone (both quiet, dense-UI sizes) and the 1px
         // height difference (h-8 vs h-9) is the carrying visual
         // distinction. Heights stay (R20-PR-A input-parity lock).
-        xs: "h-7 px-2 text-[11px] gap-1 rounded-md tracking-[0.005em] font-medium",
-        sm: "h-8 px-2.5 text-xs gap-1.5 tracking-[0.01em] font-medium",
-        md: "h-9 px-2.5 text-sm gap-tight tracking-[-0.005em] font-semibold",
-        lg: "h-10 px-3 text-sm gap-tight tracking-[-0.01em] font-bold",
+        // R22-PR-C — per-size icon sizing scale. Icons inside a
+        // button used to be sized by the caller (typically
+        // `h-4 w-4`). At xs (h-7 = 28px) a 16px icon dominates
+        // the row; at lg (h-10 = 40px) it disappears. The
+        // `[&_svg]:size-N` Tailwind utility on the size variant
+        // OVERRIDES any svg child's own h-N/w-N because the
+        // descendant selector wins on specificity. Callers can
+        // still pass icons sized smaller; the per-size class
+        // gives the default the right rhythm.
+        xs: "h-7 px-2 text-[11px] gap-1 rounded-md tracking-[0.005em] font-medium [&_svg]:size-3.5",
+        sm: "h-8 px-2.5 text-xs gap-1.5 tracking-[0.01em] font-medium [&_svg]:size-3.5",
+        md: "h-9 px-2.5 text-sm gap-tight tracking-[-0.005em] font-semibold [&_svg]:size-4",
+        lg: "h-10 px-3 text-sm gap-tight tracking-[-0.01em] font-bold [&_svg]:size-[18px]",
       },
     },
     defaultVariants: {
