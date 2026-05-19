@@ -22,6 +22,7 @@ import { Heading } from '@/components/ui/typography';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
+import { Plus } from '@/components/ui/icons/nucleo';
 
 const SEV_BADGE: Record<string, StatusBadgeVariant> = { LOW: 'info', MEDIUM: 'warning', HIGH: 'error', CRITICAL: 'error' };
 const STATUS_BADGE: Record<string, StatusBadgeVariant> = { OPEN: 'error', IN_PROGRESS: 'info', READY_FOR_VERIFICATION: 'warning', CLOSED: 'success' };
@@ -242,7 +243,7 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
                     title={t.title}
                     description={t.listDescription || undefined}
                     actions={
-                        <Button variant="primary" onClick={() => setShowForm(!showForm)}>{t.newFinding}</Button>
+                        <Button variant="primary" icon={<Plus />} onClick={() => setShowForm(!showForm)}>{t.newFinding}</Button>
                     }
                 />
             </ListPageShell.Header>

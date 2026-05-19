@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { CardHeader } from '@/components/ui/card-header';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
+import { Plus } from '@/components/ui/icons/nucleo';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
@@ -149,7 +150,7 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
                         >
                             Frameworks
                         </Link>
-                        <Button variant="primary" onClick={() => setShowForm(!showForm)} id="new-audit-btn">{t.newAudit}</Button>
+                        <Button variant="primary" icon={<Plus />} onClick={() => setShowForm(!showForm)} id="new-audit-btn">{t.newAudit}</Button>
                     </div>
                 }
             />

@@ -63,6 +63,7 @@ import {
 } from './filter-defs';
 import { Heading } from '@/components/ui/typography';
 import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
+import { Plus } from '@/components/ui/icons/nucleo';
 
 interface Permissions {
     canRead: boolean;
@@ -667,6 +668,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                             </Button>
                             <Button
                                 variant="primary"
+                                icon={<Plus />}
                                 onClick={() => setShowTextForm(true)}
                                 id="add-text-evidence-btn"
                             >

@@ -28,6 +28,7 @@ import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 import { KpiFilterCard } from '@/components/ui/kpi-filter-card';
 import { useKpiFilter, type KpiFilterDef } from '@/components/ui/kpi-filter';
+import { Plus } from '@/components/ui/icons/nucleo';
 
 const ASSET_TYPES = ['INFORMATION', 'APPLICATION', 'SYSTEM', 'SERVICE', 'DATA_STORE', 'INFRASTRUCTURE', 'VENDOR', 'PROCESS', 'PEOPLE_PROCESS', 'OTHER'];
 const ASSET_TYPE_OPTIONS: ComboboxOption[] = ASSET_TYPES.map(t => ({ value: t, label: t.replace(/_/g, ' ') }));
@@ -260,7 +261,7 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
                     </div>
                     <div className="flex gap-tight">
                         <Link href={tenantHref('/coverage')} className={buttonVariants({ variant: 'secondary' })}>Coverage</Link>
-                        <Button variant="primary" onClick={() => setShowForm(!showForm)}>{t.addAsset}</Button>
+                        <Button variant="primary" icon={<Plus />} onClick={() => setShowForm(!showForm)}>{t.addAsset}</Button>
                     </div>
                 </div>
             </ListPageShell.Header>

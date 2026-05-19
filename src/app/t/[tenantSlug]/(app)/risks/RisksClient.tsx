@@ -51,6 +51,7 @@ import { Heading } from '@/components/ui/typography';
 import { KpiFilterCard } from '@/components/ui/kpi-filter-card';
 import { useKpiFilter, type KpiFilterDef } from '@/components/ui/kpi-filter';
 import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
+import { Plus } from '@/components/ui/icons/nucleo';
 
 interface RiskListItem {
     id: string;
@@ -520,6 +521,7 @@ function RisksPageInner({
                                 </Link>
                                 <Button
                                     variant="primary"
+                                    icon={<Plus />}
                                     onClick={() => setIsCreateOpen(true)}
                                     id="new-risk-btn"
                                 >

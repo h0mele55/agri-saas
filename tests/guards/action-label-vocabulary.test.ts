@@ -1,53 +1,46 @@
 /**
  * Action label vocabulary ratchet.
  *
- * Original PR-5 (2026-05-08) banned the `+ ` prefix on action button
- * labels — the audit's call at the time was that the `+` belonged in
- * the button's `icon` slot, not in the text.
+ * History
+ *   - PR-5 (2026-05-08) — banned the `+ ` prefix on labels;
+ *     `+` was supposed to come from a `<Plus />` icon prop.
+ *   - v2-fu-2 (2026-05-09) — REVERSED that, requiring literal
+ *     `+ <Noun>` labels. The rationale (Linear/Notion-style
+ *     terse glyph) traded off against centering: when the
+ *     button's icon-text flex group bakes "+" into the text,
+ *     the cva `justify-center` centres the whole "+ Asset"
+ *     string as one unit, but the visual weight of `+` differs
+ *     enough from the noun that the button reads off-balance.
+ *   - R22-PR-G (2026-05-16) — REVERSES v2-fu-2. CLAUDE.md is now
+ *     the source of truth: "Never lead a label with `+ `". The
+ *     Plus glyph rides the cva `icon` slot, so the cva centres a
+ *     properly balanced icon + label flex group.
  *
- * v2-fu-2 (2026-05-09) REVERSES this rule. The new convention:
+ * Current convention
+ *   - Translation values are canonical verb-noun phrases:
+ *     `"Create Asset"` / `"Add Risk"` / `"New Audit"`.
+ *   - Call sites pass `icon={<Plus />}` for the visual glyph.
+ *   - This ratchet bans the `+ ` prefix anywhere it could render
+ *     as a button label (i18n JSON values, JSX text inside a
+ *     button context).
  *
- *   Every "create" button reads literally `+ <Singular Noun>`.
- *   Examples: `+ Control`, `+ Risk`, `+ Audit`, `+ Audit Cycle`.
- *
- * Why the reversal:
- *   - Linear, Notion, Vercel all use the literal `+ X` shape. The `+`
- *     IS the icon — readable, terse, instantly scannable.
- *   - Separating icon (Plus component) from text added visual noise:
- *     two distinct elements competing where one literal character
- *     reads as a single glyph.
- *   - The verb-vocabulary (`Create | Add | Link`) became a debate at
- *     every PR. `+ X` is one rule that fits every create case.
- *
- * What this ratchet now bans
- *   1. `<Button>` text or i18n button values that start with one of
- *      `New <Word>` / `Add <Word>` / `Create <Word>`. The legacy verbs
- *      are retired.
- *   2. Banner-icon-emoji prefixes on i18n values (`➕ Add Risk`).
- *
- * What this ratchet now REQUIRES
- *   The companion ratchet at
- *   `tests/guards/create-button-naming.test.ts` enforces the
- *   positive `+ <Word>` shape on buttons that match the create-action
- *   pattern. This file owns the BAN side; that file owns the
- *   REQUIRE side.
- *
- * Pairs with:
- *   - tests/guards/create-button-naming.test.ts
- *   - tests/guards/header-button-size.test.ts
- *   - docs/design-system.md (button section)
+ * Companion ratchet
+ *   - `tests/guards/no-plus-prefix-labels.test.ts` — i18n-only
+ *     fast scan (any value starting with `"+ "`).
+ *   - This file extends to JSX text + EmptyState `primaryAction`
+ *     literal labels.
  */
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from 'fs';
+import * as path from 'path';
 
-const ROOT = path.resolve(__dirname, "../..");
-const SCAN_DIRS = ["src/app", "src/components"];
-const I18N_DIR = "messages";
+const ROOT = path.resolve(__dirname, '../..');
+const SCAN_DIRS = ['src/app', 'src/components'];
+const I18N_DIR = 'messages';
 
 const EXEMPT_DIR_NAMES = new Set<string>([
-    "node_modules",
-    "__tests__",
-    "__mocks__",
+    'node_modules',
+    '__tests__',
+    '__mocks__',
 ]);
 
 const EXEMPT_FILE_PATTERNS: RegExp[] = [
@@ -56,50 +49,56 @@ const EXEMPT_FILE_PATTERNS: RegExp[] = [
     /\.stories\.tsx?$/,
 ];
 
-// Files where the legacy verbs appear in CONTENT (e.g. educational
-// strings, "Create a new..." help text in body copy). These don't
-// render as button labels — exempt.
-const EXEMPT_FILES = new Set<string>([
-    // Generic "Create new option…" inside Combobox
-    "src/components/ui/combobox.tsx",
-    // SCIM provisioning copy describes the IdP's actions ("Create
-    // Users", "Update User Attributes") — not button labels.
-    "src/app/t/[tenantSlug]/(app)/admin/scim/page.tsx",
-    // Onboarding prose
-    "src/components/onboarding/OnboardingWizard.tsx",
-]);
-
-// JSX text shaped like a BUTTON label that starts with the legacy
-// verbs. The match requires `>` (open of JSX text) on the left and a
-// capitalised word after the verb on the right. We additionally
-// require the line to contain `<Button` / `<button` / `<Link...
-// buttonVariants` so headings (`<Heading>Create API Key</Heading>`)
-// and other JSX text don't false-positive.
-// Accepts:
-//   - `>New X<` — direct JSX text
-//   - `>+ New X<` — already-prefixed-but-still-legacy text (we want
-//     the noun shape `+ X`, not `+ New X`)
-const JSX_LEGACY_VERB_RE =
-    />\s*(?:\+\s*)?(New|Add|Create)\s+[A-Z]/;
-const JSX_BUTTON_CONTEXT_RE = /<[Bb]utton\b|buttonVariants/;
-
-// i18n values that start with the legacy verbs OR with a banner emoji
-// like ➕ ✓ AND are followed by a TERSE noun phrase (1–3 Capitalised
-// Words). Body copy like "Create your organization", "Add your first
-// asset above", "Create a custom risk with..." doesn't match — those
-// are sentences, not button labels.
-const I18N_LEGACY_VERB_RE =
-    /:\s*"\s*(?:[➕✓✚📎🔍📄]\s*)?(New|Add|Create)\s+(?:[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,2})\s*"/;
-
-// i18n values that ONLY have a leading emoji prefix (e.g. `📎 Add
-// Evidence`). The regex above already catches these via the verb
-// match, but we keep this for documentation purposes.
-
 interface Hit {
     file: string;
     line: number;
     text: string;
 }
+
+/**
+ * 2026-05-16 baseline — the 18 admin/detail-page sites carrying
+ * legacy `'+ <Word>'` literals when R22-PR-G reversed v2-fu-2. The
+ * five HEADER buttons on the most-visited list pages (Assets,
+ * Risks, Audits, Findings, Evidence) were migrated in R22-PR-G;
+ * these 18 sit on lower-traffic pages and are queued for follow-up
+ * migration. The ratchet ALLOWS each known site (file + line is
+ * locked) so a NEW '+ X' literal added anywhere else fails CI.
+ * Future PRs that migrate a baseline entry MUST also remove it
+ * from this list — that's how the floor ratchets down.
+ *
+ * To migrate one: drop the literal '+' from the label string, pass
+ * `icon={<Plus />}` to the `<Button>`, remove the line from the
+ * baseline below. The companion `no-plus-prefix-labels.test.ts`
+ * stays a hard zero — i18n values must not regress, only inline
+ * literals are baselined.
+ */
+const BASELINE_PLUS_LITERAL_SITES = new Set<string>([
+    'src/app/t/[tenantSlug]/(app)/admin/api-keys/page.tsx:509',
+    'src/app/t/[tenantSlug]/(app)/admin/integrations/page.tsx:234',
+    'src/app/t/[tenantSlug]/(app)/admin/risk-matrix/RiskMatrixAdminClient.tsx:487',
+    'src/app/t/[tenantSlug]/(app)/admin/roles/page.tsx:593',
+    'src/app/t/[tenantSlug]/(app)/admin/scim/page.tsx:216',
+    'src/app/t/[tenantSlug]/(app)/admin/vendor-templates/[templateId]/VendorTemplateBuilderClient.tsx:584',
+    'src/app/t/[tenantSlug]/(app)/admin/vendor-templates/[templateId]/VendorTemplateBuilderClient.tsx:688',
+    'src/app/t/[tenantSlug]/(app)/audits/cycles/[cycleId]/page.tsx:123',
+    'src/app/t/[tenantSlug]/(app)/audits/cycles/page.tsx:134',
+    'src/app/t/[tenantSlug]/(app)/audits/cycles/page.tsx:207',
+    'src/app/t/[tenantSlug]/(app)/audits/cycles/page.tsx:219',
+    'src/app/t/[tenantSlug]/(app)/audits/readiness/page.tsx:155',
+    'src/app/t/[tenantSlug]/(app)/controls/[controlId]/tests/[planId]/page.tsx:300',
+    'src/app/t/[tenantSlug]/(app)/policies/[policyId]/page.tsx:441',
+    'src/app/t/[tenantSlug]/(app)/policies/[policyId]/page.tsx:742',
+    'src/app/t/[tenantSlug]/(app)/policies/new/page.tsx:228',
+    'src/app/t/[tenantSlug]/(app)/tasks/[taskId]/page.tsx:507',
+    'src/app/t/[tenantSlug]/(app)/tasks/[taskId]/page.tsx:535',
+    'src/app/t/[tenantSlug]/(app)/tasks/new/page.tsx:397',
+    'src/app/t/[tenantSlug]/(app)/tests/runs/[runId]/page.tsx:400',
+    'src/app/t/[tenantSlug]/(app)/vendors/[vendorId]/page.tsx:371',
+    'src/app/t/[tenantSlug]/(app)/vendors/[vendorId]/page.tsx:395',
+    'src/app/t/[tenantSlug]/(app)/vendors/[vendorId]/page.tsx:472',
+    'src/app/t/[tenantSlug]/(app)/vendors/new/page.tsx:268',
+    'src/components/TestPlansPanel.tsx:127',
+]);
 
 function walk(dir: string): string[] {
     const out: string[] = [];
@@ -107,7 +106,6 @@ function walk(dir: string): string[] {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         const full = path.join(dir, entry.name);
         const rel = path.relative(ROOT, full);
-        if (EXEMPT_FILES.has(rel)) continue;
         const segments = rel.split(path.sep);
         if (segments.some((s) => EXEMPT_DIR_NAMES.has(s))) continue;
         if (EXEMPT_FILE_PATTERNS.some((rx) => rx.test(rel))) continue;
@@ -117,118 +115,35 @@ function walk(dir: string): string[] {
     return out;
 }
 
-describe("Action label vocabulary (v2-fu-2)", () => {
-    it("zero legacy `(New|Add|Create) Word` JSX text labels", () => {
+describe('Action label vocabulary — no literal "+ " prefix', () => {
+    it('zero JSX/source `"+ <Word>"` literals anywhere in app/components', () => {
+        // Match a button-shaped `+ <Word>` literal only when it is
+        // wrapped in a label-context boundary: quote/backtick
+        // immediately followed by `+` (the label-string form
+        // `'+ Asset'`) or JSX text `>+ Asset<` (open-angle-bracket
+        // immediately followed by `+`). The "immediately" — no
+        // whitespace between the boundary and `+` — excludes false
+        // positives like `'-' + Date.now()` (concatenation: there's a
+        // space between `'` and `+`, so this doesn't match).
+        const RE = /(?:['"`>])\+\s+[A-Z][A-Za-z]/;
         const offenders: Hit[] = [];
         for (const dir of SCAN_DIRS) {
             for (const file of walk(path.join(ROOT, dir))) {
-                const content = fs.readFileSync(file, "utf8");
-                const lines = content.split("\n");
+                const content = fs.readFileSync(file, 'utf8');
+                const lines = content.split('\n');
                 lines.forEach((line, i) => {
                     const trimmed = line.trim();
                     if (
-                        trimmed.startsWith("//") ||
-                        trimmed.startsWith("*")
-                    )
-                        return;
-                    if (JSX_LEGACY_VERB_RE.test(line)) {
-                        // Skip if the line isn't a button-context
-                        // (e.g. `<Heading>Create API Key</Heading>`
-                        // is a page title, not a button label).
-                        if (!JSX_BUTTON_CONTEXT_RE.test(line)) return;
-                        offenders.push({
-                            file: path.relative(ROOT, file),
-                            line: i + 1,
-                            text: trimmed.slice(0, 200),
-                        });
-                        return;
-                    }
-                    // Multi-line scan: when a line opens a `<Button`
-                    // tag, peek at the next 3 lines for inline text
-                    // matching the legacy-verb pattern (e.g. the
-                    // common shape `<Button>\n  {loading ? ... :
-                    // 'Create X'}\n</Button>`).
-                    if (!/<[Bb]utton\b/.test(line)) return;
-                    for (
-                        let j = i + 1;
-                        j < Math.min(i + 4, lines.length);
-                        j++
-                    ) {
-                        const next = lines[j];
-                        // Stop at the closing `</Button>` so we
-                        // don't accidentally reach into sibling
-                        // text.
-                        if (/<\/[Bb]utton>/.test(next)) break;
-                        // Match a quoted legacy-verb literal in the
-                        // next line. Body copy ("Create one above.")
-                        // doesn't follow the terse 1-3 capitalised-
-                        // word shape so the I18N regex (reused
-                        // here) is appropriate.
-                        const m = next.match(
-                            /['"](?:\+\s*)?(New|Add|Create)\s+([A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*){0,3})\s*['"]/,
-                        );
-                        if (m) {
-                            offenders.push({
-                                file: path.relative(ROOT, file),
-                                line: j + 1,
-                                text: next.trim().slice(0, 200),
-                            });
-                            break;
-                        }
-                    }
-                });
-            }
-        }
-        if (offenders.length > 0) {
-            const sample = offenders
-                .slice(0, 15)
-                .map((o) => `  ${o.file}:${o.line}\n    ${o.text}`)
-                .join("\n");
-            throw new Error(
-                `Found ${offenders.length} legacy create-button label(s) starting with 'New X' / 'Add X' / 'Create X'.\n\nv2-fu-2 convention: every create button reads literally '+ <Singular Noun>' — e.g. '+ Control', '+ Risk', '+ Audit'. The '+' IS the icon.\n\nFirst ${Math.min(15, offenders.length)} offender(s):\n${sample}`,
-            );
-        }
-        expect(offenders).toHaveLength(0);
-    });
-
-    // v2-fu-7 (2026-05-09) — context-free literal scan.
-    //
-    // The original ratchet required either `<Button` on the same
-    // line OR a multi-line scan inside `<Button>...</Button>`.
-    // This missed every case where the button is `<Link
-    // className={buttonVariants(...)}>` or a raw `<button
-    // className={buttonVariants(...)}>` because the multi-line scan
-    // only triggered on `<Button` opens. It also missed object-
-    // literal labels like `primaryAction={{ label: '+ New X', … }}`
-    // passed to EmptyState.
-    //
-    // The literal `+ (New|Add|Create) Word` phrase is unambiguous:
-    // it can only ever be a button label. There's no body-copy
-    // sentence that starts with `+ `. So we ban the literal phrase
-    // anywhere in src/app or src/components — regardless of JSX
-    // context.
-    it("zero literal '+ (New|Add|Create) Word' phrases anywhere in app/components", () => {
-        const offenders: Hit[] = [];
-        // Match `+ <verb> <Capitalised>` whether the line opens with
-        // whitespace (text node), `>`, `'`, or `"`. The `\b` after
-        // `(?:[+])` is unreliable since `+` is non-word, so we
-        // require either start-of-line/whitespace or a quoted/JSX
-        // boundary character.
-        const RE = /(?:^|['"`>\s])\+\s+(New|Add|Create)\s+[A-Z]/;
-        for (const dir of SCAN_DIRS) {
-            for (const file of walk(path.join(ROOT, dir))) {
-                const content = fs.readFileSync(file, "utf8");
-                const lines = content.split("\n");
-                lines.forEach((line, i) => {
-                    const trimmed = line.trim();
-                    if (
-                        trimmed.startsWith("//") ||
-                        trimmed.startsWith("*")
+                        trimmed.startsWith('//') ||
+                        trimmed.startsWith('*')
                     )
                         return;
                     if (!RE.test(line)) return;
+                    const rel = path.relative(ROOT, file);
+                    const siteKey = `${rel}:${i + 1}`;
+                    if (BASELINE_PLUS_LITERAL_SITES.has(siteKey)) return;
                     offenders.push({
-                        file: path.relative(ROOT, file),
+                        file: rel,
                         line: i + 1,
                         text: trimmed.slice(0, 200),
                     });
@@ -239,40 +154,26 @@ describe("Action label vocabulary (v2-fu-2)", () => {
             const sample = offenders
                 .slice(0, 15)
                 .map((o) => `  ${o.file}:${o.line}\n    ${o.text}`)
-                .join("\n");
+                .join('\n');
             throw new Error(
-                `Found ${offenders.length} legacy '+ (New|Add|Create) X' phrase(s). The convention is '+ <Singular Noun>' — drop the verb. e.g. '+ Task', '+ Policy', '+ Audit Cycle'.\n\nFirst ${Math.min(15, offenders.length)} offender(s):\n${sample}`,
+                `Found ${offenders.length} literal '+ <Word>' label(s). Per CLAUDE.md, the '+' goes in the icon slot via 'icon={<Plus />}'; the label text uses the canonical 'Create/Add/New <Entity>' verb form.\n\nFirst ${Math.min(15, offenders.length)} offender(s):\n${sample}`,
             );
         }
         expect(offenders).toHaveLength(0);
     });
 
-    it("zero legacy i18n button values starting with `(New|Add|Create) X`", () => {
+    it('zero i18n button values starting with "+ "', () => {
         const offenders: Hit[] = [];
         const i18nDir = path.join(ROOT, I18N_DIR);
         if (!fs.existsSync(i18nDir)) return;
-        // Auth / registration form submits don't follow the `+ X`
-        // convention — "Create Account" is the canonical pattern for
-        // signup forms. Other locales add their equivalents here.
-        const I18N_KEY_EXEMPT = new Set<string>([
-            // Auth / registration form submits don't follow `+ X`
-            // — "Create Account" is the canonical signup pattern.
-            "submitRegister",
-            // Page-title strings (rendered as `<Heading level={1}>`,
-            // not as button text). Headings retain the descriptive
-            // verb form ("New Risk" reads as the page about a new
-            // risk).
-            "newRiskTitle",
-        ]);
         for (const file of fs.readdirSync(i18nDir)) {
-            if (!file.endsWith(".json")) continue;
+            if (!file.endsWith('.json')) continue;
             const abs = path.join(i18nDir, file);
-            const content = fs.readFileSync(abs, "utf8");
-            const lines = content.split("\n");
+            const content = fs.readFileSync(abs, 'utf8');
+            const lines = content.split('\n');
+            const RE = /:\s*"\+\s/;
             lines.forEach((line, i) => {
-                if (!I18N_LEGACY_VERB_RE.test(line)) return;
-                const keyMatch = line.match(/"([a-zA-Z0-9_]+)"\s*:/);
-                if (keyMatch && I18N_KEY_EXEMPT.has(keyMatch[1])) return;
+                if (!RE.test(line)) return;
                 offenders.push({
                     file: path.relative(ROOT, abs),
                     line: i + 1,
@@ -284,9 +185,9 @@ describe("Action label vocabulary (v2-fu-2)", () => {
             const sample = offenders
                 .slice(0, 15)
                 .map((o) => `  ${o.file}:${o.line}\n    ${o.text}`)
-                .join("\n");
+                .join('\n');
             throw new Error(
-                `Found ${offenders.length} legacy i18n button value(s). Migrate the value to '+ <Noun>' shape — e.g. '"newRisk": "+ Risk"', '"createAudit": "+ Audit"'. Drop any leading emoji icon.\n\nFirst ${Math.min(15, offenders.length)} offender(s):\n${sample}`,
+                `Found ${offenders.length} i18n value(s) starting with '+ '. Drop the prefix and pass the Plus glyph via 'icon={<Plus />}' at the call site.\n\nFirst ${Math.min(15, offenders.length)} offender(s):\n${sample}`,
             );
         }
         expect(offenders).toHaveLength(0);
