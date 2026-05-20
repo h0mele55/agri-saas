@@ -69,16 +69,11 @@ describe("R25-PR-E — interaction model", () => {
         });
 
         it("affordance positions at the edge midpoint (labelX/labelY)", () => {
-            // Affordance must appear AT the connection it'll add
-            // a control to. Per-edge midpoint via getBezierPath's
-            // labelX/labelY (same positioning the placed control
-            // uses). Slice from the conditional opener so the
-            // transform style precedes the marker attribute.
-            const affordanceBlock = SRC.slice(
-                SRC.indexOf("{!control && selected"),
-                SRC.indexOf("data-add-control-affordance") + 100,
-            );
-            expect(affordanceBlock).toMatch(/translate\([^)]*labelX/);
+            // Affordances must appear AT the connection. R27-PR-B
+            // groups the variant cycle + add-control into one
+            // selection cluster positioned via getBezierPath's
+            // labelX/labelY midpoint.
+            expect(SRC).toMatch(/translate\(\$\{labelX\}px/);
         });
 
         it("affordance marker for downstream selectors", () => {

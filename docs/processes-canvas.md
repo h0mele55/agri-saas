@@ -100,7 +100,8 @@ Tonal separation — frame vs recessed plane vs elevated node — does
 the structural work; hairlines, not heavy panels, divide the chrome.
 
 - Process step nodes: solid elevated card, brand selected ring (matches `<KpiFilterCard>`)
-- Edges: bezier, `var(--border-default)` stroke at rest, `var(--brand-default)` selected (richer edge hierarchy lands in R27 PR-B)
+- Node shapes (R27 PR-B): rect / real diamond (decision) / note; three `sm·md·lg` size variants on `data.size`
+- Edges (R27 PR-B): bezier, `var(--canvas-edge)` stroke at rest, `var(--brand-default)` selected. Three variants on `data.variant` — `flow` (solid) · `conditional` (dashed) · `reference` (dotted), cycled from the edge selection affordance, persisted via `edgeKind`
 - Control overlays: pill at edge midpoint, `<ShieldCheck>` icon prefix, `border-emphasis` + `bg-bg-elevated`
 
 ## Test layout

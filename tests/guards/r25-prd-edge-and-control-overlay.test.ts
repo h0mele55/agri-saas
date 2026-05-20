@@ -70,8 +70,11 @@ describe("R25-PR-D — ProcessEdge + ControlOnEdge", () => {
             expect(src).toMatch(/<BaseEdge\b/);
         });
 
-        it("stroke uses --border-default at rest", () => {
-            expect(src).toMatch(/var\(--border-default\)/);
+        it("stroke uses the --canvas-edge token at rest", () => {
+            // R27-PR-B moved the rest stroke onto the dedicated
+            // `--canvas-edge` token (the Processes surface ramp) so
+            // connections read cleanly on the recessed canvas plane.
+            expect(src).toMatch(/var\(--canvas-edge\)/);
         });
 
         it("stroke uses --brand-default when selected", () => {
@@ -152,13 +155,14 @@ describe("R25-PR-D — ProcessEdge + ControlOnEdge", () => {
         const nodeSrc = read(NODE_PATH);
 
         it("ControlOnEdge does not use the same min-w-[Xpx] card sizing as nodes", () => {
-            // ProcessStepNode uses min-w-[160px]. Control overlay
-            // should NOT — it's a pill, not a card.
-            expect(nodeSrc).toMatch(/min-w-\[160px\]/);
+            // Process nodes use min-w card sizing (R27-PR-B md rect
+            // is min-w-[180px]). The control overlay must NOT — it's
+            // a pill, not a card.
+            expect(nodeSrc).toMatch(/min-w-\[180px\]/);
             const controlBlock = edgeSrc.slice(
                 edgeSrc.indexOf("function ControlOnEdge"),
             );
-            expect(controlBlock).not.toMatch(/min-w-\[160px\]/);
+            expect(controlBlock).not.toMatch(/min-w-\[\d+px\]/);
         });
     });
 });

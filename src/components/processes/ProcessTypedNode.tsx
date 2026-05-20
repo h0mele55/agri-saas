@@ -1,30 +1,31 @@
 "use client";
 
 /**
- * Roadmap-26 PR-B — ProcessTypedNode.
+ * Roadmap-26 PR-B / Roadmap-27 PR-B — ProcessTypedNode.
  *
  * One xyflow custom node component covering all seven taxonomy
  * kinds (see `node-taxonomy.ts`). Per-kind chrome (icon, accent
- * border, shape) is driven by `data.kind` so the canvas only
- * registers ONE component in `nodeTypes` — no per-kind switch
- * scattered across consumers.
+ * border, shape) is driven by `data.kind`; per-instance footprint
+ * is driven by `data.size`.
  *
- * Why a single component (vs. seven node files):
- *   • The chassis is identical across kinds: chrome shape,
- *     handle positions, selected-state ring, label slot. Six
- *     near-duplicates would amplify the cost of any future
- *     chassis change.
- *   • xyflow registers components by string id (the `type`
- *     field on each Node). The id is what gets persisted in
- *     `ProcessNode.nodeType`. Keeping each id pointed at the
- *     SAME renderer lets us register seven entries with one
- *     function reference — module-stable, no `NODE_TYPES`
- *     reference drift.
+ * R27-PR-B — the shape vocabulary:
+ *   • rect    — process step, control, risk, external. The
+ *               workhorse: a rounded card.
+ *   • diamond — decision. A REAL diamond (R25 shipped a fake one —
+ *               a small rounded rect). Rendered as a 45°-rotated
+ *               square so the border, selected ring and elevation
+ *               shadow all rotate WITH it and stay diamond-shaped;
+ *               the label sits in a separate upright layer.
+ *   • note    — annotation. A flat sticker.
  *
- * The legacy `ProcessStepNode` is preserved as a thin re-export
- * wrapper at the bottom of this file so the R25 ratchet (which
- * checks `<ProcessStepNode>` exists) keeps passing without
- * touching the structural assertion.
+ * Three shapes, seven kinds — the accent + icon do the remaining
+ * per-kind work. Three shapes is the curated ceiling: more would
+ * make the canvas read like a sticker sheet (see
+ * docs/processes-canvas-semantics.md).
+ *
+ * Size variants (`data.size`: sm | md | lg, default md) scale the
+ * footprint so an author can weight a node by importance without a
+ * free-form resize handle (which invites ragged, mis-aligned maps).
  */
 
 import { Handle, Position, type NodeProps } from "@xyflow/react";
@@ -38,44 +39,155 @@ import {
     type ProcessNodeKind,
 } from "./node-taxonomy";
 
+/** Per-instance footprint. Three discrete steps — not free resize. */
+export type ProcessNodeSize = "sm" | "md" | "lg";
+export const PROCESS_NODE_SIZES: ProcessNodeSize[] = ["sm", "md", "lg"];
+export const DEFAULT_NODE_SIZE: ProcessNodeSize = "md";
+
+export function isProcessNodeSize(value: unknown): value is ProcessNodeSize {
+    return value === "sm" || value === "md" || value === "lg";
+}
+
+// ─── Per-size geometry ───────────────────────────────────────────────
+
+const RECT_SIZE: Record<ProcessNodeSize, string> = {
+    sm: "min-w-[148px] max-w-[230px] px-3 py-1.5",
+    md: "min-w-[180px] max-w-[300px] px-3.5 py-2.5",
+    lg: "min-w-[224px] max-w-[360px] px-4 py-3.5",
+};
+
+const NOTE_SIZE: Record<ProcessNodeSize, string> = {
+    sm: "min-w-[140px] max-w-[220px] px-3 py-1.5",
+    md: "min-w-[176px] max-w-[300px] px-3.5 py-2.5",
+    lg: "min-w-[220px] max-w-[360px] px-4 py-3.5",
+};
+
+// A 45°-rotated square has a bounding box √2× its side; insetting the
+// square by 14.6% makes the diamond exactly fill the square chassis.
+const DIAMOND_SIZE: Record<ProcessNodeSize, string> = {
+    sm: "h-[104px] w-[104px]",
+    md: "h-[128px] w-[128px]",
+    lg: "h-[156px] w-[156px]",
+};
+
+const ICON_SIZE: Record<ProcessNodeSize, string> = {
+    sm: "h-3 w-3",
+    md: "h-3.5 w-3.5",
+    lg: "h-4 w-4",
+};
+
+const LABEL_TEXT: Record<ProcessNodeSize, string> = {
+    sm: "text-[11px]",
+    md: "text-xs",
+    lg: "text-sm",
+};
+
 export interface ProcessTypedNodeData {
     /** Visible label (the first line; the bold/emphasis line). */
     label: string;
     /** Optional secondary line — category, owner, severity, etc. */
     subtitle?: string;
     /**
-     * The kind drives chrome (icon, accent, shape). When the kind
-     * is missing or unknown (forward-compat with a kind we
-     * haven't designed yet), we fall back to `processStep` so the
-     * canvas never crashes on render.
+     * The kind drives chrome (icon, accent, shape). Missing /
+     * unknown kinds fall back to `processStep`.
      */
     kind?: ProcessNodeKind | string;
+    /** Per-instance footprint. Missing / unknown falls back to `md`. */
+    size?: ProcessNodeSize | string;
     [key: string]: unknown;
 }
+
+const HANDLE_CLASS =
+    "!h-2 !w-2 !border-2 !border-[color:var(--brand-default)] !bg-bg-default";
+
+const SELECTED_CHROME =
+    "border-[color:var(--brand-default)] ring-2 ring-[color:var(--brand-default)]/40 bg-bg-elevated";
 
 function ProcessTypedNodeImpl({ data, selected }: NodeProps) {
     const nodeData = data as ProcessTypedNodeData;
     const kind: ProcessNodeKind = isProcessNodeKind(nodeData.kind)
         ? nodeData.kind
         : "processStep";
+    const size: ProcessNodeSize = isProcessNodeSize(nodeData.size)
+        ? nodeData.size
+        : DEFAULT_NODE_SIZE;
     const meta = NODE_TAXONOMY[kind];
     const Icon = meta.icon;
 
-    // Geometry per shape. Three shapes (rect / diamond / note)
-    // → one selector. The chassis classes stay identical.
-    const shapeClasses =
-        meta.shape === "diamond"
-            ? "min-w-[120px] min-h-[80px] rounded-md"
-            : meta.shape === "note"
-              ? "min-w-[160px] max-w-[280px] rounded-[6px]"
-              : "min-w-[160px] max-w-[260px] rounded-[8px]";
+    const accentBorder = NODE_ACCENT_BORDER[meta.accent];
+    const iconTone = NODE_ACCENT_ICON_TONE[meta.accent];
+    const label = nodeData.label || meta.defaultLabel;
+
+    // ── Diamond (decision) — a real diamond, not a small rect ────────
+    if (meta.shape === "diamond") {
+        return (
+            <div
+                className={cn("relative", DIAMOND_SIZE[size])}
+                data-process-node="true"
+                data-process-node-kind={kind}
+                data-process-node-size={size}
+                data-selected={selected ? "true" : "false"}
+            >
+                {meta.hasHandles && (
+                    <Handle
+                        type="target"
+                        position={Position.Left}
+                        className={HANDLE_CLASS}
+                    />
+                )}
+                {/* The diamond body — a 45°-rotated square so the
+                    border, selected ring and elevation shadow all
+                    rotate WITH it and stay diamond-shaped. */}
+                <div
+                    className={cn(
+                        "absolute inset-[14.6%] rotate-45 rounded-[10px] border transition-colors",
+                        selected
+                            ? SELECTED_CHROME
+                            : `${accentBorder} bg-canvas-node shadow-canvas-node hover:border-border-emphasis`,
+                    )}
+                    aria-hidden="true"
+                />
+                {/* Upright content — never rotates. */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-5 text-center">
+                    <Icon
+                        className={cn(ICON_SIZE[size], "flex-shrink-0", iconTone)}
+                        aria-hidden="true"
+                    />
+                    <span
+                        className={cn(
+                            "max-w-full truncate font-semibold text-content-emphasis",
+                            LABEL_TEXT[size],
+                        )}
+                    >
+                        {label}
+                    </span>
+                    {nodeData.subtitle && (
+                        <span className="max-w-full truncate text-[10px] uppercase tracking-wide text-content-muted">
+                            {nodeData.subtitle}
+                        </span>
+                    )}
+                </div>
+                {meta.hasHandles && (
+                    <Handle
+                        type="source"
+                        position={Position.Right}
+                        className={HANDLE_CLASS}
+                    />
+                )}
+            </div>
+        );
+    }
+
+    // ── Rect + note ──────────────────────────────────────────────────
+    const isNote = meta.shape === "note";
+    const sizeClasses = isNote ? NOTE_SIZE[size] : RECT_SIZE[size];
+    const radiusClass = isNote ? "rounded-[6px]" : "rounded-[10px]";
 
     // R26-PR-D / R27 — surface tone varies by semantic category so
-    // the eye reads flow vs context vs note at a glance, without
-    // needing to parse the label. R27 swaps the old translucent
-    // fills for SOLID, elevated cards: opaque nodes with a soft
-    // drop shadow read as deliberate objects floating above the
-    // recessed canvas plane, not washed-out tints of it.
+    // the eye reads flow vs context vs note at a glance. Solid,
+    // elevated cards (not translucent tints): opaque nodes with a
+    // soft drop shadow read as deliberate objects floating above the
+    // recessed canvas plane.
     //
     //   flow    — brightest fill + lift → "this IS the process"
     //   context — quieter fill + lift  → "this ANNOTATES the flow"
@@ -87,48 +199,45 @@ function ProcessTypedNodeImpl({ data, selected }: NodeProps) {
               ? "bg-canvas-node-muted shadow-canvas-node"
               : "bg-canvas-node shadow-canvas-node";
 
-    const accentBorder = NODE_ACCENT_BORDER[meta.accent];
-    const iconTone = NODE_ACCENT_ICON_TONE[meta.accent];
-
     return (
         <div
             className={cn(
-                "border px-3 py-2 transition-colors",
-                shapeClasses,
+                "border transition-colors",
+                sizeClasses,
+                radiusClass,
                 surfaceClasses,
-                // Selected state — brand ring + slight surface lift.
-                // Matches R25's ProcessStepNode active treatment so
-                // the visual language stays one piece.
                 selected
-                    ? "border-[color:var(--brand-default)] ring-2 ring-[color:var(--brand-default)]/40 bg-bg-elevated"
+                    ? SELECTED_CHROME
                     : `${accentBorder} hover:border-border-emphasis`,
             )}
             data-process-node="true"
             data-process-node-kind={kind}
+            data-process-node-size={size}
             data-selected={selected ? "true" : "false"}
         >
             {meta.hasHandles && (
                 <Handle
                     type="target"
                     position={Position.Left}
-                    className="!h-2 !w-2 !border-2 !border-[color:var(--brand-default)] !bg-bg-default"
+                    className={HANDLE_CLASS}
                 />
             )}
             <div className="flex items-center gap-tight">
                 <Icon
-                    className={cn("h-3.5 w-3.5 flex-shrink-0", iconTone)}
+                    className={cn(ICON_SIZE[size], "flex-shrink-0", iconTone)}
                     aria-hidden="true"
                 />
                 <div className="flex min-w-0 flex-col gap-0.5">
                     <span
                         className={cn(
-                            "truncate text-xs tabular-nums",
-                            meta.shape === "note"
+                            "truncate tabular-nums",
+                            LABEL_TEXT[size],
+                            isNote
                                 ? "italic text-content-muted"
                                 : "font-semibold text-content-emphasis",
                         )}
                     >
-                        {nodeData.label || meta.defaultLabel}
+                        {label}
                     </span>
                     {nodeData.subtitle && (
                         <span className="truncate text-[10px] uppercase tracking-wide text-content-muted">
@@ -141,7 +250,7 @@ function ProcessTypedNodeImpl({ data, selected }: NodeProps) {
                 <Handle
                     type="source"
                     position={Position.Right}
-                    className="!h-2 !w-2 !border-2 !border-[color:var(--brand-default)] !bg-bg-default"
+                    className={HANDLE_CLASS}
                 />
             )}
         </div>
@@ -151,11 +260,9 @@ function ProcessTypedNodeImpl({ data, selected }: NodeProps) {
 export const ProcessTypedNode = memo(ProcessTypedNodeImpl);
 
 /**
- * Backwards-compat alias — the R25 ratchet at
- * `tests/guards/r25-prb-canvas-integration.test.ts` asserts the
- * existence of `<ProcessStepNode>`. PR-B keeps the export so the
- * structural contract holds; the implementation now flows through
- * the typed renderer.
+ * Backwards-compat alias — the R25 ratchet asserts the existence of
+ * `<ProcessStepNode>`. The implementation flows through the typed
+ * renderer.
  */
 export const ProcessStepNode = ProcessTypedNode;
 

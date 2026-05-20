@@ -300,3 +300,16 @@ textarea.input { @apply resize-y min-h-[80px]; }
 @media screen {
   .soa-print-body { max-width: 1200px; margin: 0 auto; padding: 2rem; }
 }
+
+/* ─── Roadmap-27 PR-B — Process canvas edge hover ──────────────────
+ * A quiet hover lift on connection strokes — scoped to the Processes
+ * canvas so the traceability GraphExplorer is untouched. `filter`
+ * (not stroke-width) is used because xyflow sets stroke width inline
+ * per edge variant; a stylesheet width would lose to the inline
+ * style. brightness() lifts every variant uniformly. */
+[data-process-canvas="true"] .react-flow__edge {
+  cursor: pointer;
+}
+[data-process-canvas="true"] .react-flow__edge:hover .react-flow__edge-path {
+  filter: brightness(1.35);
+}

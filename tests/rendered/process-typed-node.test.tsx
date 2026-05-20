@@ -65,13 +65,18 @@ describe('ProcessTypedNode — per-kind chrome', () => {
                 expect(root).not.toBeNull();
                 const cls = root!.className;
                 if (meta.shape === 'diamond') {
-                    expect(cls).toMatch(/min-w-\[120px\]/);
+                    // R27-PR-B — a real diamond: a square chassis
+                    // with a 45°-rotated body layer.
+                    expect(cls).toMatch(/w-\[128px\]/);
+                    expect(
+                        container.querySelector('.rotate-45'),
+                    ).not.toBeNull();
                 } else if (meta.shape === 'note') {
                     expect(cls).toMatch(/rounded-\[6px\]/);
                     // Note shape carries the subtle background tint.
                     expect(cls).toMatch(/bg-bg-subtle/);
                 } else {
-                    expect(cls).toMatch(/min-w-\[160px\]/);
+                    expect(cls).toMatch(/min-w-\[180px\]/);
                 }
             });
 

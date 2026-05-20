@@ -65,6 +65,7 @@
   --canvas-surface:    #05121F;                   /* recessed work plane — deepest */
   --canvas-frame:      #0A2138;                   /* workspace frame + chrome strips */
   --canvas-grid:       rgba(127, 167, 215, 0.10); /* dot grid — faint cool light */
+  --canvas-edge:       #335E86;                   /* default connection stroke (R27-PR-B) */
   --canvas-node:       #123A60;                   /* node fill — elevated flow card */
   --canvas-node-muted: #0D2A45;                   /* node fill — context (quieter) */
   --canvas-border:     rgba(127, 167, 215, 0.20); /* hairline inside the workspace */
@@ -602,6 +603,7 @@
   --canvas-surface:    #ECE9E1;                   /* recessed work plane — soft warm gray */
   --canvas-frame:      #FBFAF8;                   /* workspace frame + chrome strips */
   --canvas-grid:       rgba(74, 64, 52, 0.12);    /* dot grid — faint warm */
+  --canvas-edge:       #ADA395;                   /* default connection stroke (R27-PR-B) */
   --canvas-node:       #FFFFFF;                   /* node fill — elevated flow card */
   --canvas-node-muted: #F4F1EA;                   /* node fill — context (quieter) */
   --canvas-border:     rgba(74, 64, 52, 0.14);    /* hairline inside the workspace */

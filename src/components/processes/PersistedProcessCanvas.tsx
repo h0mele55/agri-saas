@@ -61,14 +61,23 @@ import {
     PALETTE_DRAG_MIME,
     type PaletteDropPayload,
 } from "./ProcessPalette";
-import { ProcessTypedNode, PROCESS_STEP_NODE_TYPE } from "./ProcessTypedNode";
+import {
+    ProcessTypedNode,
+    PROCESS_STEP_NODE_TYPE,
+    isProcessNodeSize,
+    type ProcessNodeSize,
+} from "./ProcessTypedNode";
 import {
     NODE_TAXONOMY,
     NODE_TAXONOMY_ORDER,
     isProcessNodeKind,
     type ProcessNodeKind,
 } from "./node-taxonomy";
-import { ProcessEdge, PROCESS_EDGE_TYPE } from "./ProcessEdge";
+import {
+    ProcessEdge,
+    PROCESS_EDGE_TYPE,
+    isProcessEdgeVariant,
+} from "./ProcessEdge";
 import { useProximityAutoBind } from "@/lib/processes/use-proximity-auto-bind";
 import { ProcessInspector } from "./ProcessInspector";
 import { CanvasHelpStrip } from "./CanvasHelpStrip";
@@ -93,6 +102,21 @@ const NODE_TYPES: NodeTypes = Object.fromEntries(
 const EDGE_TYPES: EdgeTypes = {
     [PROCESS_EDGE_TYPE]: ProcessEdge,
 };
+
+// ─── Graph-row serialisers (R27-PR-B) ────────────────────────────────
+// Node size persists in the forward-compatible `ProcessNode.dataJson`
+// slot; edge variant persists in the `ProcessEdge.edgeKind` column.
+// Both already round-trip end to end — no schema migration needed.
+
+function nodeDataJson(n: Node): { size: string } | null {
+    const size = (n.data as { size?: unknown } | undefined)?.size;
+    return isProcessNodeSize(size) ? { size } : null;
+}
+
+function edgeKindOf(e: Edge): string {
+    const v = (e.data as { variant?: unknown } | undefined)?.variant;
+    return isProcessEdgeVariant(v) ? v : "flow";
+}
 
 interface PersistedProcessCanvasProps {
     tenantSlug: string;
@@ -181,6 +205,7 @@ function Inner({
                         subtitle: string | null;
                         posX: number;
                         posY: number;
+                        dataJson: unknown;
                     }>;
                     edges: Array<{
                         edgeKey: string;
@@ -199,6 +224,10 @@ function Inner({
                     const kind: ProcessNodeKind = isProcessNodeKind(n.nodeType)
                         ? n.nodeType
                         : PROCESS_STEP_NODE_TYPE;
+                    // R27-PR-B — node size rides in `dataJson`.
+                    const size = (
+                        n.dataJson as { size?: unknown } | null | undefined
+                    )?.size;
                     return {
                         id: n.nodeKey,
                         type: kind,
@@ -207,6 +236,7 @@ function Inner({
                             label: n.label,
                             kind,
                             ...(n.subtitle ? { subtitle: n.subtitle } : {}),
+                            ...(isProcessNodeSize(size) ? { size } : {}),
                         },
                     };
                 });
@@ -215,6 +245,12 @@ function Inner({
                     source: e.sourceKey,
                     target: e.targetKey,
                     type: PROCESS_EDGE_TYPE,
+                    // R27-PR-B — edge variant rides in `edgeKind`.
+                    data: {
+                        variant: isProcessEdgeVariant(e.edgeKind)
+                            ? e.edgeKind
+                            : "flow",
+                    },
                     ...(e.labelOverride ? { label: e.labelOverride } : {}),
                 }));
                 setNodes(rehydratedNodes);
@@ -279,13 +315,14 @@ function Inner({
                         subtitle: dataSubtitle,
                         posX: n.position.x,
                         posY: n.position.y,
+                        dataJson: nodeDataJson(n),
                     };
                 }),
                 edges: edges.map((e, idx) => ({
                     edgeKey: e.id || `edge-${idx + 1}`,
                     sourceKey: e.source,
                     targetKey: e.target,
-                    edgeKind: "flow",
+                    edgeKind: edgeKindOf(e),
                     labelOverride:
                         typeof e.label === "string" ? e.label : null,
                     controls: [],
@@ -333,7 +370,11 @@ function Inner({
     const handleInspectorUpdate = useCallback(
         (
             nodeId: string,
-            patch: { label?: string; subtitle?: string | null },
+            patch: {
+                label?: string;
+                subtitle?: string | null;
+                size?: ProcessNodeSize;
+            },
         ) => {
             setNodes((nds) =>
                 nds.map((n) => {
@@ -350,6 +391,9 @@ function Inner({
                                 ? patch.subtitle === null
                                     ? { subtitle: undefined }
                                     : { subtitle: patch.subtitle }
+                                : {}),
+                            ...(patch.size !== undefined
+                                ? { size: patch.size }
                                 : {}),
                         },
                     };
@@ -396,12 +440,13 @@ function Inner({
                             : null,
                     posX: n.position.x,
                     posY: n.position.y,
+                    dataJson: nodeDataJson(n),
                 })),
                 edges: edges.map((e, idx) => ({
                     edgeKey: e.id || `edge-${idx + 1}`,
                     sourceKey: e.source,
                     targetKey: e.target,
-                    edgeKind: "flow",
+                    edgeKind: edgeKindOf(e),
                     labelOverride:
                         typeof e.label === "string" ? e.label : null,
                     controls: [],
@@ -493,12 +538,13 @@ function Inner({
                                     : null,
                             posX: n.position.x,
                             posY: n.position.y,
+                            dataJson: nodeDataJson(n),
                         })),
                         edges: edges.map((e, idx) => ({
                             edgeKey: e.id || `edge-${idx + 1}`,
                             sourceKey: e.source,
                             targetKey: e.target,
-                            edgeKind: "flow",
+                            edgeKind: edgeKindOf(e),
                             labelOverride:
                                 typeof e.label === "string" ? e.label : null,
                             controls: [],

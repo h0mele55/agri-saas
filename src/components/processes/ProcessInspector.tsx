@@ -33,7 +33,13 @@
 
 import { useEffect, useState } from "react";
 import type { Node } from "@xyflow/react";
+import { ToggleGroup } from "@/components/ui/toggle-group";
 import { NODE_TAXONOMY, isProcessNodeKind } from "./node-taxonomy";
+import {
+    DEFAULT_NODE_SIZE,
+    isProcessNodeSize,
+    type ProcessNodeSize,
+} from "./ProcessTypedNode";
 
 export interface ProcessInspectorProps {
     /** Selected node, or null when nothing is selected. */
@@ -42,7 +48,14 @@ export interface ProcessInspectorProps {
      * Called when the user commits a label / subtitle change.
      * The canvas writes the change back into its nodes state.
      */
-    onUpdate: (nodeId: string, patch: { label?: string; subtitle?: string | null }) => void;
+    onUpdate: (
+        nodeId: string,
+        patch: {
+            label?: string;
+            subtitle?: string | null;
+            size?: ProcessNodeSize;
+        },
+    ) => void;
 }
 
 export function ProcessInspector({ node, onUpdate }: ProcessInspectorProps) {
@@ -51,7 +64,7 @@ export function ProcessInspector({ node, onUpdate }: ProcessInspectorProps) {
     // mirror commits on blur (or Enter), which is when the canvas
     // actually receives the patch.
     const data = node?.data as
-        | { label?: string; subtitle?: string; kind?: unknown }
+        | { label?: string; subtitle?: string; kind?: unknown; size?: unknown }
         | undefined;
     const [label, setLabel] = useState(data?.label ?? "");
     const [subtitle, setSubtitle] = useState(data?.subtitle ?? "");
@@ -69,6 +82,10 @@ export function ProcessInspector({ node, onUpdate }: ProcessInspectorProps) {
     const kindMeta = isProcessNodeKind(data?.kind)
         ? NODE_TAXONOMY[data.kind]
         : null;
+
+    const size: ProcessNodeSize = isProcessNodeSize(data?.size)
+        ? data.size
+        : DEFAULT_NODE_SIZE;
 
     const commit = () => {
         const trimmedLabel = label.trim();
@@ -132,6 +149,24 @@ export function ProcessInspector({ node, onUpdate }: ProcessInspectorProps) {
                     data-testid="inspector-subtitle-input"
                 />
             </label>
+            <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-content-muted">
+                    Size
+                </span>
+                <ToggleGroup
+                    size="sm"
+                    ariaLabel="Node size"
+                    selected={size}
+                    options={[
+                        { value: "sm", label: "S" },
+                        { value: "md", label: "M" },
+                        { value: "lg", label: "L" },
+                    ]}
+                    selectAction={(v) =>
+                        onUpdate(node.id, { size: v as ProcessNodeSize })
+                    }
+                />
+            </div>
             <p className="text-[10px] text-content-subtle">
                 Click off the field or press Enter to save the edit.
             </p>

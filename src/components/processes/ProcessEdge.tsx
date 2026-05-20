@@ -1,28 +1,35 @@
 "use client";
 
 /**
- * R25-PR-D — ProcessEdge + ControlOnEdge overlay.
+ * R25-PR-D / R27-PR-B — ProcessEdge + ControlOnEdge overlay.
  *
- * Custom xyflow edge component that:
- *   1. Draws an elegant bezier path between two process steps
- *      (overrides xyflow's default thin grey stroke with a token-
- *      backed border-default colour that reads as IC chrome).
- *   2. Optionally renders a Control overlay at the midpoint of
- *      the edge — a small shield-icon badge that visually belongs
- *      to the connection, not to either of the connected nodes.
+ * Custom xyflow edge with a token-backed bezier stroke, a three-tier
+ * connection LANGUAGE, and an optional edge-mounted Control overlay.
+ *
+ * Edge variants (R27-PR-B) — a deliberately minimal hierarchy. One
+ * line style per meaning; three is the whole vocabulary:
+ *
+ *   • flow        — SOLID. Normal sequential process flow. The
+ *                   default; the spine of the map.
+ *   • conditional — DASHED. An optional / branch path — the
+ *                   "sometimes taken" route out of a decision.
+ *   • reference   — DOTTED. A non-flow informational dependency —
+ *                   a step references an asset or an external
+ *                   system. It carries meaning, not sequence.
+ *
+ * The variant rides on `edge.data.variant`, persists through the
+ * `edgeKind` column, and is cycled from the edge's selection
+ * affordance. A selected edge keeps its dash signature (only the
+ * colour + weight lift) so the variant stays legible while active.
  *
  * The control-on-edge treatment is the R25 architectural commit:
  * controls are governance objects placed BETWEEN process steps,
- * not separate nodes hanging in space. Visually distinct from
- * `<ProcessStepNode>` (smaller, badge-like, no handles, no card
- * chrome) so the reading is unambiguous — "this is a control on
- * this connection, not another process step".
+ * not separate nodes hanging in space.
  *
  * Data-shape contract:
- *   edge.data.control: { label: string } | undefined
- * When present → the overlay renders. Absent → just the bezier
- * stroke. PR-E's interaction model lets users add/remove the
- * control via a click affordance on the edge.
+ *   edge.data.control:  { label: string } | undefined
+ *   edge.data.variant:  'flow' | 'conditional' | 'reference' | undefined
+ *   edge.data.isPreview: true while a proximity auto-bind is in flight
  */
 
 import {
@@ -32,24 +39,98 @@ import {
     useReactFlow,
     type EdgeProps,
 } from "@xyflow/react";
-import { ShieldCheck, ShieldPlus } from "lucide-react";
-import { memo, useCallback } from "react";
+import { ShieldCheck, ShieldPlus, Spline } from "lucide-react";
+import { memo, useCallback, type CSSProperties } from "react";
+
+/** The three connection variants. Minimal, meaningful, curated. */
+export type ProcessEdgeVariant = "flow" | "conditional" | "reference";
+
+/** Cycle order for the selection affordance. */
+export const EDGE_VARIANT_ORDER: ProcessEdgeVariant[] = [
+    "flow",
+    "conditional",
+    "reference",
+];
+
+export const EDGE_VARIANT_META: Record<
+    ProcessEdgeVariant,
+    { label: string; description: string }
+> = {
+    flow: { label: "Flow", description: "Normal sequential flow" },
+    conditional: {
+        label: "Conditional",
+        description: "Optional / branch path",
+    },
+    reference: {
+        label: "Reference",
+        description: "Informational dependency — not sequence",
+    },
+};
+
+/**
+ * Runtime guard — `edgeKind` is a free `String` column, so a
+ * rehydrated edge may carry a value we don't recognise. Unknown
+ * kinds fall back to `flow` at the render boundary.
+ */
+export function isProcessEdgeVariant(v: unknown): v is ProcessEdgeVariant {
+    return v === "flow" || v === "conditional" || v === "reference";
+}
 
 export interface ProcessEdgeData {
-    /** Optional control placed on this connection. PR-E adds/removes it. */
+    /** Optional control placed on this connection. */
     control?: {
         label: string;
     };
     /**
-     * R26-PR-C — when the canvas synthesises a transient "preview"
-     * edge during a proximity auto-bind drag, it tags the edge's
-     * data with `isPreview: true`. The renderer reads this and
-     * draws a dashed, brand-coloured stroke so the user SEES the
-     * auto-bind about to commit. The preview is stripped from the
-     * edges array on commit / cancellation.
+     * R26-PR-C — transient proximity auto-bind preview. Dashed
+     * brand stroke; stripped from the edges array on commit.
      */
     isPreview?: boolean;
+    /** R27-PR-B — the connection variant. Defaults to `flow`. */
+    variant?: ProcessEdgeVariant;
     [key: string]: unknown;
+}
+
+/**
+ * Resolve the SVG stroke style for a (variant, state) pair.
+ *
+ * Solid / dashed / dotted is the VARIANT's job; colour + weight is
+ * the STATE's job. Keeping the dash pattern on the selected state
+ * means a highlighted conditional edge still reads as conditional.
+ */
+function strokeFor(
+    variant: ProcessEdgeVariant,
+    selected: boolean,
+    isPreview: boolean,
+): CSSProperties {
+    if (isPreview) {
+        return {
+            stroke: "var(--brand-default)",
+            strokeWidth: 2,
+            strokeDasharray: "6 4",
+        };
+    }
+    const stroke = selected ? "var(--brand-default)" : "var(--canvas-edge)";
+    if (variant === "conditional") {
+        return {
+            stroke,
+            strokeWidth: selected ? 2.25 : 1.75,
+            strokeDasharray: "7 5",
+        };
+    }
+    if (variant === "reference") {
+        return {
+            stroke,
+            strokeWidth: selected ? 2 : 1.5,
+            strokeDasharray: "1 6",
+            strokeLinecap: "round",
+        };
+    }
+    // flow — solid.
+    return {
+        stroke,
+        strokeWidth: selected ? 2.25 : 1.75,
+    };
 }
 
 function ProcessEdgeImpl(props: EdgeProps) {
@@ -76,14 +157,13 @@ function ProcessEdgeImpl(props: EdgeProps) {
 
     const edgeData = data as ProcessEdgeData | undefined;
     const control = edgeData?.control;
+    const isPreview = edgeData?.isPreview === true;
+    const variant: ProcessEdgeVariant = isProcessEdgeVariant(edgeData?.variant)
+        ? edgeData.variant
+        : "flow";
     const { setEdges } = useReactFlow();
 
-    // R25-PR-E — single-click "+ Control" affordance. When an edge
-    // is selected AND carries no control, a small inline button
-    // appears at the midpoint. Click → mutates this edge's data
-    // to add a control with the default label. The constrained
-    // model: no inline editing, no naming dialog, no settings
-    // panel. Visual-authoring intent only.
+    // R25-PR-E — single-click "Add control" affordance.
     const addControl = useCallback(() => {
         setEdges((eds) =>
             eds.map((edge) =>
@@ -100,39 +180,43 @@ function ProcessEdgeImpl(props: EdgeProps) {
         );
     }, [id, setEdges]);
 
-    const isPreview = edgeData?.isPreview === true;
+    // R27-PR-B — cycle the connection variant
+    // flow → conditional → reference → flow. One affordance, no
+    // dialog: visual authoring, consistent with the add-control UX.
+    const cycleVariant = useCallback(() => {
+        setEdges((eds) =>
+            eds.map((edge) => {
+                if (edge.id !== id) return edge;
+                const cur = (edge.data as ProcessEdgeData | undefined)?.variant;
+                const idx = EDGE_VARIANT_ORDER.indexOf(
+                    isProcessEdgeVariant(cur) ? cur : "flow",
+                );
+                const next =
+                    EDGE_VARIANT_ORDER[(idx + 1) % EDGE_VARIANT_ORDER.length];
+                return {
+                    ...edge,
+                    data: {
+                        ...(edge.data as ProcessEdgeData | undefined),
+                        variant: next,
+                    },
+                };
+            }),
+        );
+    }, [id, setEdges]);
 
     return (
         <>
             <BaseEdge
                 id={id}
                 path={edgePath}
-                // Token-backed stroke — quiet at rest, emphasised
-                // on selected/hover so the connection state is
-                // legible without becoming a visual centerpiece.
-                //
-                // R26-PR-C — when this edge is a transient
-                // proximity preview, swap to a dashed brand-default
-                // stroke. The dash reads unambiguously as "not yet
-                // committed"; the brand colour matches the colour
-                // a selected edge takes on so the preview reads as
-                // a "selected-feeling" outline the user is steering.
-                style={{
-                    stroke:
-                        isPreview || selected
-                            ? "var(--brand-default)"
-                            : "var(--border-default)",
-                    strokeWidth: selected ? 2 : isPreview ? 2 : 1.5,
-                    strokeDasharray: isPreview ? "6 4" : undefined,
-                }}
+                // Token-backed stroke — quiet `--canvas-edge` at rest,
+                // brand-lifted on selection / preview. Solid / dashed
+                // / dotted is the variant's signature.
+                style={strokeFor(variant, selected === true, isPreview)}
             />
             {control && (
                 // EdgeLabelRenderer pulls the overlay OUT of the SVG
-                // and into a portal-like positioned div so React
-                // components (with tokens, hover states, focus
-                // rings) can render natively at the edge midpoint.
-                // pointer-events: all so the badge is interactive
-                // without breaking edge selection.
+                // so React components render natively at the midpoint.
                 <EdgeLabelRenderer>
                     <div
                         style={{
@@ -147,29 +231,48 @@ function ProcessEdgeImpl(props: EdgeProps) {
                     </div>
                 </EdgeLabelRenderer>
             )}
-            {!control && selected && (
-                // R25-PR-E — affordance only appears when the user
-                // has SELECTED an edge that doesn't yet carry a
-                // control. This keeps the canvas calm at rest;
-                // affordance is contextual, not always-on.
+            {selected && (
+                // R27-PR-B — selection affordances. Sits just above
+                // the midpoint when a control badge occupies it, so
+                // the two never collide. The variant cycle is always
+                // offered; "Add control" only when none exists yet.
                 <EdgeLabelRenderer>
                     <div
                         style={{
                             position: "absolute",
-                            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+                            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY - (control ? 28 : 0)}px)`,
                             pointerEvents: "all",
                         }}
-                        className="nodrag nopan"
-                        data-add-control-affordance="true"
+                        className="nodrag nopan flex items-center gap-1"
+                        data-edge-affordances="true"
                     >
                         <button
                             type="button"
-                            onClick={addControl}
-                            className="inline-flex items-center gap-1 rounded-[8px] border border-border-emphasis bg-bg-default px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis hover:bg-bg-muted transition-colors"
+                            onClick={cycleVariant}
+                            title={`${EDGE_VARIANT_META[variant].description} — click to change`}
+                            className="inline-flex items-center gap-1 rounded-[8px] border border-canvas-border bg-canvas-frame px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-default transition-colors hover:border-border-emphasis hover:text-content-emphasis"
+                            data-edge-variant-affordance="true"
                         >
-                            <ShieldPlus className="h-3 w-3 shrink-0 text-[color:var(--brand-default)]" />
-                            <span>Add control</span>
+                            <Spline
+                                className="h-3 w-3 shrink-0 text-[color:var(--brand-default)]"
+                                aria-hidden="true"
+                            />
+                            <span>{EDGE_VARIANT_META[variant].label}</span>
                         </button>
+                        {!control && selected && (
+                            <button
+                                type="button"
+                                onClick={addControl}
+                                className="inline-flex items-center gap-1 rounded-[8px] border border-border-emphasis bg-canvas-frame px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis transition-colors hover:bg-bg-muted"
+                                data-add-control-affordance="true"
+                            >
+                                <ShieldPlus
+                                    className="h-3 w-3 shrink-0 text-[color:var(--brand-default)]"
+                                    aria-hidden="true"
+                                />
+                                <span>Add control</span>
+                            </button>
+                        )}
                     </div>
                 </EdgeLabelRenderer>
             )}
@@ -188,19 +291,9 @@ export const PROCESS_EDGE_TYPE = "processEdge";
  * R25-PR-D — ControlOnEdge.
  *
  * Visual representation of a control inserted into a process
- * connection. Deliberately distinct from `<ProcessStepNode>`:
- *
- *   - Smaller (pill, not card) — controls are decorations on
- *     edges, not first-class process objects
- *   - Shield-check icon prefix — governance vocabulary that
- *     reads as "this is a control"
- *   - No handles — controls don't connect to anything, they
- *     decorate the connection itself
- *   - Token-backed tint (bg-bg-elevated + border-emphasis) so
- *     it reads as elevated above the bezier stroke
- *
- * PR-E adds the click-to-add-control affordance and the inline
- * editing UI.
+ * connection. Deliberately distinct from a process node: a small
+ * pill, shield-check icon, no handles, elevated tint — it reads as
+ * "a control ON this connection", not another step.
  */
 interface ControlOnEdgeProps {
     label: string;
@@ -209,7 +302,7 @@ interface ControlOnEdgeProps {
 export function ControlOnEdge({ label }: ControlOnEdgeProps) {
     return (
         <div
-            className="inline-flex items-center gap-1 rounded-[8px] border border-border-emphasis bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis "
+            className="inline-flex items-center gap-1 rounded-[8px] border border-border-emphasis bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis shadow-canvas-node"
             data-control-on-edge-badge="true"
         >
             <ShieldCheck className="h-3 w-3 shrink-0 text-[color:var(--brand-default)]" />
