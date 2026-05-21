@@ -1,0 +1,49 @@
+# =============================================================================
+# Grafana unified alerting — provisioned contact points + notification policy.
+# -----------------------------------------------------------------------------
+# Minimal, valid provisioning. A single webhook contact point fed by the
+# GRAFANA_ALERT_WEBHOOK env var, and a default notification policy that routes
+# everything to it.
+#
+# NOTE on alert RULES: this stack defines alert *rules* in Prometheus
+# (prometheus/rules/alerting-rules.yml), not in Grafana. This file only
+# provisions the *delivery* side (contact point + policy) so that, should you
+# also author Grafana-native alert rules later, notifications are already
+# wired. If GRAFANA_ALERT_WEBHOOK is empty the webhook simply no-ops.
+# =============================================================================
+apiVersion: 1
+
+# ---------------------------------------------------------------------------
+# Contact points — where notifications are delivered.
+# ---------------------------------------------------------------------------
+contactPoints:
+  - orgId: 1
+    name: default-webhook
+    receivers:
+      - uid: default-webhook-receiver
+        type: webhook
+        settings:
+          # Generic webhook target. Point at Slack/PagerDuty/Opsgenie/etc.
+          # ingest URL. Empty string => Grafana accepts the config but the
+          # send is a no-op until a real URL is supplied.
+          url: ${GRAFANA_ALERT_WEBHOOK}
+          httpMethod: POST
+        disableResolveMessage: false
+
+# ---------------------------------------------------------------------------
+# Notification policy tree — route everything to the default webhook.
+# ---------------------------------------------------------------------------
+policies:
+  - orgId: 1
+    receiver: default-webhook
+    group_by: ['alertname', 'severity']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
+    routes:
+      # Critical alerts page faster and repeat sooner.
+      - receiver: default-webhook
+        matchers:
+          - severity = critical
+        group_wait: 10s
+        repeat_interval: 1h

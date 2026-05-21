@@ -1,0 +1,193 @@
+# =============================================================================
+# inflect-compliance — Production Observability Stack
+# -----------------------------------------------------------------------------
+# A SEPARATE docker-compose project, co-located on the application VM.
+#
+#   App (docker-compose.prod.yml)  --OTLP/HTTP-->  otel-collector
+#                                                       |
+#                          metrics (Prometheus scrape)  |  traces (OTLP)
+#                                       v               v
+#                                  prometheus        tempo
+#                                       \             /
+#                                        \           /
+#                                          grafana (127.0.0.1:3001)
+#
+# Deploy:
+#   cp .env.example .env   # then edit
+#   docker compose -f docker-compose.observability.yml --env-file .env up -d
+#
+# The app's `app` container reaches `otel-collector` by DNS because this
+# project joins the app's external bridge network (see `networks:` below).
+# Set APP_NETWORK_NAME in .env to the app compose's real network name
+# (typically "<project>_internal", e.g. inflect_internal). See README.md.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # OpenTelemetry Collector (gateway) — single ingestion point for the app.
+  # Receives OTLP push from the app (traces + metrics), fans out to Prometheus
+  # (via its own Prometheus exporter on :8889) and Tempo (OTLP).
+  # ---------------------------------------------------------------------------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    container_name: obs-otel-collector
+    restart: unless-stopped
+    command:
+      - "--config=/etc/otelcol-contrib/config.yaml"
+    environment:
+      # Stamped onto every signal via the `resource` processor.
+      DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-production}
+      # Trace head-sampling rate (percent). 100 = keep all, 20 = keep 1 in 5.
+      OTEL_SAMPLING_PERCENTAGE: ${OTEL_SAMPLING_PERCENTAGE:-20}
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - observability
+      - app
+    # No host ports published. The app reaches us over the shared `app`
+    # network by DNS (otel-collector:4317 / :4318). Prometheus scrapes
+    # :8889 / :8888 over the internal `observability` network.
+    healthcheck:
+      # The health_check extension listens on 0.0.0.0:13133.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:13133/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 512m
+    cpus: 1.0
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — scrapes the collector's Prometheus exporter (app metrics),
+  # the collector's self-telemetry, itself, Grafana, and Tempo.
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v3.3.0
+    container_name: obs-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROM_RETENTION:-30d}"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus-data:/prometheus
+    networks:
+      - observability
+    # Not published to the host. Reach it via Grafana, or `docker exec`,
+    # or temporarily `docker compose port`. Operators who want direct
+    # access should add a 127.0.0.1:9090 mapping locally — never 0.0.0.0.
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 1g
+    cpus: 1.0
+
+  # ---------------------------------------------------------------------------
+  # Tempo — trace storage. OTLP gRPC receiver, local filesystem backend.
+  # ---------------------------------------------------------------------------
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: obs-tempo
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/tempo/tempo.yaml"
+    environment:
+      # Trace retention window (compactor block_retention). e.g. 168h = 7d.
+      TEMPO_RETENTION: ${TEMPO_RETENTION:-168h}
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    networks:
+      - observability
+    # No host ports. The collector pushes traces to tempo:4317 over the
+    # internal `observability` network; Grafana queries tempo:3200.
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3200/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    mem_limit: 1g
+    cpus: 1.0
+
+  # ---------------------------------------------------------------------------
+  # Grafana — the only service that publishes a host port, bound to
+  # 127.0.0.1 only. Expose to operators via Caddy reverse-proxy in prod.
+  # All configuration is via GF_* env vars — no grafana.ini with secrets.
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: obs-grafana
+    restart: unless-stopped
+    environment:
+      # --- Security -----------------------------------------------------------
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD must be set}
+      # Lock down sign-up / anonymous access.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # --- Server -------------------------------------------------------------
+      # Public-facing URL once placed behind Caddy (used for share links,
+      # alert callbacks, OAuth redirects). Override in .env for prod.
+      GF_SERVER_ROOT_URL: ${GF_SERVER_ROOT_URL:-http://localhost:3001}
+      GF_SERVER_HTTP_PORT: "3000"
+      # --- Provisioning paths (mounted read-only below) -----------------------
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      # --- Alerting webhook target (consumed by provisioned contact point) ---
+      GRAFANA_ALERT_WEBHOOK: ${GRAFANA_ALERT_WEBHOOK:-}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      # Bound to loopback ONLY. Production access is via Caddy (see README).
+      - "127.0.0.1:3001:3000"
+    networks:
+      - observability
+    depends_on:
+      - prometheus
+      - tempo
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 512m
+    cpus: 0.75
+
+# =============================================================================
+# Volumes — persistent storage for metrics, dashboards/users, and traces.
+# =============================================================================
+volumes:
+  prometheus-data:
+    name: obs-prometheus-data
+  grafana-data:
+    name: obs-grafana-data
+  tempo-data:
+    name: obs-tempo-data
+
+# =============================================================================
+# Networks
+#  - observability : internal bridge, the 4 stack services talk over this.
+#  - app           : the app compose's PRE-EXISTING bridge network, joined as
+#                    external so the app's `app` container can resolve
+#                    `otel-collector`. Set APP_NETWORK_NAME in .env to the
+#                    real docker network name (usually "<project>_internal",
+#                    e.g. inflect_internal). Find it with:
+#                        docker network ls
+# =============================================================================
+networks:
+  observability:
+    name: obs-internal
+    driver: bridge
+  app:
+    external: true
+    name: ${APP_NETWORK_NAME:-inflect_internal}

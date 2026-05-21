@@ -1,0 +1,67 @@
+# =============================================================================
+# Grafana provisioned datasources — inflect-compliance observability stack.
+# -----------------------------------------------------------------------------
+# Provisioned as code: this file is mounted read-only at
+# /etc/grafana/provisioning/datasources/. Grafana applies it on every start.
+# No secrets here — both datasources are reached over the internal stack
+# network and require no auth.
+# =============================================================================
+apiVersion: 1
+
+# Remove datasources that were provisioned previously but are no longer here.
+deleteDatasources:
+  - name: Prometheus
+    orgId: 1
+  - name: Tempo
+    orgId: 1
+
+datasources:
+  # ---------------------------------------------------------------------------
+  # Prometheus — default datasource, backs all metric dashboards + recording
+  # and alerting rules.
+  # ---------------------------------------------------------------------------
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      timeInterval: 30s
+      # Link metrics -> traces via exemplars. The app would need to emit
+      # exemplars carrying a trace_id label for this to populate; harmless
+      # if absent.
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+          urlDisplayLabel: "View trace in Tempo"
+
+  # ---------------------------------------------------------------------------
+  # Tempo — distributed tracing. trace <-> metrics correlation kept simple.
+  # ---------------------------------------------------------------------------
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      # Service-graph / node-graph rendering in the trace view.
+      nodeGraph:
+        enabled: true
+      # Trace -> metrics: jump from a span to RED metrics in Prometheus.
+      tracesToMetrics:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"
+        queries:
+          - name: "Request rate"
+            query: 'sum(rate(api_request_count_total{$$__tags}[5m]))'
+      # Trace -> logs left simple (no Loki in this stack). Wire a Loki UID
+      # here if logs are added later.
+      tracesToLogs:
+        datasourceUid: prometheus
+        spanStartTimeShift: "-5m"
+        spanEndTimeShift: "5m"

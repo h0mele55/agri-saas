@@ -1,0 +1,20 @@
+# =============================================================================
+# Grafana dashboard provider — inflect-compliance observability stack.
+# -----------------------------------------------------------------------------
+# A file-based provider. Grafana loads every *.json dashboard under the path
+# below on start and re-syncs on change (updateIntervalSeconds). The
+# dashboards directory is mounted read-only in docker-compose.
+# =============================================================================
+apiVersion: 1
+
+providers:
+  - name: inflect-observability
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards
+      # Mirror the on-disk folder structure into Grafana folders.
+      foldersFromFilesStructure: true

@@ -1,0 +1,74 @@
+# =============================================================================
+# Tempo — minimal single-binary config for the inflect-compliance stack.
+# -----------------------------------------------------------------------------
+# Receives traces from the OTel Collector over OTLP gRPC (4317), stores blocks
+# on the local filesystem, compacts with a retention window.
+#
+# Env vars consumed (expanded by Tempo at startup):
+#   TEMPO_RETENTION  compactor block_retention window (default 168h = 7d)
+# =============================================================================
+
+# HTTP API (queries from Grafana, /ready healthcheck) on 3200.
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9095
+  log_level: info
+
+# ---------------------------------------------------------------------------
+# Distributor — trace ingestion. OTLP gRPC receiver on 4317; the collector
+# pushes here via the `otlp/tempo` exporter.
+# ---------------------------------------------------------------------------
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+
+# ---------------------------------------------------------------------------
+# Ingester — buffers and flushes trace blocks to storage.
+# ---------------------------------------------------------------------------
+ingester:
+  max_block_duration: 5m
+
+# ---------------------------------------------------------------------------
+# Compactor — merges blocks and enforces retention.
+# ---------------------------------------------------------------------------
+compactor:
+  compaction:
+    block_retention: ${TEMPO_RETENTION}
+
+# ---------------------------------------------------------------------------
+# Storage — local filesystem backend under the persistent tempo-data volume.
+# ---------------------------------------------------------------------------
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+# ---------------------------------------------------------------------------
+# Metrics generator — OFF. Span-derived metrics (service graphs, RED from
+# spans) are not needed; the app already emits first-class OTel metrics that
+# Prometheus scrapes. Enable here + add a `remote_write` target if you later
+# want Tempo-generated span metrics.
+# ---------------------------------------------------------------------------
+# metrics_generator:
+#   storage:
+#     path: /var/tempo/generator/wal
+#     remote_write:
+#       - url: http://prometheus:9090/api/v1/write
+#   processor:
+#     service_graphs: {}
+#     span_metrics: {}
+
+# ---------------------------------------------------------------------------
+# Per-tenant overrides. metrics_generator processors left empty => generator
+# stays off even though the block is present.
+# ---------------------------------------------------------------------------
+overrides:
+  defaults:
+    metrics_generator:
+      processors: []

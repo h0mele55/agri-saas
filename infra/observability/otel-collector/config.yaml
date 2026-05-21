@@ -1,0 +1,125 @@
+# =============================================================================
+# OpenTelemetry Collector (contrib) — gateway config for inflect-compliance.
+# -----------------------------------------------------------------------------
+# The app PUSHES OTLP/HTTP (traces + metrics) to this collector. The collector:
+#   * metrics -> Prometheus exporter on :8889 (Prometheus scrapes it)
+#   * traces  -> OTLP to Tempo, plus a `debug` exporter
+#
+# Env vars consumed (expanded by the collector at startup):
+#   DEPLOYMENT_ENVIRONMENT   stamped as resource attr `deployment.environment`
+#   OTEL_SAMPLING_PERCENTAGE trace head-sampling percent (default 20)
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Receivers — OTLP over gRPC (4317) and HTTP (4318).
+# The app's OTEL_EXPORTER_OTLP_ENDPOINT points at http://otel-collector:4318.
+# -----------------------------------------------------------------------------
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+# -----------------------------------------------------------------------------
+# Processors — order matters in the pipelines below.
+#   memory_limiter  MUST be first  — sheds load before OOM.
+#   resourcedetection / resource    — enrich with host + environment metadata.
+#   probabilistic_sampler           — traces only, head sampling.
+#   batch           MUST be last    — efficient export batching.
+# -----------------------------------------------------------------------------
+processors:
+  # Backpressure guard. Soft-limit at 80% of the 512m container mem_limit.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 400
+    spike_limit_mib: 100
+
+  # Auto-detect host / OS / container facts from env + system.
+  resourcedetection:
+    detectors: [env, system]
+    timeout: 5s
+    override: false
+
+  # Stamp the logical environment so every signal is filterable by env.
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: ${env:DEPLOYMENT_ENVIRONMENT}
+        action: upsert
+
+  # Head sampling for traces. 20 => keep ~1 in 5 root traces.
+  probabilistic_sampler:
+    sampling_percentage: ${env:OTEL_SAMPLING_PERCENTAGE}
+
+  # Export batching — reduces egress overhead to Prometheus/Tempo.
+  batch:
+    timeout: 10s
+    send_batch_size: 8192
+    send_batch_max_size: 10000
+
+# -----------------------------------------------------------------------------
+# Exporters
+# -----------------------------------------------------------------------------
+exporters:
+  # App metrics surfaced for Prometheus to scrape (otel-collector:8889).
+  # resource_to_telemetry_conversion promotes resource attrs (service.name,
+  # deployment.environment, host.name, ...) to metric labels.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+    enable_open_metrics: true
+
+  # Traces -> Tempo over OTLP gRPC. In-cluster traffic, TLS not required.
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Low-noise stdout exporter for debugging the pipeline.
+  debug:
+    verbosity: basic
+
+# -----------------------------------------------------------------------------
+# Extensions — operational endpoints. Only health_check is reachable from
+# other containers; pprof and zpages are bound to loopback.
+# -----------------------------------------------------------------------------
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 127.0.0.1:1777
+  zpages:
+    endpoint: 127.0.0.1:55679
+
+# -----------------------------------------------------------------------------
+# Service — wire receivers -> processors -> exporters into pipelines.
+# -----------------------------------------------------------------------------
+service:
+  extensions: [health_check, pprof, zpages]
+
+  telemetry:
+    metrics:
+      level: detailed
+      # Collector self-metrics, scraped by Prometheus at otel-collector:8888.
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
+
+  pipelines:
+    # Metrics: OTLP in -> enrich/batch -> Prometheus exporter.
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, batch]
+      exporters: [prometheus]
+
+    # Traces: OTLP in -> enrich/sample/batch -> Tempo (+ debug).
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resourcedetection, resource, probabilistic_sampler, batch]
+      exporters: [otlp/tempo, debug]

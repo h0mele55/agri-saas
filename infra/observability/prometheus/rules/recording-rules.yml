@@ -1,0 +1,128 @@
+# =============================================================================
+# Prometheus recording rules — inflect-compliance.
+# -----------------------------------------------------------------------------
+# Pre-compute the expensive / frequently-queried PromQL so dashboards and
+# alerts stay cheap. Naming follows the level:metric:operation convention.
+#
+# Metric name reference (collector's Prometheus exporter underscores the
+# app's dotted OTel instrument names):
+#   api.request.count      -> api_request_count_total
+#   api.request.duration   -> api_request_duration_milliseconds_{bucket,sum,count}
+#   api.request.errors     -> api_request_errors_total
+#   repo.method.duration   -> repo_method_duration_milliseconds_{bucket,sum,count}
+#   repo.method.calls      -> repo_method_calls_total
+#   repo.method.errors     -> repo_method_errors_total
+#   job.execution.count    -> job_execution_count_total
+#   job.execution.duration -> job_execution_duration_milliseconds_{bucket,sum,count}
+#   job.queue.depth        -> job_queue_depth        (gauge)
+#   audit_stream.delivery.failures -> audit_stream_delivery_failures_total
+# =============================================================================
+
+groups:
+
+  # ---------------------------------------------------------------------------
+  # API — the RED method (Rate, Errors, Duration).
+  # ---------------------------------------------------------------------------
+  - name: inflect_api_red
+    interval: 30s
+    rules:
+      # Request rate (req/s), per service.
+      - record: job:api_request:rate5m
+        expr: sum by (service_name) (rate(api_request_count_total[5m]))
+
+      # Error rate (errors/s), per service.
+      - record: job:api_request_errors:rate5m
+        expr: sum by (service_name) (rate(api_request_errors_total[5m]))
+
+      # Error ratio (0..1). Guarded against divide-by-zero via `> 0` on the
+      # denominator inside the recording is unnecessary — empty result is fine.
+      - record: job:api_request:error_ratio5m
+        expr: |
+          sum by (service_name) (rate(api_request_errors_total[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(api_request_count_total[5m])), 1)
+
+      # p95 request latency (ms) over a 5m window.
+      - record: job:api_request_duration_ms:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service_name) (rate(api_request_duration_milliseconds_bucket[5m]))
+          )
+
+      # p99 request latency (ms) over a 5m window.
+      - record: job:api_request_duration_ms:p99
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (le, service_name) (rate(api_request_duration_milliseconds_bucket[5m]))
+          )
+
+      # Mean request latency (ms) — sum/count.
+      - record: job:api_request_duration_ms:mean5m
+        expr: |
+          sum by (service_name) (rate(api_request_duration_milliseconds_sum[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(api_request_duration_milliseconds_count[5m])), 1)
+
+  # ---------------------------------------------------------------------------
+  # Repository layer — Prisma query health.
+  # ---------------------------------------------------------------------------
+  - name: inflect_repo
+    interval: 30s
+    rules:
+      - record: job:repo_method:rate5m
+        expr: sum by (service_name) (rate(repo_method_calls_total[5m]))
+
+      - record: job:repo_method:error_ratio5m
+        expr: |
+          sum by (service_name) (rate(repo_method_errors_total[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(repo_method_calls_total[5m])), 1)
+
+      - record: job:repo_method_duration_ms:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service_name) (rate(repo_method_duration_milliseconds_bucket[5m]))
+          )
+
+  # ---------------------------------------------------------------------------
+  # Background jobs — BullMQ worker.
+  # ---------------------------------------------------------------------------
+  - name: inflect_jobs
+    interval: 30s
+    rules:
+      # Job execution rate (jobs/s).
+      - record: job:job_execution:rate5m
+        expr: sum by (service_name) (rate(job_execution_count_total[5m]))
+
+      # Job failure ratio (0..1). The app tags failures on the count metric
+      # with a status/outcome label — adjust the label name if your build
+      # uses a different one.
+      - record: job:job_execution:failure_ratio5m
+        expr: |
+          sum by (service_name) (rate(job_execution_count_total{status="error"}[5m]))
+          /
+          clamp_min(sum by (service_name) (rate(job_execution_count_total[5m])), 1)
+
+      # p95 job execution time (ms).
+      - record: job:job_execution_duration_ms:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, service_name) (rate(job_execution_duration_milliseconds_bucket[5m]))
+          )
+
+      # Max observed queue depth per queue (gauge max over the scrape set).
+      - record: job:job_queue_depth:max
+        expr: max by (queue) (job_queue_depth)
+
+  # ---------------------------------------------------------------------------
+  # Compliance-critical — audit-stream delivery to tenant SIEMs.
+  # ---------------------------------------------------------------------------
+  - name: inflect_audit_stream
+    interval: 30s
+    rules:
+      - record: job:audit_stream_delivery_failures:rate5m
+        expr: sum (rate(audit_stream_delivery_failures_total[5m]))
