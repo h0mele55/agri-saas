@@ -37,6 +37,32 @@ npx playwright test tests/e2e/core-flow.spec.ts
 docker-compose up -d
 ```
 
+## Production VM
+
+The production deployment runs on a single GCP VM, and **Claude has
+`gcloud` access to it** — project `hazel-design-419410`, instance
+`inflect-compliance`, zone `europe-west1-b`:
+
+```bash
+gcloud compute ssh inflect-compliance --zone europe-west1-b --command "…"
+```
+
+The VM hosts a hand-managed Docker Compose stack at `/opt/inflect/`
+(`docker-compose.prod.yml`). It **drifts** from
+`deploy/docker-compose.prod.yml` in the repo — Watchtower
+auto-updates only the `app` + `worker` *images*, never Compose
+structure. Docker commands on the VM need `sudo`.
+`/opt/inflect/.env.prod` and the Redis `--requirepass` value are
+real secrets — never echo them.
+
+**When a deployment or runtime change must be applied to the VM** —
+a new Compose service, a Redis config change, a one-off job run,
+inspecting container logs — **execute it directly via
+`gcloud compute ssh`. Do not ask the operator to do it by hand.**
+Back up any file before editing it (the existing
+`<file>.bak.<timestamp>` convention), validate with
+`docker compose config`, then `docker compose up -d <service>`.
+
 ## Architecture
 
 ### Framework baseline
