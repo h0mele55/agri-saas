@@ -1,210 +1,216 @@
 /**
- * Guardrail: Epic C.5 — sanitiser coverage.
+ * Guardrail: Epic C.5 / D.2 — rich-text sanitiser coverage (structural).
  *
- * Locks in the invariant that every usecase known to ingest rich-text
- * imports the sanitiser. Catches the case where a future PR adds a
- * new HTML-accepting write path (a tiptap-flavoured comment, a
- * markdown body on a new entity) without wiring `sanitize*` into the
- * usecase layer. Render-time sanitisation alone is not sufficient —
- * the row at rest must already be safe so that PDF export, audit-pack
- * share links, and SDK consumers reading the row verbatim cannot turn
- * a stored payload into XSS.
+ * ─── Why this is structural, not a numeric floor ────────────────────
  *
- * The list below is curated rather than auto-discovered — autodetect
- * would either be too noisy (every usecase imports many helpers) or
- * too narrow (a hand-rolled query that bypasses the repo). The list
- * grows as new write paths land. When you add a usecase that handles
- * user-supplied rich text:
- *   1. Wire `sanitizeRichTextHtml` / `sanitizePlainText` /
- *      `sanitizePolicyContent` into the usecase BEFORE the Prisma write.
- *   2. Add the file to `RICH_TEXT_USECASES` below with a one-line
- *      `field` note for the reviewer.
+ * The previous incarnation kept a hand-curated list of usecases plus
+ * `SANITISER_COVERAGE_FLOOR = 8` — a MINIMUM. That was a weak signal:
+ * the floor went green while the real coverage drifted to 15 sanitised
+ * usecases, and — worse — a *new* rich-text write path could land with
+ * no sanitiser and the floor-of-8 would never notice (the eight known
+ * entries were all still present). "At least N" cannot prove
+ * completeness.
+ *
+ * This version derives the rich-text inventory from an authoritative,
+ * already-maintained registry: `ENCRYPTED_FIELDS` in
+ * `src/lib/security/encrypted-fields.ts`. Epic B REQUIRES every
+ * business-content text field to be listed there (it drives
+ * encrypt-on-write / decrypt-on-read). So:
+ *
+ *   - every encrypted business-content model IS a rich-text surface;
+ *   - this guardrail asserts every such model is CLASSIFIED — either
+ *     `RICH_TEXT_COVERAGE` (a usecase sanitises it),
+ *     `NON_RICH_TEXT_MODELS` (the encrypted value is not user-supplied
+ *     rich text — e.g. a generated secret), or `KNOWN_UNCOVERED`
+ *     (a real, named gap, ratcheting to zero);
+ *   - a NEW encrypted model — which a new rich-text field forces into
+ *     `ENCRYPTED_FIELDS` — that is in NONE of the three buckets fails
+ *     this test. That is the completeness guarantee the floor lacked.
+ *
+ * Server-side sanitisation must run BEFORE the row is persisted:
+ * render-time sanitisation alone leaves the row dangerous to PDF
+ * export, audit-pack share links, and SDK consumers reading it
+ * verbatim.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { ENCRYPTED_FIELDS } from '@/lib/security/encrypted-fields';
 
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
-interface UsecaseExpectation {
-    /** Path relative to repo root. */
-    file: string;
-    /** Which sanitiser export the file is expected to import. */
-    expects: 'sanitizeRichTextHtml' | 'sanitizePlainText' | 'sanitizePolicyContent';
-    /** Human-readable note about which field this protects. */
-    field: string;
-}
+type Sanitizer = 'sanitizeRichTextHtml' | 'sanitizePlainText' | 'sanitizePolicyContent';
 
-const RICH_TEXT_USECASES: ReadonlyArray<UsecaseExpectation> = [
-    {
-        file: 'src/app-layer/usecases/policy.ts',
-        expects: 'sanitizePolicyContent',
-        field: 'PolicyVersion.contentText (HTML / MARKDOWN)',
+/**
+ * Encrypted-content model → the usecase file(s) that route its
+ * user-supplied free text through a sanitiser before the repository
+ * write, and the sanitiser they are expected to use.
+ *
+ * Keyed by Prisma model name (matching `ENCRYPTED_FIELDS`). When a new
+ * encrypted business-content model lands, add it here (or to one of
+ * the two exclusion maps below) — the completeness test fails until
+ * every `ENCRYPTED_FIELDS` model is classified.
+ */
+const RICH_TEXT_COVERAGE: Readonly<
+    Record<string, { usecases: readonly string[]; sanitizer: Sanitizer }>
+> = {
+    PolicyVersion: { usecases: ['src/app-layer/usecases/policy.ts'], sanitizer: 'sanitizePolicyContent' },
+    Task: { usecases: ['src/app-layer/usecases/task.ts'], sanitizer: 'sanitizePlainText' },
+    TaskComment: {
+        usecases: ['src/app-layer/usecases/task.ts', 'src/app-layer/usecases/issue.ts'],
+        sanitizer: 'sanitizePlainText',
     },
-    {
-        file: 'src/app-layer/usecases/task.ts',
-        expects: 'sanitizePlainText',
-        field: 'TaskComment.body via addTaskComment',
+    Finding: { usecases: ['src/app-layer/usecases/finding.ts'], sanitizer: 'sanitizePlainText' },
+    Risk: { usecases: ['src/app-layer/usecases/risk.ts'], sanitizer: 'sanitizePlainText' },
+    Vendor: { usecases: ['src/app-layer/usecases/vendor.ts'], sanitizer: 'sanitizePlainText' },
+    VendorDocument: { usecases: ['src/app-layer/usecases/vendor.ts'], sanitizer: 'sanitizePlainText' },
+    VendorAssessment: { usecases: ['src/app-layer/usecases/vendor.ts'], sanitizer: 'sanitizePlainText' },
+    VendorEvidenceBundle: {
+        usecases: ['src/app-layer/usecases/vendor-assessment-review.ts'],
+        sanitizer: 'sanitizePlainText',
     },
-    {
-        file: 'src/app-layer/usecases/issue.ts',
-        expects: 'sanitizePlainText',
-        field: 'TaskComment.body via addIssueComment',
-    },
-    // Epic D.2 — encrypted-field write paths now covered by sanitiser.
-    {
-        file: 'src/app-layer/usecases/finding.ts',
-        expects: 'sanitizePlainText',
-        field: 'Finding.{description,rootCause,correctiveAction,verificationNotes} on create + update',
-    },
-    {
-        file: 'src/app-layer/usecases/risk.ts',
-        expects: 'sanitizePlainText',
-        field: 'Risk.{title,description,category,threat,vulnerability,treatmentOwner,treatmentNotes}',
-    },
-    {
-        file: 'src/app-layer/usecases/vendor.ts',
-        expects: 'sanitizePlainText',
-        field: 'Vendor.{name,legalName,country,domain,websiteUrl,description,tags[]}, VendorDocument.notes, VendorAssessment.notes',
-    },
-    {
-        file: 'src/app-layer/usecases/audit.ts',
-        expects: 'sanitizePlainText',
-        field: 'Audit.{title,auditScope,criteria,auditors,auditees,departments} + AuditChecklistItem.notes',
-    },
-    {
-        file: 'src/app-layer/usecases/control-test.ts',
-        expects: 'sanitizePlainText',
-        field: 'ControlTestPlan.{name,description,steps[]} + ControlTestRun.{notes,findingSummary}',
-    },
-];
+    Audit: { usecases: ['src/app-layer/usecases/audit.ts'], sanitizer: 'sanitizePlainText' },
+    AuditChecklistItem: { usecases: ['src/app-layer/usecases/audit.ts'], sanitizer: 'sanitizePlainText' },
+    ControlTestRun: { usecases: ['src/app-layer/usecases/control-test.ts'], sanitizer: 'sanitizePlainText' },
+    AccessReview: { usecases: ['src/app-layer/usecases/access-review.ts'], sanitizer: 'sanitizePlainText' },
+    AccessReviewDecision: { usecases: ['src/app-layer/usecases/access-review.ts'], sanitizer: 'sanitizePlainText' },
+    ControlException: { usecases: ['src/app-layer/usecases/control-exception.ts'], sanitizer: 'sanitizePlainText' },
+    RiskTreatmentPlan: { usecases: ['src/app-layer/usecases/risk-treatment-plan.ts'], sanitizer: 'sanitizePlainText' },
+    TreatmentMilestone: { usecases: ['src/app-layer/usecases/risk-treatment-plan.ts'], sanitizer: 'sanitizePlainText' },
+};
 
-// Ratchet — `RICH_TEXT_USECASES` may only grow. The floor is bumped
-// every time a new sanitised write path lands; a future PR that
-// silently drops an entry (e.g. by deleting a usecase without
-// wiring its replacement) trips this floor with a clear pointer to
-// the lost coverage.
-//
-// History:
-//   Epic C.5 — first wave (policy, task, issue)            → 3
-//   Epic D.2 — encrypted write paths (finding, risk,
-//              vendor, audit, control-test)                → 8
-const SANITISER_COVERAGE_FLOOR = 8;
+/**
+ * Encrypted models whose encrypted field is NOT user-supplied rich
+ * text — sanitisation does not apply. Each carries a written reason.
+ */
+const NON_RICH_TEXT_MODELS: Readonly<Record<string, string>> = {
+    TenantSecuritySettings:
+        'auditStreamSecretEncrypted is a system-generated HMAC secret, ' +
+        'never user-supplied free text — there is nothing to sanitise.',
+};
 
-describe('Epic C.5 / D.2 — sanitiser coverage guardrail', () => {
-    it('lists at least one rich-text usecase (sanity)', () => {
-        // Empty list = silent regression. Force the suite to fail
-        // loud if the table somehow gets cleared.
-        expect(RICH_TEXT_USECASES.length).toBeGreaterThan(0);
-    });
+/**
+ * Real, named coverage gaps — encrypted business-content models whose
+ * write path is not yet proven to sanitise. This is a RATCHET: it must
+ * trend to zero. Each entry carries a written reason + a ratchet
+ * target. A new entry here is a deliberate, reviewed admission — not a
+ * place to silently park new rich-text surfaces.
+ */
+const KNOWN_UNCOVERED: Readonly<Record<string, string>> = {
+    EvidenceReview:
+        'EvidenceReview.comment (reviewer rationale) is encrypted at ' +
+        'rest but its write path is not yet registered with a ' +
+        'sanitiser. Ratchet target: identify the write usecase and ' +
+        'either register it in RICH_TEXT_COVERAGE (if it already ' +
+        'sanitises) or wire sanitizePlainText into it.',
+};
 
-    it(`covers at least ${SANITISER_COVERAGE_FLOOR} usecase files (ratchet)`, () => {
-        // The list is allowed to GROW (new sanitised write paths land
-        // → bump the floor in the same PR) but never to SHRINK without
-        // an explicit comment explaining which coverage was retired.
-        if (RICH_TEXT_USECASES.length < SANITISER_COVERAGE_FLOOR) {
-            throw new Error(
-                [
-                    `Sanitiser coverage regressed:`,
-                    `  RICH_TEXT_USECASES has ${RICH_TEXT_USECASES.length} entries;`,
-                    `  the documented floor is ${SANITISER_COVERAGE_FLOOR}.`,
-                    ``,
-                    `If a usecase was deleted, lower the floor in the SAME PR`,
-                    `with a one-line "History" entry above SANITISER_COVERAGE_FLOOR`,
-                    `explaining what was retired and why.`,
-                    ``,
-                    `If a usecase was renamed/moved, update its entry's \`file\`.`,
-                ].join('\n'),
-            );
-        }
-    });
+const fileExists = (rel: string) => fs.existsSync(path.join(REPO_ROOT, rel));
+const readFile = (rel: string) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 
-    it('every entry corresponds to a real on-disk file (no stale paths)', () => {
-        // Catches the "renamed without updating the table" case before
-        // it can silently mask a missing sanitiser call.
-        const stale: string[] = [];
-        for (const u of RICH_TEXT_USECASES) {
-            const abs = path.join(REPO_ROOT, u.file);
-            if (!fs.existsSync(abs)) {
-                stale.push(u.file);
-            }
-        }
-        if (stale.length > 0) {
-            throw new Error(
-                [
-                    `RICH_TEXT_USECASES references files that no longer exist:`,
-                    ...stale.map((s) => `  - ${s}`),
-                    ``,
-                    `If the file was moved, update its entry. If the usecase`,
-                    `was retired, remove the entry AND lower the floor.`,
-                ].join('\n'),
-            );
-        }
-    });
-
-    test.each(
-        RICH_TEXT_USECASES.map((u) => [u.file, u] as const),
-    )('%s imports its expected sanitiser', (relPath, expectation) => {
-        const abs = path.join(REPO_ROOT, relPath);
-        if (!fs.existsSync(abs)) {
-            throw new Error(
-                [
-                    `Rich-text usecase no longer exists: ${relPath}.`,
-                    `If the field was moved, update RICH_TEXT_USECASES in this guardrail.`,
-                    `If the field was deleted, remove the entry.`,
-                ].join('\n'),
-            );
-        }
-        const src = fs.readFileSync(abs, 'utf8');
-
-        // Two acceptable shapes: a named import, OR the function name
-        // appearing as a call (covers `await sanitize…(input)`).
-        const importRe = new RegExp(
-            String.raw`import\s+\{[^}]*\b${expectation.expects}\b[^}]*\}\s+from\s+['"]@/lib/security/sanitize['"]`,
+describe('rich-text sanitiser coverage — structural completeness', () => {
+    it('every encrypted-content model is classified (the completeness guarantee)', () => {
+        // A new rich-text field forces its model into ENCRYPTED_FIELDS
+        // (Epic B requirement). If that model is in none of the three
+        // buckets, it is an unclassified rich-text surface — fail.
+        const classified = new Set([
+            ...Object.keys(RICH_TEXT_COVERAGE),
+            ...Object.keys(NON_RICH_TEXT_MODELS),
+            ...Object.keys(KNOWN_UNCOVERED),
+        ]);
+        const unclassified = Object.keys(ENCRYPTED_FIELDS).filter(
+            (m) => !classified.has(m),
         );
-        if (!importRe.test(src)) {
+        if (unclassified.length > 0) {
             throw new Error(
                 [
-                    `Rich-text usecase missing sanitiser import.`,
+                    `Encrypted business-content model(s) not classified for`,
+                    `rich-text sanitiser coverage:`,
+                    ...unclassified.map((m) => `  - ${m}`),
                     ``,
-                    `  File:        ${relPath}`,
-                    `  Field:       ${expectation.field}`,
-                    `  Expected:    import { ${expectation.expects} } from '@/lib/security/sanitize';`,
-                    ``,
-                    `Why:`,
-                    `  Server-side sanitisation must run BEFORE the row is`,
-                    `  persisted. Render-time sanitisation alone leaves the row`,
-                    `  dangerous to PDF export, audit-pack share links, and`,
-                    `  future SDK consumers reading the row verbatim.`,
-                    ``,
-                    `Fix:`,
-                    `  1. Add the import above.`,
-                    `  2. Pipe the user-supplied field through ${expectation.expects}(...)`,
-                    `     immediately before the repository call.`,
-                    `  3. Re-run this test to confirm.`,
-                ].join('\n'),
-            );
-        }
-
-        // Belt-and-braces: the name should also appear at least once
-        // outside the import (i.e. an actual call site). Catches the
-        // rare regression where a refactor leaves the import but
-        // removes the call.
-        const importLine = src.match(importRe)?.[0] ?? '';
-        const srcWithoutImport = src.replace(importLine, '');
-        const usageRe = new RegExp(String.raw`\b${expectation.expects}\s*\(`);
-        if (!usageRe.test(srcWithoutImport)) {
-            throw new Error(
-                [
-                    `Rich-text usecase imports ${expectation.expects} but never calls it.`,
-                    ``,
-                    `  File:  ${relPath}`,
-                    `  Field: ${expectation.field}`,
-                    ``,
-                    `A dangling import is a silent bypass. Either wire the call`,
-                    `back in or remove the import + this guardrail entry.`,
+                    `Each ENCRYPTED_FIELDS model is a rich-text surface. Add`,
+                    `it to RICH_TEXT_COVERAGE (with the sanitising usecase),`,
+                    `NON_RICH_TEXT_MODELS (if the value is not user rich`,
+                    `text), or KNOWN_UNCOVERED (a real gap, with a reason).`,
                 ].join('\n'),
             );
         }
     });
+
+    it('detects an unclassified new encrypted model (regression proof)', () => {
+        // Simulate a new rich-text field landing on a new model — Epic B
+        // forces it into ENCRYPTED_FIELDS. With no classification entry
+        // it must be flagged: this is the bypass the old numeric floor
+        // could not catch.
+        const classified = new Set([
+            ...Object.keys(RICH_TEXT_COVERAGE),
+            ...Object.keys(NON_RICH_TEXT_MODELS),
+            ...Object.keys(KNOWN_UNCOVERED),
+        ]);
+        const withNewModel = { ...ENCRYPTED_FIELDS, NewlyAddedRichTextModel: ['body'] };
+        const unclassified = Object.keys(withNewModel).filter(
+            (m) => !classified.has(m),
+        );
+        expect(unclassified).toEqual(['NewlyAddedRichTextModel']);
+    });
+
+    it('no classification entry references a model absent from ENCRYPTED_FIELDS (no stale)', () => {
+        const stale = [
+            ...Object.keys(RICH_TEXT_COVERAGE),
+            ...Object.keys(NON_RICH_TEXT_MODELS),
+            ...Object.keys(KNOWN_UNCOVERED),
+        ].filter((m) => !(m in ENCRYPTED_FIELDS));
+        expect(stale).toEqual([]);
+    });
+
+    it('NON_RICH_TEXT_MODELS + KNOWN_UNCOVERED each carry a written reason', () => {
+        for (const reason of [
+            ...Object.values(NON_RICH_TEXT_MODELS),
+            ...Object.values(KNOWN_UNCOVERED),
+        ]) {
+            expect(reason.trim().length).toBeGreaterThan(20);
+        }
+    });
+
+    it('KNOWN_UNCOVERED is a ratchet — it should trend to zero', () => {
+        // Not a hard cap — but a visible reminder. If this grows, the
+        // diff is the conversation. Today: 1 (EvidenceReview).
+        expect(Object.keys(KNOWN_UNCOVERED).length).toBeLessThanOrEqual(1);
+    });
+
+    const coverageEntries = Object.entries(RICH_TEXT_COVERAGE).flatMap(
+        ([model, { usecases, sanitizer }]) =>
+            usecases.map((u) => [model, u, sanitizer] as const),
+    );
+
+    it.each(coverageEntries)(
+        '%s — %s imports AND calls %s',
+        (model, relPath, sanitizer) => {
+            if (!fileExists(relPath)) {
+                throw new Error(
+                    `RICH_TEXT_COVERAGE[${model}] references a missing file: ` +
+                        `${relPath}. If the usecase moved, update the path.`,
+                );
+            }
+            const src = readFile(relPath);
+            const importRe = new RegExp(
+                String.raw`import\s+\{[^}]*\b${sanitizer}\b[^}]*\}\s+from\s+['"]@/lib/security/sanitize['"]`,
+            );
+            if (!importRe.test(src)) {
+                throw new Error(
+                    `${relPath} (rich-text writer for ${model}) does not ` +
+                        `import { ${sanitizer} } from '@/lib/security/sanitize'. ` +
+                        `Server-side sanitisation must run before the repository ` +
+                        `write.`,
+                );
+            }
+            const withoutImport = src.replace(src.match(importRe)?.[0] ?? '', '');
+            if (!new RegExp(String.raw`\b${sanitizer}\s*\(`).test(withoutImport)) {
+                throw new Error(
+                    `${relPath} imports ${sanitizer} but never calls it — ` +
+                        `a dangling import is a silent bypass for ${model}.`,
+                );
+            }
+        },
+    );
 });
