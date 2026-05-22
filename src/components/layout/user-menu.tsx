@@ -38,6 +38,7 @@ import { signOut } from 'next-auth/react';
 import { LogOut, ShieldCheck } from 'lucide-react';
 
 import { Popover } from '@/components/ui/popover';
+import { getInitials } from '@/components/ui/initials-avatar';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
@@ -61,17 +62,6 @@ const AVATAR_BUTTON_CLASS =
 
 const MENU_ROW_CLASS =
     'flex w-full cursor-pointer select-none items-center gap-compact rounded-md px-2.5 py-1.5 text-left text-sm text-content-default transition-colors duration-100 ease-out hover:bg-bg-muted hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
-
-function initialsFromName(name: string | null | undefined): string {
-    const cleaned = (name ?? '').trim();
-    if (!cleaned) return '·';
-    const parts = cleaned.split(/\s+/).filter(Boolean);
-    if (parts.length === 1) return parts[0]!.charAt(0).toUpperCase();
-    return (
-        parts[0]!.charAt(0).toUpperCase() +
-        parts[parts.length - 1]!.charAt(0).toUpperCase()
-    );
-}
 
 export function UserMenu({ displayName, displayEmail }: UserMenuProps) {
     const [open, setOpen] = useState(false);
@@ -172,7 +162,7 @@ export function UserMenu({ displayName, displayEmail }: UserMenuProps) {
                 aria-haspopup="menu"
                 data-testid="top-chrome-user-menu"
             >
-                <span aria-hidden="true">{initialsFromName(effectiveName)}</span>
+                <span aria-hidden="true">{getInitials(effectiveName)}</span>
             </button>
         </Popover>
     );

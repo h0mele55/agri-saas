@@ -101,8 +101,11 @@ describe('Roadmap-14 PR-5 — UserMenu discipline', () => {
             // the trigger button is the accessible name.
             expect(USER_MENU_SRC).toMatch(/h-8\s+w-8/);
             expect(USER_MENU_SRC).toMatch(/rounded-full/);
+            // Initials come from the shared `getInitials` primitive
+            // (`@/components/ui/initials-avatar`) — the per-component
+            // `initialsFromName` helper was retired into it.
             expect(USER_MENU_SRC).toMatch(
-                /<span\s+aria-hidden="true">\{initialsFromName\(effectiveName\)\}<\/span>/,
+                /<span\s+aria-hidden="true">\{getInitials\(effectiveName\)\}<\/span>/,
             );
         });
 

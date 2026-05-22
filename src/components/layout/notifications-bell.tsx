@@ -8,10 +8,12 @@
  * bell icon with a count badge for unread notifications; click
  * opens a popover listing recent notifications.
  *
- * Data: lazy-fetch from `/api/notifications` on first popover open
- * (same pattern as `<OrgSwitcher>`). The initial unread count is a
- * tiny ping on mount so the badge can render without forcing a
- * full list-fetch. Subsequent opens reuse the cached list.
+ * Data: REST-polled from `/api/notifications`. A fetch on mount
+ * seeds the badge; a fixed-cadence poll (NOTIFICATIONS_POLL_INTERVAL_MS)
+ * keeps the unread count live without the user opening the popover;
+ * and every popover-open pulls a fresh list. The poll pauses while
+ * the browser tab is hidden and refetches on return, so a
+ * backgrounded tab never hammers the endpoint.
  *
  * Each notification:
  *
@@ -24,10 +26,12 @@
  *
  * Mark-all-read action lives in the popover footer (bulk verb).
  *
- * What this PR does NOT do:
- *   • Real-time updates — fetches on open + periodic poll. WebSocket /
- *     SSE wiring is a separate infrastructure PR.
- *   • Notification preferences / settings — out of scope.
+ * Out of scope (separate roadmaps — do not blur in here):
+ *   • Real-time push. The bell REST-polls by design; SSE / WebSocket
+ *     streaming is a separate infrastructure roadmap. When it lands
+ *     it replaces the poll interval below and nothing else — the
+ *     fetch/merge/render path is already the seam.
+ *   • Notification preferences / settings.
  *   • Per-channel filtering — the count is unread-total only.
  */
 
@@ -51,6 +55,16 @@ interface NotificationRow {
     linkUrl: string | null;
     createdAt: string;
 }
+
+// ─── Polling ───────────────────────────────────────────────────────
+
+/**
+ * REST-poll cadence for the unread badge. 60s is frequent enough
+ * that the count feels live without meaningfully loading the
+ * endpoint. This interval IS the real-time mechanism today — a
+ * future SSE / WebSocket roadmap would replace it.
+ */
+const NOTIFICATIONS_POLL_INTERVAL_MS = 60_000;
 
 // ─── Recipes ───────────────────────────────────────────────────────
 
@@ -120,21 +134,45 @@ export function NotificationsBell() {
         }
     }, []);
 
-    // Lazy fetch on first open OR when explicitly re-opened.
+    // Mount fetch + REST poll. The badge stays live without the user
+    // opening the popover: fetch once on mount, then poll on a fixed
+    // cadence. The poll skips while the tab is hidden (a backgrounded
+    // tab needs no fresh count) and refetches on `visibilitychange`
+    // so the user's return is covered. Replacing this interval with
+    // an SSE / WebSocket subscription is the only change a future
+    // real-time roadmap needs.
+    useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        fetchList();
+        const poll = () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            // eslint-disable-next-line @typescript-eslint/no-floating-promises
+            fetchList();
+        };
+        const intervalId = window.setInterval(
+            poll,
+            NOTIFICATIONS_POLL_INTERVAL_MS,
+        );
+        const onVisibility = () => {
+            if (!document.hidden) {
+                // eslint-disable-next-line @typescript-eslint/no-floating-promises
+                fetchList();
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            window.clearInterval(intervalId);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, [fetchList]);
+
+    // Opening the popover always pulls a fresh list — the user is
+    // looking now, so show current data, not the last poll's.
     useEffect(() => {
         if (!open) return;
-        if (items !== null) return;
         // eslint-disable-next-line @typescript-eslint/no-floating-promises
         fetchList();
-    }, [open, items, fetchList]);
-
-    // Lightweight "is anything unread" ping on mount so the badge
-    // can render without waiting for the user to open the popover.
-    // Same endpoint; we just keep the result in `items`.
-    useEffect(() => {
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        fetchList();
-    }, [fetchList]);
+    }, [open, fetchList]);
 
     const unreadCount = items?.filter((n) => !n.read).length ?? 0;
     const hasItems = (items?.length ?? 0) > 0;

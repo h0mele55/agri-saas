@@ -48,6 +48,7 @@ import Link from 'next/link';
 import { Check, ChevronsUpDown } from 'lucide-react';
 
 import { Popover } from '@/components/ui/popover';
+import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { useTenantContext } from '@/lib/tenant-context-provider';
 import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
@@ -86,24 +87,10 @@ const SWITCHER_PILL_CLASS =
     // from the user menu footer).
     `hidden sm:inline-flex items-center gap-tight rounded-full border border-border-subtle bg-bg-default px-3 py-1 text-xs font-medium text-content-muted transition-colors hover:bg-bg-muted/50 hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] ${NAV_BAR_SLOT_PRESS}`;
 
-const AVATAR_CLASS =
-    'flex h-5 w-5 items-center justify-center rounded-full bg-[var(--brand-subtle)] text-[10px] font-semibold text-[var(--brand-emphasis)]';
-
 const MENU_ROW_CLASS =
     'flex w-full cursor-pointer select-none items-center justify-between gap-default rounded-md px-2.5 py-1.5 text-left text-sm text-content-default transition-colors duration-100 ease-out hover:bg-bg-muted hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]';
 
 const MENU_ROW_ACTIVE_CLASS = 'bg-bg-subtle text-content-emphasis';
-
-function initialsFromSlug(slug: string): string {
-    const cleaned = slug.trim();
-    if (!cleaned) return '·';
-    const parts = cleaned.split(/[-_\s]+/).filter(Boolean);
-    if (parts.length === 1) return parts[0]!.charAt(0).toUpperCase();
-    return (
-        parts[0]!.charAt(0).toUpperCase() +
-        parts[parts.length - 1]!.charAt(0).toUpperCase()
-    );
-}
 
 export function TenantSwitcher({ memberships }: TenantSwitcherProps) {
     const { tenantName, tenantSlug } = useTenantContext();
@@ -147,12 +134,7 @@ export function TenantSwitcher({ memberships }: TenantSwitcherProps) {
                                     className={`${MENU_ROW_CLASS} ${isActive ? MENU_ROW_ACTIVE_CLASS : ''}`}
                                 >
                                     <span className="flex items-center gap-compact min-w-0">
-                                        <span
-                                            className={AVATAR_CLASS}
-                                            aria-hidden="true"
-                                        >
-                                            {initialsFromSlug(m.slug)}
-                                        </span>
+                                        <InitialsAvatar value={m.slug} mode="slug" />
                                         <span className="flex flex-col min-w-0">
                                             <span className="truncate text-content-emphasis">
                                                 {m.slug}
@@ -197,9 +179,7 @@ export function TenantSwitcher({ memberships }: TenantSwitcherProps) {
                 aria-haspopup="menu"
                 data-testid="top-chrome-tenant-switcher"
             >
-                <span className={AVATAR_CLASS} aria-hidden="true">
-                    {initialsFromSlug(tenantSlug)}
-                </span>
+                <InitialsAvatar value={tenantSlug} mode="slug" />
                 <span className="max-w-trunc-tight truncate">{tenantName}</span>
                 <ChevronsUpDown
                     className="h-3 w-3 flex-shrink-0 text-content-subtle"

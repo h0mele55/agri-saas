@@ -59,14 +59,20 @@ describe('Roadmap-14 PR-8 — NotificationsBell discipline', () => {
             );
         });
 
-        it('reuses the cached list across re-opens (no fetch storm)', () => {
-            // The lazy-fetch effect must guard on `items !== null`
-            // so re-opening the popover doesn't re-fetch every
-            // time. A regression would put the user's network on
-            // a hot path during routine bell clicks.
-            expect(BELL_SRC).toMatch(
-                /if\s*\(\s*items\s*!==\s*null\s*\)\s*return/,
-            );
+        it('REST-polls on a single bounded interval (no fetch storm)', () => {
+            // Roadmap-7-era hardening: the bell now keeps its badge
+            // live by polling, NOT by caching forever. "No fetch
+            // storm" is preserved differently — exactly one named
+            // poll interval, and the poll is gated on tab
+            // visibility so a backgrounded tab never hammers the
+            // endpoint. A regression that dropped the visibility
+            // gate, or spun up a second interval, fails here.
+            expect(BELL_SRC).toMatch(/NOTIFICATIONS_POLL_INTERVAL_MS/);
+            expect(BELL_SRC).toMatch(/setInterval\(/);
+            expect(
+                (BELL_SRC.match(/setInterval\(/g) ?? []).length,
+            ).toBe(1);
+            expect(BELL_SRC).toMatch(/document\.hidden/);
         });
     });
 

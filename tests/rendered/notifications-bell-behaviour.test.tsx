@@ -21,6 +21,7 @@
  */
 
 import {
+    act,
     render,
     screen,
     waitFor,
@@ -221,6 +222,41 @@ describe('<NotificationsBell> — behavioural (Tier 2)', () => {
         expect(
             screen.getByTestId('notification-row-n2').tagName,
         ).toBe('BUTTON');
+    });
+
+    it('REST-polls /api/notifications on a fixed interval (badge stays live)', async () => {
+        // The bell's doc-comment promised a periodic poll; the code
+        // shipped without one, so the badge froze at its mount-time
+        // value. This asserts the poll is real: advancing the
+        // 60s interval triggers a fresh fetch with no user action.
+        jest.useFakeTimers();
+        try {
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                json: async () => makeNotifications(),
+            });
+            render(<NotificationsBell />);
+            // Flush the mount-time fetch.
+            await act(async () => {});
+            const afterMount = fetchMock.mock.calls.length;
+            expect(afterMount).toBeGreaterThanOrEqual(1);
+
+            // One poll interval elapses → at least one more fetch.
+            await act(async () => {
+                jest.advanceTimersByTime(60_000);
+            });
+            expect(fetchMock.mock.calls.length).toBeGreaterThan(afterMount);
+
+            // The poll is periodic — a second interval fetches again.
+            const afterFirstPoll = fetchMock.mock.calls.length;
+            await act(async () => {
+                jest.advanceTimersByTime(60_000);
+            });
+            expect(fetchMock.mock.calls.length).toBeGreaterThan(afterFirstPoll);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     it('shows the "All clear" empty state when there are no notifications', async () => {
