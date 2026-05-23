@@ -74,8 +74,22 @@ const RATCHET_FLOOR: Record<string, Metrics> = {
     // less aggressively. Branch coverage's plateau here is real
     // signal — webhook-processor is dense but only adds ~25-35
     // branches to the ~4962-branch usecases tree.
-    // Next stage 3f (planned): `control/queries.ts` + `framework/coverage.ts`.
-    './src/app-layer/usecases/': { branches: 62, functions: 57, lines: 73, statements: 70 },
+    // Stage 3f (this wave): 49 branch-focused tests across TWO
+    // files in one PR:
+    //   - `framework/coverage.ts` (313 lines): file-level 98/78/95/98
+    //     (the lower branches comes from nuanced section/category
+    //     fallback chains).
+    //   - `control/queries.ts` (337 lines): file-level 100/95/100/100
+    //     (dashboard aggregator + consistency-check + RBAC + 3 not-
+    //     found paths).
+    // Combined ~143 covered branches. Conservative +1 across all
+    // metrics after stages 3d/3e showed the broader-tree dilution
+    // (a dense file contributes ~0.5-1% absolute on the tree).
+    // Next stage 3g (planned): the long-tail medium files
+    // (`org-dashboard-*`, `framework/fixtures`, `org-tenants`,
+    // `soft-delete-lifecycle`, `vendor-assessment-reminder`,
+    // `control/page-data`, `test-readiness`).
+    './src/app-layer/usecases/': { branches: 63, functions: 58, lines: 74, statements: 71 },
     // `policies/` — quality roadmap P3. Authorization decisions —
     // a wrong branch is a security hole. Measured ≈82 branches /
     // 91 funcs / 91 lines; seeded a few points below.
