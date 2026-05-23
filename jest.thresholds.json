@@ -6,10 +6,10 @@
     "statements": 69
   },
   "./src/app-layer/usecases/": {
-    "branches": 60,
-    "functions": 54,
-    "lines": 70,
-    "statements": 67
+    "branches": 62,
+    "functions": 56,
+    "lines": 72,
+    "statements": 69
   },
   "./src/app-layer/policies/": {
     "branches": 78,

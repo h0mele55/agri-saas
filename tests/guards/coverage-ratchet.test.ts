@@ -39,20 +39,30 @@ type Metrics = { branches: number; functions: number; lines: number; statements:
  */
 const RATCHET_FLOOR: Record<string, Metrics> = {
     global: { branches: 56, functions: 54, lines: 70, statements: 69 },
-    // `usecases/` — quality roadmap + stage-3a/3b/3c waves.
+    // `usecases/` — quality roadmap + stage-3a/3b/3c/3d waves.
     // Post-Roadmap-3 floor was 42 (branches); measured branch
     // coverage had climbed to ~58 without the floor following.
     // Stage 3a (#664): 51 tests on 3 small files, +1 across all.
     // Stage 3b (#666): 41 tests on `audit-readiness/packs` (443
     // lines), file-level 92/85/89/95, +2 across all.
-    // Stage 3c (this wave): extended `framework-install.test.ts`
-    // from 15 → 39 tests adding `computeCoverage` + `listTemplates`
-    // + missing branches across the prior 5 functions. File-level
-    // jumped 45/35/47/44 → 97/95/93/97 — a 60-point branches
-    // lift on 544 lines. +2 across all.
-    // Next stage 3d (planned): `org-invites.ts` (512 lines,
-    // untested, compliance-critical tenant-membership path).
-    './src/app-layer/usecases/': { branches: 60, functions: 54, lines: 70, statements: 67 },
+    // Stage 3c (#667): extended `framework-install.test.ts`
+    // 15 → 39 tests adding `computeCoverage` + `listTemplates`
+    // + missing branches. File-level 45/35/47/44 → 97/95/93/97.
+    // +2 across all.
+    // Stage 3d (this wave): 30 branch-focused tests on
+    // `org-invites.ts` (512 lines, completely untested,
+    // compliance-critical: 1 of 3 OrgMembership write paths).
+    // File-level 0/0/0/0 → **100/89/100/100**.
+    // ORIGINAL bump was +3 across all to match the documented
+    // stage-3d target of 63 — but CI's full-suite Coverage gate
+    // measured `usecases/` branches at 62.5%, so 63 missed by
+    // 0.5 points. Backed off to **+2 across all** in this
+    // fixup; the rest of the wave (test file, file-level lift)
+    // is unchanged. Stage 3d's documented target stays at 63;
+    // the actual landed floor is 62, and the next wave (3e)
+    // is the one that lifts to 64-65.
+    // Next stage 3e (planned): `webhook-processor.ts` (485 lines).
+    './src/app-layer/usecases/': { branches: 62, functions: 56, lines: 72, statements: 69 },
     // `policies/` — quality roadmap P3. Authorization decisions —
     // a wrong branch is a security hole. Measured ≈82 branches /
     // 91 funcs / 91 lines; seeded a few points below.
