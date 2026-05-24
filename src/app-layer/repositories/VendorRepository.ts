@@ -229,6 +229,7 @@ export class VendorDocumentRepository {
         validFrom?: string | null;
         validTo?: string | null;
         notes?: string | null;
+        folder?: string | null;
     }) {
         return db.vendorDocument.create({
             data: {
@@ -241,6 +242,10 @@ export class VendorDocumentRepository {
                 validFrom: data.validFrom ? new Date(data.validFrom) : null,
                 validTo: data.validTo ? new Date(data.validTo) : null,
                 notes: data.notes || null,
+                // B8 — free-text folder label. Trim + null-coerce so
+                // empty input maps to "no folder", not "" (the
+                // group-by code keys on null).
+                folder: data.folder?.trim() || null,
                 uploadedByUserId: ctx.userId,
             },
             include: { uploadedBy: { select: { id: true, name: true, email: true } } },

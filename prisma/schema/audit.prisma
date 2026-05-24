@@ -114,6 +114,13 @@ model Audit {
   id              String               @id @default(cuid())
   tenantId        String
   title           String
+  // B8 — framework linkage. Audits now declare which compliance
+  // framework they assess (ISO27001, NIS2, …). The string is the
+  // Framework.key (not the FK id) so an Audit can survive a global
+  // framework re-key without dangling. Nullable for legacy rows +
+  // ad-hoc audits that span multiple frameworks. The Audit page
+  // surfaces the linked Framework as a clickable header chip.
+  frameworkKey    String?
   auditScope      String?
   criteria        String?
   schedule        DateTime?
@@ -132,6 +139,7 @@ model Audit {
   @@unique([id, tenantId])
   @@index([tenantId])
   @@index([tenantId, createdAt])
+  @@index([tenantId, frameworkKey])
   @@index([tenantId, deletedAt])
 }
 

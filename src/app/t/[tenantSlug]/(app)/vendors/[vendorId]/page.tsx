@@ -78,10 +78,14 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
 
     // Doc form
     const [showDocForm, setShowDocForm] = useState(false);
-    const [docForm, setDocForm] = useState({ type: 'CONTRACT', title: '', externalUrl: '', notes: '' });
+    const [docForm, setDocForm] = useState({ type: 'CONTRACT', title: '', externalUrl: '', notes: '', folder: '' });
     // B4 — Documents filter state.
     const [docSearch, setDocSearch] = useState('');
     const [docTypeFilter, setDocTypeFilter] = useState('');
+    // B8 — folder filter. Empty string = "all folders"; a literal
+    // value matches that label exactly; `__none__` matches docs with
+    // a null/empty folder so legacy unfoldered docs stay findable.
+    const [docFolderFilter, setDocFolderFilter] = useState('');
     // Assessment start
     const [showStartAssessment, setShowStartAssessment] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -167,16 +171,17 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
         if (docForm.title) body.title = docForm.title;
         if (docForm.externalUrl) body.externalUrl = docForm.externalUrl;
         if (docForm.notes) body.notes = docForm.notes;
+        if (docForm.folder) body.folder = docForm.folder.trim();
         const res = await fetch(apiUrl(`/vendors/${params.vendorId}/documents`), {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
         });
-        if (res.ok) { 
+        if (res.ok) {
             const newDoc = await res.json();
             setDocs(prev => [newDoc, ...prev]);
-            setShowDocForm(false); 
-            setDocForm({ type: 'CONTRACT', title: '', externalUrl: '', notes: '' }); 
+            setShowDocForm(false);
+            setDocForm({ type: 'CONTRACT', title: '', externalUrl: '', notes: '', folder: '' });
             // Also call fetchDocs just in case we need uploadedBy info, but state already has the doc
-            fetchDocs(); 
+            fetchDocs();
         }
     };
 
@@ -415,6 +420,40 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 matchTriggerWidth
                                 buttonProps={{ className: 'w-40' }}
                             />
+                            {/* B8 — Folder filter. Options are derived
+                                from the loaded docs (each unique
+                                non-empty `folder` value) plus a
+                                "no folder" bucket if any unfoldered
+                                doc exists. Hidden entirely when no
+                                folder has ever been assigned. */}
+                            {(() => {
+                                const folderSet = new Set<string>();
+                                let hasUnfoldered = false;
+                                for (const d of docs as Array<{ folder?: string | null }>) {
+                                    const f = (d.folder || '').trim();
+                                    if (f) folderSet.add(f);
+                                    else hasUnfoldered = true;
+                                }
+                                if (folderSet.size === 0 && !hasUnfoldered) return null;
+                                const folderOptions = [
+                                    { value: '', label: 'All folders' },
+                                    ...(hasUnfoldered ? [{ value: '__none__', label: 'No folder' }] : []),
+                                    ...Array.from(folderSet).sort().map((f) => ({ value: f, label: f })),
+                                ];
+                                return (
+                                    <Combobox
+                                        hideSearch
+                                        id="doc-folder-filter"
+                                        data-testid="doc-folder-filter"
+                                        selected={folderOptions.find((o) => o.value === docFolderFilter) ?? folderOptions[0]}
+                                        setSelected={(opt) => setDocFolderFilter(opt?.value ?? '')}
+                                        options={folderOptions}
+                                        placeholder="All folders"
+                                        matchTriggerWidth
+                                        buttonProps={{ className: 'w-44' }}
+                                    />
+                                );
+                            })()}
                         </div>
                         {canWrite && (
                             <Button
@@ -447,6 +486,37 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                                 <label className="block text-sm text-content-muted mb-1">Notes</label>
                                 <input className="input w-full" value={docForm.notes} onChange={e => setDocForm(p => ({ ...p, notes: e.target.value }))} id="doc-notes-input" />
                             </div>
+                            <div>
+                                <label className="block text-sm text-content-muted mb-1" htmlFor="doc-folder-input">
+                                    Folder <span className="text-content-subtle font-normal">(optional)</span>
+                                </label>
+                                <input
+                                    className="input w-full"
+                                    id="doc-folder-input"
+                                    placeholder="e.g. Contracts / 2026"
+                                    list="doc-folder-suggestions"
+                                    value={docForm.folder}
+                                    onChange={(e) => setDocForm((p) => ({ ...p, folder: e.target.value }))}
+                                />
+                                {/* B8 — datalist seeds the folder
+                                    input with the values already in
+                                    use on this vendor's docs so the
+                                    user can pick "Contracts/2026"
+                                    again without re-typing. */}
+                                <datalist id="doc-folder-suggestions">
+                                    {Array.from(
+                                        new Set(
+                                            (docs as Array<{ folder?: string | null }>)
+                                                .map((d) => (d.folder || '').trim())
+                                                .filter(Boolean),
+                                        ),
+                                    )
+                                        .sort()
+                                        .map((f) => (
+                                            <option key={f} value={f} />
+                                        ))}
+                                </datalist>
+                            </div>
                             <Button type="submit" variant="primary" icon={<Plus />} id="submit-doc-btn">Add document</Button>
                         </form>
                     )}
@@ -457,9 +527,20 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                     <VendorDocsTable
                         docs={docs.filter((d: any) => {
                             if (docTypeFilter && d.type !== docTypeFilter) return false;
+                            // B8 — folder filter. `''` keeps every
+                            // doc; `'__none__'` keeps only unfoldered;
+                            // any other value matches exactly.
+                            if (docFolderFilter) {
+                                const folder = (d.folder || '').trim();
+                                if (docFolderFilter === '__none__') {
+                                    if (folder) return false;
+                                } else if (folder !== docFolderFilter) {
+                                    return false;
+                                }
+                            }
                             if (docSearch.trim()) {
                                 const q = docSearch.trim().toLowerCase();
-                                const haystack = `${d.title || ''} ${d.notes || ''} ${DOC_TYPE_LABELS[d.type] || ''}`.toLowerCase();
+                                const haystack = `${d.title || ''} ${d.notes || ''} ${d.folder || ''} ${DOC_TYPE_LABELS[d.type] || ''}`.toLowerCase();
                                 if (!haystack.includes(q)) return false;
                             }
                             return true;
@@ -657,6 +738,8 @@ interface VendorDocRow {
     id: string;
     type: string;
     title?: string | null;
+    /** B8 — optional folder label. Empty/null = "no folder". */
+    folder?: string | null;
     validTo?: string | null;
     uploadedBy?: { name?: string | null } | null;
     externalUrl?: string | null;
@@ -689,6 +772,16 @@ function VendorDocsTable({
                     cell: ({ row }) => (
                         <span>{row.original.title || '—'}</span>
                     ),
+                },
+                {
+                    id: 'folder',
+                    header: 'Folder',
+                    cell: ({ row }) =>
+                        row.original.folder ? (
+                            <span className="text-xs text-content-muted">{row.original.folder}</span>
+                        ) : (
+                            <span className="text-content-subtle">—</span>
+                        ),
                 },
                 {
                     id: 'validTo',

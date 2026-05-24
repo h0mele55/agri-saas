@@ -110,6 +110,15 @@ const PRIMARY_BUDGET: Record<string, number> = {
     // page's canonical shape.
     "src/app/t/[tenantSlug]/(app)/controls/ControlsClient.tsx": 2,
 
+    // B8 — Frameworks list now carries an "Import framework" CTA in
+    // the page header AND a primary "Import framework" jump inside
+    // the Custom-framework explainer modal. Two genuinely separate
+    // visual regions: the header CTA targets the first uninstalled
+    // framework directly; the modal CTA is the "after you read this
+    // explanation" follow-through. Modal only mounts when the user
+    // clicks the Create-framework secondary trigger.
+    "src/app/t/[tenantSlug]/(app)/frameworks/FrameworksClient.tsx": 2,
+
     // R26-PR-A — the Processes canvas wrapper carries two primaries
     // for two genuinely separate regions: the toolbar Save action
     // (only meaningful when a map is open) and the empty-state

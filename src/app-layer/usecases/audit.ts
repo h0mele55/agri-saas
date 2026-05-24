@@ -43,6 +43,9 @@ export async function createAudit(ctx: RequestContext, data: {
     auditors?: string | null;
     auditees?: string | null;
     departments?: string | null;
+    /** B8 — optional `Framework.key` the audit assesses. Nullable for
+     *  ad-hoc audits that span multiple frameworks. */
+    frameworkKey?: string | null;
     generateChecklist?: boolean;
 }) {
     assertCanWrite(ctx);
@@ -60,6 +63,10 @@ export async function createAudit(ctx: RequestContext, data: {
             auditors: sanitizeOptional(data.auditors),
             auditees: sanitizeOptional(data.auditees),
             departments: sanitizeOptional(data.departments),
+            // B8 — frameworkKey is plain-text (the Framework.key
+            // column itself is plain ASCII) — sanitise to strip any
+            // injected HTML / control chars before persistence.
+            frameworkKey: data.frameworkKey ? sanitizePlainText(data.frameworkKey) : null,
             status: 'PLANNED',
         });
 

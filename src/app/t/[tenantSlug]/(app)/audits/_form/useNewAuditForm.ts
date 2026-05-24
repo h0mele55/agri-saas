@@ -42,6 +42,9 @@ const INITIAL: NewAuditFormFields = {
     title: '',
     scope: '',
     auditors: '',
+    // B8 — empty string = no framework. The hook trims + null-coerces
+    // before POSTing so the API receives `null` not `""`.
+    frameworkKey: '',
     generateChecklist: true,
 };
 
@@ -60,6 +63,10 @@ export function useNewAuditForm({
                     title: payload.title,
                     scope: payload.scope,
                     auditors: payload.auditors,
+                    // B8 — null-coerce empty string. The API rejects
+                    // string fields that exceed their cap but accepts
+                    // null for an unbound audit.
+                    frameworkKey: payload.frameworkKey?.trim() || null,
                     generateChecklist: payload.generateChecklist,
                 }),
             });

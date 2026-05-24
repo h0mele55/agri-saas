@@ -125,7 +125,13 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // intentionally demoted to secondary so only the reviewer's
 // approval moment is primary). Measured post-merge count = 116;
 // ceiling at 117 keeps one slot of headroom.
-const MAX_PRIMARY_COUNT = 117;
+//
+// B8 (2026-05-24) — bumped 117 → 119 for the framework-lifecycle
+// CTAs on FrameworksClient: the header "Import framework" primary
+// + the explainer-modal "Import framework" primary (two distinct
+// visual regions, modal-mounted on demand). Measured = 118;
+// ceiling at 119 keeps one slot of headroom.
+const MAX_PRIMARY_COUNT = 119;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

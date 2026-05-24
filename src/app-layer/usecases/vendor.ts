@@ -132,16 +132,19 @@ export async function addVendorDocument(ctx: RequestContext, vendorId: string, d
     validFrom?: string | null;
     validTo?: string | null;
     notes?: string | null;
+    folder?: string | null;
 }) {
     assertCanManageVendorDocs(ctx);
     // Epic D.2 — sanitise the free-text columns before persistence.
     // `notes` is encrypted at rest (manifest); sanitisation closes the
-    // downstream-renderer integrity gap.
+    // downstream-renderer integrity gap. `folder` is plain-text and
+    // user-supplied so sanitised the same way.
     const sanitisedDoc = {
         ...docInput,
         title: sanitizeOptional(docInput.title) as string | null | undefined,
         externalUrl: sanitizeOptional(docInput.externalUrl) as string | null | undefined,
         notes: sanitizeOptional(docInput.notes) as string | null | undefined,
+        folder: sanitizeOptional(docInput.folder) as string | null | undefined,
     };
     return runInTenantContext(ctx, async (db) => {
         const doc = await VendorDocumentRepository.create(db, ctx, vendorId, sanitisedDoc);

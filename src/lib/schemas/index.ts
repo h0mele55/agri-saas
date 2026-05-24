@@ -367,9 +367,12 @@ export const CreateAuditSchema = z.object({
     auditors: z.string().optional().nullable(),
     auditees: z.string().optional().nullable(),
     departments: z.string().optional().nullable(),
+    // B8 — optional Framework.key the audit assesses. Capped at 60
+    // chars to match the canonical Framework.key length budget.
+    frameworkKey: z.string().max(60).optional().nullable(),
     generateChecklist: z.boolean().optional(),
 }).strip().openapi('AuditCreateRequest', {
-    description: 'Create an audit cycle. generateChecklist=true seeds the audit with checklist items derived from the in-scope frameworks.',
+    description: 'Create an audit cycle. frameworkKey links the audit to a compliance framework. generateChecklist=true seeds the audit with checklist items derived from the in-scope frameworks.',
 });
 
 export const UpdateAuditSchema = z.object({
@@ -562,6 +565,9 @@ export const CreateVendorDocumentSchema = z.object({
     validFrom: z.string().optional().nullable(),
     validTo: z.string().optional().nullable(),
     notes: z.string().max(5000).optional().nullable(),
+    // B8 — free-text folder label (e.g. "Contracts/2026"). Sanitised
+    // + trimmed at the usecase boundary; null/empty maps to "no folder".
+    folder: z.string().max(120).optional().nullable(),
 }).strip();
 
 export const StartAssessmentSchema = z.object({

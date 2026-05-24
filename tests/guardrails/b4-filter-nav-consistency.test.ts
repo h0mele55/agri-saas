@@ -41,9 +41,13 @@ describe('B4 — filter + nav consistency', () => {
 
         it('filter row positions search-left, action-right', () => {
             // Anchor on the "DOCUMENTS" comment block so the
-            // structural shape is locked relative to the tab.
+            // structural shape is locked relative to the tab. The
+            // slice window grew in B8 — the folder filter Combobox
+            // + the folder input inside the form push the
+            // `add-doc-btn` position past the original 2500-char
+            // budget. 6000 keeps headroom for one more inline field.
             const start = src.indexOf('{/* DOCUMENTS */}');
-            const block = src.slice(start, start + 2500);
+            const block = src.slice(start, start + 6000);
             // Search input comes BEFORE the Add document button.
             const searchIdx = block.indexOf('doc-search-input');
             const addIdx = block.indexOf('id="add-doc-btn"');
@@ -56,7 +60,9 @@ describe('B4 — filter + nav consistency', () => {
 
         it('docs list is filtered by both search and type', () => {
             const start = src.indexOf('<VendorDocsTable');
-            const block = src.slice(start, start + 800);
+            // B8 — folder filter sits between the table mount and
+            // the docs.filter() lambda; the slice has to span it.
+            const block = src.slice(start, start + 1600);
             expect(block).toMatch(/docs\.filter\(/);
             expect(block).toMatch(/docTypeFilter/);
             expect(block).toMatch(/docSearch/);

@@ -17,20 +17,23 @@
  */
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     BadgeCheck,
     Car,
     ClipboardList,
     Flag,
     Package,
+    Plus,
     ShieldCheck,
     type LucideIcon,
 } from 'lucide-react';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 
+import { Button } from '@/components/ui/button';
 import { CardList } from '@/components/ui/card-list';
+import { Modal } from '@/components/ui/modal';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { DataTable, createColumns, useColumnsDropdown } from '@/components/ui/table';
@@ -80,6 +83,12 @@ export function FrameworksClient({
     tenantSlug,
 }: FrameworksClientProps) {
     const [view, setView] = useViewMode('frameworks', 'cards');
+    // B8 — explanatory modal for custom-framework creation. Custom
+    // frameworks require a tenantId column on the (currently global)
+    // Framework model + matching RLS policies — a substantial change
+    // queued for a follow-up. The modal surfaces the path and links
+    // to the existing import flow as the today-answer.
+    const [customFwModalOpen, setCustomFwModalOpen] = useState(false);
     const href = (path: string) => `/t/${tenantSlug}${path}`;
 
     // R10-PR7 — column-visibility gear, table-mode only.
@@ -101,6 +110,19 @@ export function FrameworksClient({
         storageKey: 'inflect:col-vis:frameworks',
         columns: frameworkColumnList,
     });
+
+    // B8 — pick the first uninstalled framework as the "Import"
+    // CTA target. Falls back to the first framework when everything
+    // is already installed; if there are none at all the CTA hides.
+    const importHref = useMemo(() => {
+        const uninstalled = frameworks.find((fw: any) => {
+            const cov = coverages[fw.key];
+            return !cov || cov.mapped === 0;
+        });
+        const target = uninstalled ?? frameworks[0];
+        return target ? href(`/frameworks/${target.key}/install`) : null;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [frameworks, coverages]);
 
     const rows: FwRow[] = useMemo(
         () =>
@@ -153,6 +175,35 @@ export function FrameworksClient({
                         onChange={setView}
                         data-testid="frameworks-view-toggle"
                     />
+                    {/* B8 — Custom-framework explainer CTA. Opens
+                        the modal that documents the design + links
+                        out to the import path. */}
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setCustomFwModalOpen(true)}
+                        id="create-framework-btn"
+                        data-testid="create-framework-btn"
+                    >
+                        Create framework
+                    </Button>
+                    {/* B8 — primary action: jump to the import flow
+                        for the first uninstalled framework. Hides
+                        when there's literally nothing in the
+                        catalogue (seed not run). */}
+                    {importHref && (
+                        <Link href={importHref}>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                icon={<Plus />}
+                                id="import-framework-btn"
+                                data-testid="import-framework-btn"
+                            >
+                                Import framework
+                            </Button>
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -308,6 +359,66 @@ export function FrameworksClient({
                     </p>
                 </div>
             )}
+
+            {/* B8 — Custom-framework explainer modal. Documents the
+                today-answer (import from catalogue + customise per-
+                requirement after install) and the planned future
+                (full tenant-scoped frameworks). Pure UX surface — no
+                schema change behind it yet. */}
+            <Modal
+                showModal={customFwModalOpen}
+                setShowModal={setCustomFwModalOpen}
+                size="md"
+                title="Custom frameworks"
+                description="Where customisation lives today, and what's coming."
+            >
+                <Modal.Header
+                    title="Custom frameworks"
+                    description="Where customisation lives today, and what's coming."
+                />
+                <Modal.Body>
+                    <div className="space-y-default text-sm text-content-default">
+                        <p>
+                            <strong>Today</strong> — the canonical path is to
+                            import a catalogue framework (ISO27001, NIS2, …)
+                            and then customise per requirement on the
+                            framework&apos;s <em>Customize</em> tab. Reorder
+                            requirements, link controls, and add per-tenant
+                            metadata — every change is tenant-scoped.
+                        </p>
+                        <p>
+                            <strong>Coming soon</strong> — tenant-scoped
+                            frameworks built from scratch. The current
+                            Framework model is global (one Framework row
+                            shared across every tenant); fully bespoke
+                            frameworks need a tenantId column + matching
+                            RLS policies. Queued behind the larger
+                            framework-lifecycle epic so the migration lands
+                            with the rest of the customisation surface.
+                        </p>
+                    </div>
+                </Modal.Body>
+                <Modal.Actions>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setCustomFwModalOpen(false)}
+                    >
+                        Close
+                    </Button>
+                    {importHref && (
+                        <Link href={importHref}>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => setCustomFwModalOpen(false)}
+                            >
+                                Import framework
+                            </Button>
+                        </Link>
+                    )}
+                </Modal.Actions>
+            </Modal>
         </div>
     );
 }

@@ -95,6 +95,12 @@ model VendorDocument {
   fileId           String?
   externalUrl      String?
   title            String?
+  // B8 — document folders. A free-text folder label that lets a
+  // tenant group documents by their own organisational scheme
+  // (e.g. "Contracts/2026", "Onboarding"). Nullable — unfoldered
+  // documents continue to render as today. Trimmed + sanitised at
+  // the usecase boundary. Indexed for filter + group-by reads.
+  folder           String?
   validFrom        DateTime?
   validTo          DateTime?
   notes            String?
@@ -107,6 +113,7 @@ model VendorDocument {
 
   @@index([tenantId, vendorId])
   @@index([tenantId, vendorId, type])
+  @@index([tenantId, vendorId, folder])
   @@index([tenantId, validTo])
 }
 
