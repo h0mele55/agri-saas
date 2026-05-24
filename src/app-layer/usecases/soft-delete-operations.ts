@@ -10,6 +10,10 @@ import { logEvent } from '../events/audit';
 import { runInTenantContext } from '@/lib/db-context';
 import { notFound } from '@/lib/errors/types';
 import { withDeleted } from '@/lib/soft-delete';
+import {
+    getRestoreValidator,
+    type RestorableModel,
+} from '../domain/restore-validators';
 
 /** Minimal delegate interface for dynamic model access by string key */
 interface ModelDelegate {
@@ -43,6 +47,13 @@ export async function restoreEntity(
         }));
         if (!record) throw notFound(`${model} not found`);
         if (!record.deletedAt) throw notFound(`${model} is not deleted`);
+
+        // Audit Coherence S10 (2026-05-24) — entity-specific
+        // precondition gate. Refuses restore that would create an
+        // orphan (parent deleted) or violate an immutability
+        // contract (e.g. AuditPack under a CLOSED cycle).
+        const validator = getRestoreValidator(model as RestorableModel);
+        await validator(ctx, db, record);
 
         // Restore: set deletedAt and deletedByUserId to null
         const restored = await delegate.update({
