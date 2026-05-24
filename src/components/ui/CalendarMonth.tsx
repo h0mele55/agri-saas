@@ -36,6 +36,14 @@ export interface CalendarMonthProps {
     maxDotsPerDay?: number;
     /** Fired when a day cell is selected (header or "+N more" click). */
     onSelectDate?: (date: string) => void;
+    /**
+     * The currently-selected day in `YYYY-MM-DD` form. B3 — the
+     * matching cell renders a visible selected-state (brand ring +
+     * brand-subtle background) so the click feels acknowledged.
+     * Pre-B3 the cell click only updated the parent's `selectedDate`
+     * state; the cell itself didn't change.
+     */
+    selectedYmd?: string | null;
     /** Today override (for tests). Default: new Date(). */
     today?: Date;
     className?: string;
@@ -88,6 +96,7 @@ export function CalendarMonth({
     events,
     maxDotsPerDay = 3,
     onSelectDate,
+    selectedYmd,
     today,
     className,
     'data-testid': dataTestId = 'calendar-month',
@@ -177,6 +186,7 @@ export function CalendarMonth({
                               onSelectDate(ymd);
                           }
                         : undefined;
+                    const isSelected = selectedYmd === ymd;
                     return (
                         <div
                             key={ymd}
@@ -186,12 +196,21 @@ export function CalendarMonth({
                                     ? 'bg-bg-default'
                                     : 'bg-bg-muted/30 opacity-60',
                                 isToday && 'ring-1 ring-[var(--brand-default)] ring-inset',
+                                // B3 — selected-day state. The brand
+                                // ring (2px-inset) + brand-subtle wash
+                                // make the click feel acknowledged. The
+                                // selected ring is intentionally 2px so
+                                // it reads over the today ring (1px)
+                                // when both apply to the same cell.
+                                isSelected &&
+                                    'ring-2 ring-[var(--brand-default)] ring-inset bg-brand-subtle/40',
                                 onSelectDate &&
                                     'cursor-pointer hover:bg-bg-muted/50 transition-colors duration-150 ease-out',
                             )}
                             data-ymd={ymd}
                             data-in-month={cell.inMonth}
                             data-today={isToday || undefined}
+                            data-selected={isSelected || undefined}
                             onClick={handleCellClick}
                         >
                             <button

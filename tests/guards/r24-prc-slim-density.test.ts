@@ -29,9 +29,12 @@ import * as path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '../..');
 
+// B3 (2026-05-24) — buttons are now pill (`rounded-full`), so the
+// button surfaces are out of the R24 slim-radius family. The form-
+// control family (Input + date-picker trigger + control-variants)
+// stays at R24's 8px slim radius — text-entry surfaces remain
+// rectangular per the B3 design decision.
 const SLIM_RADIUS_SITES = [
-    'src/components/ui/button-variants.ts',
-    'src/components/ui/button.tsx',
     'src/components/ui/control-variants.ts',
     'src/components/ui/input.tsx',
     'src/components/ui/date-picker/trigger.tsx',

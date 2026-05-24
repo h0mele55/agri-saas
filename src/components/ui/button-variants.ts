@@ -372,17 +372,19 @@ export const buttonVariants = cva(
     // mirrors the tracking ladder: dense UI sizes stay restrained,
     // featured sizes climb in confidence. See the size block below.
     "text-sm transition-all duration-150",
-    // R22-PR-A — radius calibration. R19 shipped `rounded-lg`
-    // (12px); the user reported the silhouette read "slightly too
-    // soft / inflated" for the liquid-carbon material.
-    // `rounded-[8px]` is a 2px tighter shape — still gentler than
-    // a hard 8px (Tailwind's `rounded-md`), but visibly more
-    // carved. xs keeps its size-variant `rounded-md` override (8px)
-    // because at h-7 a 10px radius makes the button read pill-ish.
-    // Mirrored in control-variants.ts so form controls (Input,
-    // date-picker trigger, combobox trigger) share the same
-    // corner shape as buttons in filter-toolbar rows.
-    "border rounded-[8px]",
+    // B3 — pill canonicalisation. Pre-B3 the base radius was
+    // `rounded-[8px]` (R22 calibration). The Audit page's
+    // Frameworks button shipped with `rounded-full` via a
+    // per-call-site override and the user picked that pill shape
+    // as the canonical button language for the product. Flipping
+    // the base means every button across the app reads as the same
+    // shape language without 20+ call-site overrides.
+    //
+    // Form controls (Input, date-picker trigger, combobox trigger)
+    // do NOT follow this change — text-entry surfaces stay
+    // rectangular per UX convention. `control-variants.ts` keeps
+    // its 8px radius.
+    "border rounded-full",
     // R22-PR-D + R24-PR-D — disabled mute. R22 added
     // `disabled:saturate-50` on top of `disabled:opacity-50` because
     // the carbon palette read as "half-visible coloured button"
@@ -568,7 +570,11 @@ export const buttonVariants = cva(
         // descendant selector wins on specificity. Callers can
         // still pass icons sized smaller; the per-size class
         // gives the default the right rhythm.
-        xs: "h-7 px-2 text-[11px] gap-1 rounded-md tracking-[0.005em] font-medium [&_svg]:size-3.5",
+        // B3 — `rounded-md` override on `xs` removed. Pre-B3 the xs
+        // variant carried its own 8px radius because at h-7 the
+        // earlier 10px base read "pill-ish"; the canonicalisation to
+        // `rounded-full` on the cva root makes that override moot.
+        xs: "h-7 px-2 text-[11px] gap-1 tracking-[0.005em] font-medium [&_svg]:size-3.5",
         sm: "h-8 px-2.5 text-xs gap-1.5 tracking-[0.01em] font-medium [&_svg]:size-3.5",
         md: "h-9 px-2.5 text-sm gap-tight tracking-[-0.005em] font-semibold [&_svg]:size-4",
         lg: "h-10 px-3 text-sm gap-tight tracking-[-0.01em] font-bold [&_svg]:size-[18px]",

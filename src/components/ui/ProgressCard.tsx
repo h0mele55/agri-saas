@@ -66,7 +66,12 @@ export default function ProgressCard({
     const percent = max > 0 ? Math.min((value / max) * 100, 100) : 0;
 
     return (
-        <div id={id} className={cn(cardVariants(), className)}>
+        // B3 — card sizing parity. `h-full` + `flex flex-col`
+        // so the card stretches to the row's tallest sibling
+        // (typically the RiskDistribution card). Pre-B3 the
+        // ProgressCard sat at its content height and read as
+        // "short" next to RiskDistribution.
+        <div id={id} className={cn(cardVariants(), 'h-full flex flex-col', className)}>
             <Heading level={3} className="mb-3">{label}</Heading>
 
             {/* Main progress bar.

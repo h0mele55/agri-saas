@@ -575,7 +575,11 @@ function RiskDistributionSection({
             data-chart-focus={isFocused ? 'true' : undefined}
             data-chart-dimmed={isDimmed ? 'true' : undefined}
             className={cn(
-                "transition-opacity duration-200 ease-out",
+                // B3 — card sizing parity with ProgressCard
+                // (Control Coverage). Both now `h-full flex flex-col`
+                // so the row's two siblings read as deliberately
+                // matched in height.
+                "h-full flex flex-col transition-opacity duration-200 ease-out",
                 isFocused && "ring-2 ring-brand-default ring-offset-2 ring-offset-bg-page",
                 isDimmed && "opacity-60",
             )}

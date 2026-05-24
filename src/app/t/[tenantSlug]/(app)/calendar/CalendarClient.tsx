@@ -259,6 +259,7 @@ export function CalendarClient({
                             month={monthCursor}
                             events={events}
                             onSelectDate={setSelectedDate}
+                            selectedYmd={selectedDate}
                         />
                     ) : (
                         <GanttTimeline
