@@ -71,6 +71,13 @@ export interface NewTaskFormReturn {
 export interface UseNewTaskFormOptions {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSuccess: (task: any) => void;
+    /**
+     * PR-C — optional pre-fill for the `dueAt` field. The calendar
+     * page double-click flow seeds this with the day cell's YMD so
+     * the create modal opens with the right due date already
+     * selected.
+     */
+    initialDueAt?: string;
 }
 
 const INITIAL: NewTaskFormValues = {
@@ -87,6 +94,7 @@ const INITIAL: NewTaskFormValues = {
 
 export function useNewTaskForm({
     onSuccess,
+    initialDueAt,
 }: UseNewTaskFormOptions): NewTaskFormReturn {
     const apiUrl = useTenantApiUrl();
     const telemetry = useFormTelemetry('NewTaskPage');
@@ -101,7 +109,11 @@ export function useNewTaskForm({
 
     const zod = useZodForm({
         schema: NewTaskFormSchema,
-        initial: INITIAL,
+        // PR-C — merge any caller-supplied seed (currently just the
+        // calendar's double-click date) over the canonical INITIAL.
+        initial: initialDueAt
+            ? { ...INITIAL, dueAt: initialDueAt }
+            : INITIAL,
         onSubmit: async (payload) => {
             telemetry.trackSubmit({
                 type: payload.type,

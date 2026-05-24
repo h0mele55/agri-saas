@@ -506,7 +506,17 @@ function FilterButton({
         "text-content-default",
         "data-[selected=true]:bg-bg-muted data-[selected=true]:text-content-emphasis",
       )}
-      value={label + option?.value}
+      // PR-C — separate the label from the option value with a
+      // space so cmdk's fuzzy `commandScore` treats them as
+      // independent tokens. Pre-PR-C the concatenated form
+      // `${label}${option.value}` would fuse "Alice Smith" with a
+      // cuid into "Alice Smithcmcae5l..." — substring scoring then
+      // missed clean partial matches against the visible label.
+      // Also fall back to the filter key when there is no option
+      // value (the top-level filter-type list), so cmdk has a
+      // stable searchable token in both modes.
+      value={`${label} ${option?.value ?? filter.key}`}
+      keywords={[label]}
       onSelect={onSelect}
       onMouseDown={(e) => {
         // Keep the search input focused when selecting with mouse

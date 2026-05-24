@@ -29,6 +29,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { ToggleGroup } from '@/components/ui/toggle-group';
 import { queryKeys } from '@/lib/queryKeys';
 import { formatDate } from '@/lib/format-date';
+import { NewTaskModal } from '@/app/t/[tenantSlug]/(app)/tasks/NewTaskModal';
+import { useQueryClient } from '@tanstack/react-query';
 import type {
     CalendarEvent,
     CalendarResponse,
@@ -94,6 +96,13 @@ export function CalendarClient({
         () => startOfUtcMonth(new Date()),
     );
     const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+    // PR-C — double-click on a day cell opens the New Task modal
+    // with that date pre-filled as the due date. `taskCreateDate`
+    // is the YMD seeding the modal; `null` keeps the modal closed.
+    const [taskCreateDate, setTaskCreateDate] = React.useState<string | null>(
+        null,
+    );
+    const queryClient = useQueryClient();
 
     // Pull `getTime()` into a stable primitive so the dep array is
     // statically checkable. We deliberately depend on `monthCursorMs`
@@ -259,6 +268,12 @@ export function CalendarClient({
                             month={monthCursor}
                             events={events}
                             onSelectDate={setSelectedDate}
+                            // PR-C — double-click → New Task modal
+                            // seeded with the clicked day's date.
+                            onDoubleClickDate={(ymd) => {
+                                setSelectedDate(ymd);
+                                setTaskCreateDate(ymd);
+                            }}
                             selectedYmd={selectedDate}
                         />
                     ) : (
@@ -320,6 +335,31 @@ export function CalendarClient({
                     )}
                 </aside>
             </div>
+
+            {/* PR-C — New Task modal driven by calendar double-click.
+                Mounted unconditionally; the `open` prop controls
+                visibility. `initialDueAt` seeds the form's dueAt
+                field with the YMD of the clicked day. After create,
+                we stay on the calendar (the queryClient
+                invalidation surfaces the new task immediately on
+                the affected day cell). */}
+            <NewTaskModal
+                open={taskCreateDate !== null}
+                setOpen={(next) => {
+                    const open =
+                        typeof next === 'function'
+                            ? next(taskCreateDate !== null)
+                            : next;
+                    if (!open) setTaskCreateDate(null);
+                }}
+                initialDueAt={taskCreateDate ?? undefined}
+                onCreated={() => {
+                    setTaskCreateDate(null);
+                    queryClient.invalidateQueries({
+                        queryKey: queryKeys.calendar.all(tenantSlug),
+                    });
+                }}
+            />
         </div>
     );
 }

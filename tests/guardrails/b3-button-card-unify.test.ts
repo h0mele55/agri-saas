@@ -98,8 +98,14 @@ describe('B3 — button + card unify', () => {
         });
 
         it('CalendarClient passes the selected date through', () => {
+            // PR-C extended the CalendarMonth mount with
+            // `onDoubleClickDate` between onSelectDate and
+            // selectedYmd, pushing selectedYmd past the original
+            // 400-char window. The pattern still locks the prop
+            // wiring; widen the window so legitimate additions
+            // between sibling props don't trip the assertion.
             expect(client).toMatch(
-                /<CalendarMonth[\s\S]{0,400}selectedYmd=\{selectedDate\}/,
+                /<CalendarMonth[\s\S]{0,800}selectedYmd=\{selectedDate\}/,
             );
         });
     });

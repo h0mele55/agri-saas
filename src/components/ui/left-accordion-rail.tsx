@@ -39,6 +39,7 @@
  * knowledge.
  */
 import {
+    useEffect,
     useId,
     useState,
     useCallback,
@@ -46,6 +47,7 @@ import {
     type ReactNode,
 } from 'react';
 import { ChevronRight } from '@/components/ui/icons/nucleo/chevron-right';
+import { ChevronLeft } from '@/components/ui/icons/nucleo/chevron-left';
 import { cardVariants } from '@/components/ui/card';
 import { cn } from '@dub/utils';
 
@@ -82,6 +84,21 @@ export interface LeftAccordionRailProps {
     ariaLabel?: string;
     /** Stable id forwarded to the outer container (E2E selector). */
     id?: string;
+    /**
+     * PR-C — `localStorage` key under which the rail's
+     * folded/expanded state persists across sessions. When omitted
+     * the rail stays controlled-by-default-expanded and forgets the
+     * fold state on remount. Setting a stable key per page (e.g.
+     * `inflect:rail-folded:controls`) gives the user the "leave it
+     * folded next time" experience.
+     */
+    persistKey?: string;
+    /**
+     * PR-C — whether the rail starts folded on first mount. Default
+     * `false` so consumers get the existing behaviour unchanged.
+     * Overridden by a persisted value when `persistKey` is set.
+     */
+    defaultFolded?: boolean;
 }
 
 // ─── Component ─────────────────────────────────────────────────────
@@ -93,12 +110,40 @@ export function LeftAccordionRail({
     className,
     ariaLabel = 'Table orientation',
     id,
+    persistKey,
+    defaultFolded = false,
 }: LeftAccordionRailProps) {
     // Quiet-by-default — no sections open unless the consumer
     // explicitly seeds `defaultOpenIds`.
     const [openIds, setOpenIds] = useState<ReadonlySet<string>>(
         () => new Set(defaultOpenIds ?? []),
     );
+    // PR-C — fold state. Initialised from the persisted value when
+    // available; otherwise the consumer-supplied `defaultFolded`.
+    // Reading localStorage in the initialiser is SSR-safe because
+    // we guard on `window` existence.
+    const [folded, setFolded] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return defaultFolded;
+        if (!persistKey) return defaultFolded;
+        try {
+            const raw = window.localStorage.getItem(persistKey);
+            if (raw === '1') return true;
+            if (raw === '0') return false;
+        } catch {
+            // Storage may be disabled (private mode / quota); fall
+            // back to the default. Never crash the render.
+        }
+        return defaultFolded;
+    });
+    // Persist whenever the fold state changes.
+    useEffect(() => {
+        if (typeof window === 'undefined' || !persistKey) return;
+        try {
+            window.localStorage.setItem(persistKey, folded ? '1' : '0');
+        } catch {
+            // No-op on storage failures.
+        }
+    }, [folded, persistKey]);
     const reactId = useId();
 
     const toggle = useCallback((sectionId: string) => {
@@ -127,10 +172,47 @@ export function LeftAccordionRail({
         }
     };
 
+    // PR-C — collapsed surface. The rail folds down to a 28px-
+    // wide spine carrying a single Expand button. The same
+    // testids stay on the outer nav so E2E specs don't have to
+    // know the fold state. ariaLabel widens with "(collapsed)"
+    // so AT users hear the change.
+    if (folded) {
+        return (
+            <nav
+                id={id}
+                data-testid={id ?? 'left-accordion-rail'}
+                data-rail-folded="true"
+                aria-label={`${ariaLabel} (collapsed)`}
+                className={cn(
+                    cardVariants({ density: 'none' }),
+                    'flex flex-col items-center self-start w-9 py-tight',
+                    className,
+                )}
+            >
+                <button
+                    type="button"
+                    data-testid="rail-fold-toggle"
+                    aria-expanded="false"
+                    aria-label="Expand rail"
+                    onClick={() => setFolded(false)}
+                    className={cn(
+                        'flex h-7 w-7 items-center justify-center rounded-md',
+                        'text-content-subtle transition-colors duration-100 ease-out',
+                        'hover:bg-bg-muted/50 focus-visible:outline-none focus-visible:bg-bg-muted',
+                    )}
+                >
+                    <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+            </nav>
+        );
+    }
+
     return (
         <nav
             id={id}
             data-testid={id ?? 'left-accordion-rail'}
+            data-rail-folded="false"
             aria-label={ariaLabel}
             className={cn(
                 // Sized for the docked column; the parent shell
@@ -143,7 +225,39 @@ export function LeftAccordionRail({
                 className,
             )}
         >
-            {title && (
+            {/* PR-C — header row with title + fold toggle. The
+                toggle sits to the right; clicking it folds the
+                rail to the 28px collapsed spine. Always rendered
+                so the user can collapse even without a title. */}
+            <div className="flex items-center justify-between border-b border-border-subtle px-3 py-2 gap-tight">
+                {title ? (
+                    <span className="text-xs font-semibold uppercase tracking-widest text-content-subtle">
+                        {title}
+                    </span>
+                ) : (
+                    <span className="sr-only">{ariaLabel}</span>
+                )}
+                <button
+                    type="button"
+                    data-testid="rail-fold-toggle"
+                    aria-expanded="true"
+                    aria-label="Collapse rail"
+                    onClick={() => setFolded(true)}
+                    className={cn(
+                        'flex h-6 w-6 items-center justify-center rounded-md',
+                        '-mr-1 text-content-subtle transition-colors duration-100 ease-out',
+                        'hover:bg-bg-muted/50 focus-visible:outline-none focus-visible:bg-bg-muted',
+                    )}
+                >
+                    <ChevronLeft className="h-3 w-3" aria-hidden="true" />
+                </button>
+            </div>
+            {/* Legacy title-only row preserved for tests reading
+                the bare span — suppressed when the new header row
+                above is rendered. Future cleanup once consumers
+                migrate off any test that asserts on the legacy
+                shape. */}
+            {false && title && (
                 <div className="border-b border-border-subtle px-3 py-2">
                     <span className="text-xs font-semibold uppercase tracking-widest text-content-subtle">
                         {title}

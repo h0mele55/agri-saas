@@ -764,6 +764,11 @@ function ControlsPageInner({
             id="controls-orientation-rail"
             title="Browse by"
             sections={orientationSections}
+            // PR-C — foldable. Each user-tenant keeps its own
+            // fold preference in `localStorage`. Folds down to a
+            // 28px spine; click the chevron on the spine to
+            // re-expand.
+            persistKey="inflect:rail-folded:controls"
         />
     );
 

@@ -37,6 +37,13 @@ export interface CalendarMonthProps {
     /** Fired when a day cell is selected (header or "+N more" click). */
     onSelectDate?: (date: string) => void;
     /**
+     * PR-C — fired on DOUBLE-click of a day cell. The calendar page
+     * wires this to a "create task with due=this-date" flow. The
+     * default behaviour (no handler) keeps the existing
+     * single-click select-only semantics unchanged.
+     */
+    onDoubleClickDate?: (date: string) => void;
+    /**
      * The currently-selected day in `YYYY-MM-DD` form. B3 — the
      * matching cell renders a visible selected-state (brand ring +
      * brand-subtle background) so the click feels acknowledged.
@@ -96,6 +103,7 @@ export function CalendarMonth({
     events,
     maxDotsPerDay = 3,
     onSelectDate,
+    onDoubleClickDate,
     selectedYmd,
     today,
     className,
@@ -212,6 +220,21 @@ export function CalendarMonth({
                             data-today={isToday || undefined}
                             data-selected={isSelected || undefined}
                             onClick={handleCellClick}
+                            // PR-C — double-click opens the
+                            // task-create modal pre-filled with
+                            // this date. The single-click select
+                            // continues to fire; React triggers
+                            // BOTH `onClick` and `onDoubleClick`
+                            // on a dblclick gesture (click fires
+                            // first), which is the right shape
+                            // here — we want the calendar to
+                            // visibly select the day and THEN
+                            // open the modal.
+                            onDoubleClick={
+                                onDoubleClickDate
+                                    ? () => onDoubleClickDate(ymd)
+                                    : undefined
+                            }
                         >
                             <button
                                 type="button"

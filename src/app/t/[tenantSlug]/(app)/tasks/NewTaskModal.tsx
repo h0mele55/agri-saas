@@ -22,9 +22,27 @@ import { NewTaskFields } from './_form/NewTaskFields';
 export interface NewTaskModalProps {
     open: boolean;
     setOpen: Dispatch<SetStateAction<boolean>>;
+    /**
+     * PR-C — optional pre-fill for the `dueAt` field. The calendar
+     * page double-click flow seeds this with the clicked day's YMD.
+     * When omitted the modal opens in its canonical empty state.
+     */
+    initialDueAt?: string;
+    /**
+     * PR-C — optional override for the post-create destination. The
+     * default behaviour pushes the user to the new task's detail
+     * page; the calendar page passes a no-op so the calendar view
+     * stays in place after the task lands.
+     */
+    onCreated?: () => void;
 }
 
-export function NewTaskModal({ open, setOpen }: NewTaskModalProps) {
+export function NewTaskModal({
+    open,
+    setOpen,
+    initialDueAt,
+    onCreated,
+}: NewTaskModalProps) {
     const tenantHref = useTenantHref();
     const { tenantSlug } = useTenantContext();
     const router = useRouter();
@@ -32,8 +50,13 @@ export function NewTaskModal({ open, setOpen }: NewTaskModalProps) {
     const form = useNewTaskForm({
         onSuccess: (task) => {
             setOpen(false);
-            router.push(tenantHref(`/tasks/${task.id}`));
+            if (onCreated) {
+                onCreated();
+            } else {
+                router.push(tenantHref(`/tasks/${task.id}`));
+            }
         },
+        initialDueAt,
     });
 
     // P3 — unsaved-changes guard. See NewPolicyModal for the pattern.
