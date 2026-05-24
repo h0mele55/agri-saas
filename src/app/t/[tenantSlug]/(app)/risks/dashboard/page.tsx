@@ -11,6 +11,41 @@ import { KPIStat } from '@/components/ui/metric';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SkeletonDashboard } from '@/components/ui/skeleton';
 import { getStatusTone } from '@/lib/design/status-tone';
+import { LossExceedanceCurve } from '@/components/ui/charts';
+
+// B10 — Quantitative risk analytics shape. Mirrors the
+// RiskQuantitativeAnalytics interface in
+// `src/app-layer/usecases/risk-analytics.ts`.
+type QuantitativeAnalytics = {
+    totals: {
+        totalCount: number;
+        quantifiedCount: number;
+        totalAle: number;
+        avgAle: number | null;
+        maxAle: number | null;
+    };
+    topByAle: Array<{
+        id: string;
+        title: string;
+        category: string | null;
+        sleAmount: number;
+        aroAmount: number;
+        ale: number;
+    }>;
+    byCategory: Array<{ category: string; count: number; totalAle: number }>;
+    lecPoints: Array<{
+        threshold: number;
+        exceedanceCount: number;
+        exceedanceFraction: number;
+    }>;
+};
+
+function formatMoney(v: number | null): string {
+    if (v == null) return '—';
+    if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
+    if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`;
+    return `$${v.toFixed(0)}`;
+}
 
 type Risk = {
     id: string;
@@ -40,6 +75,10 @@ export default function RiskDashboardPage() {
 
     const [risks, setRisks] = useState<Risk[]>([]);
     const [loading, setLoading] = useState(true);
+    // B10 — quantitative analytics, fetched in parallel with the
+    // risk list. Failure-soft: a failed analytics load just hides
+    // the section without breaking the dashboard.
+    const [analytics, setAnalytics] = useState<QuantitativeAnalytics | null>(null);
 
     useEffect(() => {
         fetch(apiUrl('/risks'))
@@ -47,6 +86,14 @@ export default function RiskDashboardPage() {
             .then(setRisks)
             .catch(() => setRisks([]))
             .finally(() => setLoading(false));
+    }, [apiUrl]);
+
+    useEffect(() => {
+        fetch(apiUrl('/risks/analytics'))
+            .then((r) => (r.ok ? r.json() : null))
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            .then((data) => setAnalytics(data as QuantitativeAnalytics | null))
+            .catch(() => setAnalytics(null));
     }, [apiUrl]);
 
     // KPIs
@@ -161,6 +208,89 @@ export default function RiskDashboardPage() {
                     </div>
                 </Card>
             </div>
+
+            {/* B10 — Quantitative analytics. Renders only when the
+                tenant has at least one quantified risk (SLE + ARO
+                populated). The block is laid out as: KPI strip
+                (totals), top-10 ALE table, loss-exceedance curve. */}
+            {analytics && analytics.totals.quantifiedCount > 0 && (
+                <Card data-testid="risk-quant-analytics">
+                    <Heading level={2} className="mb-2">Quantitative analytics</Heading>
+                    <p className="text-sm text-content-muted mb-default">
+                        {analytics.totals.quantifiedCount} of{' '}
+                        {analytics.totals.totalCount} risks quantified
+                        (SLE × ARO).
+                    </p>
+                    {/* KPI tiles inside the analytics card — plain
+                        divs with a subtle inset boundary. The outer
+                        frame already provides the container; the
+                        inset bg + rounded edge gives each KPI a
+                        "tile" feel without a nested primitive. */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-default mb-default">
+                        <div className="rounded-md bg-bg-muted/30 px-default py-default" data-testid="risk-quant-tile-total">
+                            <KPIStat
+                                value={formatMoney(analytics.totals.totalAle)}
+                                label="Total ALE / year"
+                            />
+                        </div>
+                        <div className="rounded-md bg-bg-muted/30 px-default py-default" data-testid="risk-quant-tile-avg">
+                            <KPIStat
+                                value={formatMoney(analytics.totals.avgAle)}
+                                label="Average ALE"
+                                tone="attention"
+                            />
+                        </div>
+                        <div className="rounded-md bg-bg-muted/30 px-default py-default" data-testid="risk-quant-tile-max">
+                            <KPIStat
+                                value={formatMoney(analytics.totals.maxAle)}
+                                label="Max single ALE"
+                                tone="critical"
+                            />
+                        </div>
+                        <div className="rounded-md bg-bg-muted/30 px-default py-default" data-testid="risk-quant-tile-cats">
+                            <KPIStat
+                                value={analytics.byCategory.length}
+                                label="Categories carrying loss"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-section">
+                        <div>
+                            <Heading level={3} className="mb-2">Top 10 by ALE</Heading>
+                            <div className="space-y-tight">
+                                {analytics.topByAle.map((row) => (
+                                    <Link
+                                        key={row.id}
+                                        href={href(`/risks/${row.id}`)}
+                                        className="flex justify-between gap-default p-2 rounded text-sm hover:bg-bg-muted/50 transition-colors duration-100 ease-out"
+                                        data-testid={`risk-quant-top-row-${row.id}`}
+                                    >
+                                        <span className="truncate text-content-emphasis">
+                                            {row.title}
+                                        </span>
+                                        <span className="tabular-nums text-content-muted">
+                                            {formatMoney(row.ale)}
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <Heading level={3} className="mb-2">Loss exceedance curve</Heading>
+                            <p className="text-xs text-content-subtle mb-tight">
+                                For each loss threshold (x), the curve
+                                shows the share of quantified risks whose
+                                annualised loss is ≥ that threshold.
+                            </p>
+                            <LossExceedanceCurve
+                                data={analytics.lecPoints}
+                                testId="risk-loss-exceedance-curve"
+                                ariaLabel="Risk portfolio loss exceedance curve"
+                            />
+                        </div>
+                    </div>
+                </Card>
+            )}
 
             {/* Overdue */}
             {overdueRisks.length > 0 && (

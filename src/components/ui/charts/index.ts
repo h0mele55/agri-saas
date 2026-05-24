@@ -201,6 +201,19 @@ export type { RadarAxisDatum } from './radar-chart';
 export { GanttChart } from './gantt-chart';
 export type { GanttRow } from './gantt-chart';
 
+// ─── B10 — Loss Exceedance Curve primitive ──────────────────────────
+//
+// Quantitative-risk visualisation: x = loss threshold, y = fraction
+// of risks with ALE ≥ threshold. Pure SVG via visx scale + LinePath
+// + Area + axis chrome. Token-themed via --chart-series-1; no
+// hover / no animation — single-purpose, fast, accessible.
+
+export { LossExceedanceCurve } from './loss-exceedance-curve';
+export type {
+    LossExceedancePoint as LossExceedanceChartPoint,
+    LossExceedanceCurveProps,
+} from './loss-exceedance-curve';
+
 // ─── Shared scale / layout helpers (Epic 59) ─────────────────────────
 //
 // Pure helpers charts (and non-chart consumers that need to speak the

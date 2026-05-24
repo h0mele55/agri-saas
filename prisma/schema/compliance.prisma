@@ -226,6 +226,24 @@ model Risk {
   /// Audit Coherence S1 (2026-05-22).
   residualScore   Int?
   residualScoreSetAt DateTime?
+  /// B10 — Quantitative risk assessment (SLE × ARO = ALE).
+  ///
+  /// `sleAmount` — Single Loss Expectancy: the monetary impact of
+  ///               ONE realised incident. Nullable until the risk
+  ///               owner quantifies; null risks keep the existing
+  ///               qualitative score-only view.
+  /// `aroAmount` — Annualised Rate of Occurrence: incidents/year.
+  ///               Float so 0.25 (= once per 4 years) is expressible
+  ///               without coercing to weird rationals. The audit
+  ///               UI will surface percentage equivalents.
+  ///
+  /// ALE is derived (`sleAmount * aroAmount`), not stored — both
+  /// inputs are nullable so a stored derived would have to be
+  /// `null OR sleAmount * aroAmount` everywhere, doubling the
+  /// invariants without buying query benefit. The analytics
+  /// usecase materialises ALE per-row at read time.
+  sleAmount       Float?
+  aroAmount       Float?
   status          RiskStatus          @default(OPEN)
   treatment       TreatmentDecision?
   treatmentOwner  String?
