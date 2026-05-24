@@ -42,7 +42,15 @@ import type {
 } from '@/app-layer/schemas/org-dashboard-widget.schemas';
 
 import { DispatchedWidget, type PortfolioData } from './widget-dispatcher';
-import { Heading } from '@/components/ui/typography';
+// PR-3 — org dashboard now uses the same `<DashboardLayout>` shell
+// the tenant dashboard sits inside. The shell carries the
+// canonical PageHeader (title + description + meta + actions
+// trio) + the animate-dashboard-rise-in entry motion + the
+// space-y-section vertical rhythm that every other dashboard
+// surface uses. Pre-PR-3 the org dashboard hand-rolled its own
+// `<header>` block; the tenant + org dashboards drifted on
+// chrome polish even though both were built by the same team.
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 // ─── Props ──────────────────────────────────────────────────────────
 
@@ -176,74 +184,82 @@ export function PortfolioDashboard({
         [data.orgSlug, busy],
     );
 
-    return (
-        <div className="space-y-default" data-portfolio-dashboard>
-            {/* Header bar */}
-            <header className="flex items-end justify-between gap-default flex-wrap">
-                <div>
-                    <Heading level={1}>
-                        Portfolio Overview
-                    </Heading>
-                    <p
-                        className="text-sm text-content-muted mt-1"
-                        data-portfolio-header-stats
+    // PR-3 — DashboardLayout PageHeader description preserves the
+    // pre-PR-3 stats line (tenant count + pending snapshot count)
+    // but threads it through the shared header trio so an external
+    // observer (E2E / a11y) sees the same shape org + tenant
+    // dashboards expose.
+    const headerDescription = (
+        <span data-portfolio-header-stats>
+            <AnimatedNumber
+                value={data.summary.tenants.total}
+                format={{ kind: 'integer' }}
+            />
+            {' '}tenant{data.summary.tenants.total === 1 ? '' : 's'}
+            {data.summary.tenants.pending > 0 && (
+                <>
+                    {' · '}
+                    <AnimatedNumber
+                        value={data.summary.tenants.pending}
+                        format={{ kind: 'integer' }}
+                    />
+                    {' pending first snapshot'}
+                </>
+            )}
+        </span>
+    );
+
+    const headerActions = (
+        <div className="flex items-center gap-tight">
+            {canEdit && !editMode && (
+                <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setEditMode(true)}
+                    data-testid="dashboard-edit-toggle"
+                >
+                    <Pencil className="size-3.5" aria-hidden="true" />
+                    Edit dashboard
+                </Button>
+            )}
+            {canEdit && editMode && (
+                <>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setPickerOpen(true)}
+                        data-testid="dashboard-add-widget"
                     >
-                        <AnimatedNumber
-                            value={data.summary.tenants.total}
-                            format={{ kind: 'integer' }}
-                        />
-                        {' '}tenant{data.summary.tenants.total === 1 ? '' : 's'}
-                        {data.summary.tenants.pending > 0 && (
-                            <>
-                                {' · '}
-                                <AnimatedNumber
-                                    value={data.summary.tenants.pending}
-                                    format={{ kind: 'integer' }}
-                                />
-                                {' pending first snapshot'}
-                            </>
-                        )}
-                    </p>
-                </div>
-                <div className="flex items-center gap-tight">
-                    {canEdit && !editMode && (
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setEditMode(true)}
-                            data-testid="dashboard-edit-toggle"
-                        >
-                            <Pencil className="size-3.5" aria-hidden="true" />
-                            Edit dashboard
-                        </Button>
-                    )}
-                    {canEdit && editMode && (
-                        <>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setPickerOpen(true)}
-                                data-testid="dashboard-add-widget"
-                            >
-                                <Plus className="size-3.5" aria-hidden="true" />
-                                Add widget
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="primary"
-                                size="sm"
-                                onClick={() => setEditMode(false)}
-                                data-testid="dashboard-edit-done"
-                            >
-                                <X className="size-3.5" aria-hidden="true" />
-                                Done
-                            </Button>
-                        </>
-                    )}
-                </div>
-            </header>
+                        <Plus className="size-3.5" aria-hidden="true" />
+                        Add widget
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setEditMode(false)}
+                        data-testid="dashboard-edit-done"
+                    >
+                        <X className="size-3.5" aria-hidden="true" />
+                        Done
+                    </Button>
+                </>
+            )}
+        </div>
+    );
+
+    return (
+        <DashboardLayout
+            data-testid="org-dashboard"
+            className="space-y-default"
+            header={{
+                title: 'Portfolio Overview',
+                description: headerDescription,
+                actions: headerActions,
+            }}
+        >
 
             {error && (
                 <div
@@ -313,6 +329,6 @@ export function PortfolioDashboard({
                 onOpenChange={setPickerOpen}
                 onSubmit={handleCreate}
             />
-        </div>
+        </DashboardLayout>
     );
 }
