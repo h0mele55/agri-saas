@@ -8,7 +8,7 @@ import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { NumberStepper } from '@/components/ui/number-stepper';
-import type { NewAssetFormReturn } from './useNewAssetForm';
+import type { NewAssetFormFields, NewAssetFormReturn } from './useNewAssetForm';
 
 const ASSET_TYPES = [
     'INFORMATION',
@@ -71,7 +71,10 @@ export function NewAssetFields({
                             ) ?? null
                         }
                         setSelected={(o) =>
-                            form.setField('type', o?.value ?? 'SYSTEM')
+                            form.setField(
+                                'type',
+                                (o?.value ?? 'SYSTEM') as NewAssetFormFields['type'],
+                            )
                         }
                         placeholder="Select type…"
                         hideSearch

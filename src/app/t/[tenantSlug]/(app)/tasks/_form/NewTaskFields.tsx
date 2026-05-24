@@ -23,7 +23,7 @@ import {
 import { UserCombobox } from '@/components/ui/user-combobox';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Heading } from '@/components/ui/typography';
-import type { NewTaskFormReturn } from './useNewTaskForm';
+import type { NewTaskFormFields, NewTaskFormReturn } from './useNewTaskForm';
 
 const TYPE_OPTIONS: ComboboxOption[] = [
     { value: 'TASK', label: 'Task' },
@@ -127,7 +127,10 @@ export function NewTaskFields({
                             ) ?? null
                         }
                         setSelected={(o) =>
-                            form.setField('severity', o?.value ?? '')
+                            form.setField(
+                                'severity',
+                                (o?.value ?? 'MEDIUM') as NewTaskFormFields['severity'],
+                            )
                         }
                         placeholder="Select severity…"
                         hideSearch
@@ -147,7 +150,10 @@ export function NewTaskFields({
                             ) ?? null
                         }
                         setSelected={(o) =>
-                            form.setField('priority', o?.value ?? '')
+                            form.setField(
+                                'priority',
+                                (o?.value ?? 'P2') as NewTaskFormFields['priority'],
+                            )
                         }
                         placeholder="Select priority…"
                         hideSearch

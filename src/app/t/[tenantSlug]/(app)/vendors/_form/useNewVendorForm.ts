@@ -1,38 +1,42 @@
 'use client';
 
 /**
- * Vendor-create form hook — modal-form P1 extraction.
+ * Vendor-create form hook — B6 useZodForm adoption.
  *
- * State + submit + telemetry-free (vendor page didn't use telemetry).
- * Both the legacy `/vendors/new` page and the future
- * `<NewVendorModal>` (P2) compose this hook + `<NewVendorFields>`
- * identically. See
- * `docs/implementation-notes/2026-05-24-modal-form-architecture.md`.
+ * Pre-B6 this was a hand-rolled `useState` shape with manual
+ * isDirty + canSubmit gates. B6 ports it onto the shared
+ * `useZodForm` hook driven by `NewVendorFormSchema` so:
+ *
+ *   - Validation is Zod-typed and lives in `src/lib/schemas/`.
+ *   - The return shape preserves the legacy contract
+ *     (`fields`, `setField`, `submitting`, `error`, `canSubmit`,
+ *     `submit`, `isDirty`) so the wrapping `<NewVendorModal>` +
+ *     `<NewVendorFields>` mount with no caller-side changes.
+ *   - The richer contract (`touchField`, `fieldError`) is
+ *     exposed alongside for fields markup that wants per-field
+ *     error rendering — see the corresponding B6 PR notes for
+ *     `<NewVendorFields>` adoption.
  */
-import { useState } from 'react';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
+import { useZodForm } from '@/lib/hooks/use-zod-form';
+import {
+    NewVendorFormSchema,
+    type NewVendorFormValues,
+} from '@/lib/schemas/vendor-form';
 
-export interface NewVendorFormFields {
-    name: string;
-    legalName: string;
-    websiteUrl: string;
-    domain: string;
-    country: string;
-    description: string;
-    criticality: string;
-    status: string;
-    dataAccess: string;
-    isSubprocessor: boolean;
-    nextReviewAt: string;
-    contractRenewalAt: string;
-}
+export type NewVendorFormFields = NewVendorFormValues;
 
 export interface NewVendorFormReturn {
+    /** Legacy alias for `values` — used by every caller pre-B6. */
     fields: NewVendorFormFields;
     setField: <K extends keyof NewVendorFormFields>(
         key: K,
         value: NewVendorFormFields[K],
     ) => void;
+    touchField: <K extends keyof NewVendorFormFields>(key: K) => void;
+    fieldError: <K extends keyof NewVendorFormFields>(
+        key: K,
+    ) => string | undefined;
     submitting: boolean;
     error: string | null;
     canSubmit: boolean;
@@ -45,85 +49,75 @@ export interface UseNewVendorFormOptions {
     onSuccess: (vendor: any) => void;
 }
 
+const INITIAL: NewVendorFormFields = {
+    name: '',
+    legalName: '',
+    websiteUrl: '',
+    domain: '',
+    country: '',
+    description: '',
+    criticality: 'MEDIUM',
+    status: 'ONBOARDING',
+    dataAccess: '',
+    isSubprocessor: false,
+    nextReviewAt: '',
+    contractRenewalAt: '',
+};
+
 export function useNewVendorForm({
     onSuccess,
 }: UseNewVendorFormOptions): NewVendorFormReturn {
     const apiUrl = useTenantApiUrl();
+    const zod = useZodForm({
+        schema: NewVendorFormSchema,
+        initial: INITIAL,
+        onSubmit: async (payload) => {
+            // The server is the source of truth — re-validates on
+            // POST. The frontend schema's `default('')` produces
+            // empty strings on optional fields; only forward the
+            // non-empty ones to match the legacy POST body shape.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const body: any = {
+                name: payload.name,
+                criticality: payload.criticality,
+                status: payload.status,
+                isSubprocessor: payload.isSubprocessor,
+            };
+            if (payload.legalName) body.legalName = payload.legalName;
+            if (payload.websiteUrl) body.websiteUrl = payload.websiteUrl;
+            if (payload.domain) body.domain = payload.domain;
+            if (payload.country) body.country = payload.country;
+            if (payload.description) body.description = payload.description;
+            if (payload.dataAccess) body.dataAccess = payload.dataAccess;
+            if (payload.nextReviewAt) body.nextReviewAt = payload.nextReviewAt;
+            if (payload.contractRenewalAt)
+                body.contractRenewalAt = payload.contractRenewalAt;
 
-    const [fields, setFields] = useState<NewVendorFormFields>({
-        name: '',
-        legalName: '',
-        websiteUrl: '',
-        domain: '',
-        country: '',
-        description: '',
-        criticality: 'MEDIUM',
-        status: 'ONBOARDING',
-        dataAccess: '',
-        isSubprocessor: false,
-        nextReviewAt: '',
-        contractRenewalAt: '',
-    });
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [isDirty, setIsDirty] = useState(false);
-
-    const setField = <K extends keyof NewVendorFormFields>(
-        key: K,
-        value: NewVendorFormFields[K],
-    ) => {
-        setFields((f) => ({ ...f, [key]: value }));
-        setIsDirty(true);
-    };
-
-    const canSubmit = fields.name.trim().length > 0 && !submitting;
-
-    const submit = async (): Promise<void> => {
-        setSubmitting(true);
-        setError(null);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const body: any = {
-            name: fields.name,
-            criticality: fields.criticality,
-            status: fields.status,
-            isSubprocessor: fields.isSubprocessor,
-        };
-        if (fields.legalName) body.legalName = fields.legalName;
-        if (fields.websiteUrl) body.websiteUrl = fields.websiteUrl;
-        if (fields.domain) body.domain = fields.domain;
-        if (fields.country) body.country = fields.country;
-        if (fields.description) body.description = fields.description;
-        if (fields.dataAccess) body.dataAccess = fields.dataAccess;
-        if (fields.nextReviewAt) body.nextReviewAt = fields.nextReviewAt;
-        if (fields.contractRenewalAt)
-            body.contractRenewalAt = fields.contractRenewalAt;
-
-        try {
             const res = await fetch(apiUrl('/vendors'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             });
-            if (res.ok) {
-                const vendor = await res.json();
-                setIsDirty(false);
-                onSuccess(vendor);
-            } else {
+            if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                setError(err.error?.message || 'Failed to create vendor');
+                throw new Error(err.error?.message || 'Failed to create vendor');
             }
-        } finally {
-            setSubmitting(false);
-        }
-    };
+            const vendor = await res.json();
+            onSuccess(vendor);
+        },
+    });
 
     return {
-        fields,
-        setField,
-        submitting,
-        error,
-        canSubmit,
-        submit,
-        isDirty,
+        fields: zod.values,
+        setField: zod.setField,
+        touchField: zod.touchField,
+        fieldError: zod.fieldError,
+        submitting: zod.submitting,
+        error: zod.error,
+        canSubmit: zod.canSubmit,
+        submit: async () => {
+            await zod.submit();
+        },
+        isDirty: zod.isDirty,
     };
 }

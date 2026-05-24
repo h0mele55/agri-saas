@@ -14,6 +14,7 @@ import { AppIcon } from '@/components/icons/AppIcon';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import dynamic from 'next/dynamic';
 import LinkedTasksPanel from '@/components/LinkedTasksPanel';
+import { EmptyState } from '@/components/ui/empty-state';
 import { CopyText } from '@/components/ui/copy-text';
 import { Button } from '@/components/ui/button';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -43,6 +44,30 @@ export default function AssetDetailPage() {
     const [asset, setAsset] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+
+    // B6 +1 — canonical 7-tab strip on every detail page. Same shape
+    // as Controls / Risks: Overview holds the existing asset body;
+    // Tasks + Traceability are inline-routed to the already-mounted
+    // panels; the other four explain where the related-entity surface
+    // lives.
+    type Tab =
+        | 'overview'
+        | 'tasks'
+        | 'evidence'
+        | 'mappings'
+        | 'traceability'
+        | 'activity'
+        | 'tests';
+    const [activeTab, setActiveTab] = useState<Tab>('overview');
+    const tabs: ReadonlyArray<{ key: Tab; label: string }> = [
+        { key: 'overview', label: 'Overview' },
+        { key: 'tasks', label: 'Tasks' },
+        { key: 'evidence', label: 'Evidence' },
+        { key: 'mappings', label: 'Mappings' },
+        { key: 'traceability', label: 'Traceability' },
+        { key: 'activity', label: 'Activity' },
+        { key: 'tests', label: 'Tests' },
+    ];
     // Modal-form P2 — the inline-edit panel is replaced by an
     // EditAssetModal launched from the detail header. The page URL
     // stays canonical; modal state is purely overlay. Seeding values
@@ -115,6 +140,9 @@ export default function AssetDetailPage() {
         <EntityDetailLayout
             id="asset-detail-page"
             breadcrumbs={breadcrumbs}
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(k) => setActiveTab(k)}
 
             title={<span id="asset-title-heading">{asset.name}</span>}
             meta={
@@ -171,7 +199,8 @@ export default function AssetDetailPage() {
         >
             {error && <div className={cn(cardVariants({ density: 'compact' }), 'border-border-error text-content-error text-sm')}>{error}</div>}
 
-            {/* Edit modal — modal-form P2. */}
+            {/* Edit modal — modal-form P2. Always mounted so the
+                modal's own open/close state survives tab switches. */}
             {permissions.canWrite && (
                 <EditAssetModal
                     open={editing}
@@ -181,6 +210,73 @@ export default function AssetDetailPage() {
                     onSaved={(updated) => setAsset(updated)}
                 />
             )}
+
+            {activeTab === 'tasks' && (
+                <div className={cardVariants()} id="asset-tasks-tab">
+                    <LinkedTasksPanel
+                        apiBase={apiUrl('')}
+                        entityType="ASSET"
+                        entityId={assetId}
+                        tenantHref={tenantHref}
+                    />
+                </div>
+            )}
+            {activeTab === 'traceability' && (
+                <TraceabilityPanel
+                    apiBase={apiUrl('')}
+                    entityType="asset"
+                    entityId={assetId}
+                    canWrite={permissions.canWrite}
+                    tenantHref={tenantHref}
+                />
+            )}
+            {activeTab === 'evidence' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Evidence lives on linked controls"
+                    description="Assets don't carry evidence directly — open the controls in the Traceability tab to see their attached evidence."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+            {activeTab === 'mappings' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Framework mappings live on controls"
+                    description="An asset inherits coverage from its protecting controls. Open the Traceability tab to navigate to them."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+            {activeTab === 'activity' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Asset activity log"
+                    description="A dedicated activity feed for this asset is on the roadmap. Tenant-wide audit log is available from Admin → Audit Log."
+                />
+            )}
+            {activeTab === 'tests' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Tests run on controls, not assets"
+                    description="Control tests verify mitigations. Navigate to a control via the Traceability tab to see its test plans."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+
+            {activeTab === 'overview' && (
+                <>
 
             {/* Detail card — read-only view; edits flow through EditAssetModal. */}
             <div className={cn(cardVariants(), 'space-y-default')} id="asset-detail">
@@ -224,28 +320,8 @@ export default function AssetDetailPage() {
                     </>
             </div>
 
-            {/* Linked Tasks */}
-            <div className={cardVariants()} id="linked-tasks-section">
-                <Heading level={2} className="mb-4 inline-flex items-center gap-tight"><AppIcon name="tasks" size={18} /> Linked Tasks</Heading>
-                <LinkedTasksPanel
-                    apiBase={apiUrl('')}
-                    entityType="ASSET"
-                    entityId={assetId}
-                    tenantHref={tenantHref}
-                />
-            </div>
-
-            {/* Traceability */}
-            <div className={cardVariants()}>
-                <Heading level={2} className="mb-4 inline-flex items-center gap-tight"><AppIcon name="link" size={18} /> Traceability</Heading>
-                <TraceabilityPanel
-                    apiBase={apiUrl('')}
-                    entityType="asset"
-                    entityId={assetId}
-                    canWrite={permissions.canWrite}
-                    tenantHref={tenantHref}
-                />
-            </div>
+                </>
+            )}
         </EntityDetailLayout>
     );
 }

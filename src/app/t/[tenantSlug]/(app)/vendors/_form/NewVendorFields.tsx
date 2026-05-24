@@ -15,7 +15,7 @@ import {
     startOfUtcDay,
     toYMD,
 } from '@/components/ui/date-picker/date-utils';
-import type { NewVendorFormReturn } from './useNewVendorForm';
+import type { NewVendorFormFields, NewVendorFormReturn } from './useNewVendorForm';
 
 const STATUS_OPTIONS = [
     { value: 'ACTIVE', label: 'Active' },
@@ -100,7 +100,9 @@ export function NewVendorFields({ form }: { form: NewVendorFormReturn }) {
                     <RadioGroup
                         id="vendor-status-select"
                         value={form.fields.status}
-                        onValueChange={(v) => form.setField('status', v)}
+                        onValueChange={(v) =>
+                            form.setField('status', v as NewVendorFormFields['status'])
+                        }
                         className="flex gap-default pt-1"
                     >
                         {STATUS_OPTIONS.map((o) => {
@@ -133,7 +135,10 @@ export function NewVendorFields({ form }: { form: NewVendorFormReturn }) {
                             ) ?? null
                         }
                         setSelected={(o) =>
-                            form.setField('criticality', o?.value ?? '')
+                            form.setField(
+                                'criticality',
+                                (o?.value ?? 'MEDIUM') as NewVendorFormFields['criticality'],
+                            )
                         }
                         placeholder="Select criticality…"
                         hideSearch

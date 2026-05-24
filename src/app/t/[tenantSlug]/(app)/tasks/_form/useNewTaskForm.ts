@@ -1,51 +1,49 @@
 'use client';
 
 /**
- * Task-create form hook — modal-form P1 extraction.
+ * Task-create form hook — B6 useZodForm adoption.
  *
- * Owns:
- *   - the main form state (title, type, severity, priority, etc.)
- *   - the pending-links staging buffer (additional `entityType / entityId`
- *     pairs that submit creates via secondary POSTs after the task is
- *     minted)
- *   - the audit-specific metadata (findingSource, controlGapType) for
- *     `AUDIT_FINDING` / `CONTROL_GAP` task types
- *   - validation: certain types require a control or link to be present
- *   - telemetry + submit + error
+ * Pre-B6 this was a hand-rolled `useState` shape. B6 ports the
+ * core form-state onto `useZodForm` (driven by
+ * `NewTaskFormSchema`). The TASK-specific extras stay outside the
+ * Zod schema:
  *
- * The companion `<NewTaskFields>` component reads from this hook and
- * renders the controlled markup; both the legacy `/tasks/new` page
- * and the P2 `<NewTaskModal>` will compose them identically. See
- * `docs/implementation-notes/2026-05-24-modal-form-architecture.md`.
+ *   - `pendingLinks` — staging buffer for secondary POSTs after
+ *     the task is minted. Not part of the canonical task body so
+ *     it stays in local state.
+ *   - `findingSource` / `controlGapType` — type-conditional
+ *     metadata that lands in `metadataJson` only when set.
+ *   - `validationMessage` — derived semantic gate
+ *     (AUDIT_FINDING / CONTROL_GAP require a control link;
+ *     INCIDENT requires an asset / control link). Zod alone can't
+ *     express this because the link list is sibling state, not a
+ *     field of the form. The hook ANDs the validation message into
+ *     canSubmit so the legacy contract holds.
  */
 import { useState } from 'react';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { useFormTelemetry } from '@/lib/telemetry/form-telemetry';
+import { useZodForm } from '@/lib/hooks/use-zod-form';
+import {
+    NewTaskFormSchema,
+    type NewTaskFormValues,
+} from '@/lib/schemas/task-form';
 
-export type TaskType =
-    | 'TASK'
-    | 'AUDIT_FINDING'
-    | 'CONTROL_GAP'
-    | 'INCIDENT'
-    | 'IMPROVEMENT';
+export type TaskType = NewTaskFormValues['type'];
 
 export interface PendingLink {
     entityType: string;
     entityId: string;
 }
 
-export interface NewTaskFormFields {
-    title: string;
-    description: string;
-    type: TaskType;
-    severity: string;
-    priority: string;
-    dueAt: string;
-    assigneeUserId: string;
-    controlId: string;
+// Extra type-conditional fields kept outside Zod (see file
+// header). Combined with NewTaskFormValues for the field surface.
+export interface NewTaskFormExtras {
     findingSource: string;
     controlGapType: string;
 }
+
+export type NewTaskFormFields = NewTaskFormValues & NewTaskFormExtras;
 
 export interface NewTaskFormReturn {
     fields: NewTaskFormFields;
@@ -53,6 +51,8 @@ export interface NewTaskFormReturn {
         key: K,
         value: NewTaskFormFields[K],
     ) => void;
+    touchField: <K extends keyof NewTaskFormFields>(key: K) => void;
+    fieldError: <K extends keyof NewTaskFormFields>(key: K) => string | undefined;
     pendingLinks: PendingLink[];
     linkEntityType: string;
     setLinkEntityType: (entityType: string) => void;
@@ -63,17 +63,8 @@ export interface NewTaskFormReturn {
     submitting: boolean;
     error: string | null;
     canSubmit: boolean;
-    /**
-     * The synchronous-validation message — empty if the form is OK to
-     * submit. Surfaced in the link-section warning chip.
-     */
     validationMessage: string;
     submit: () => Promise<void>;
-    /**
-     * True once the user has interacted with any field or staged a
-     * pending link. Cleared on submit-success. Used by the modal
-     * wrapper to gate the unsaved-changes warning.
-     */
     isDirty: boolean;
 }
 
@@ -82,37 +73,141 @@ export interface UseNewTaskFormOptions {
     onSuccess: (task: any) => void;
 }
 
+const INITIAL: NewTaskFormValues = {
+    title: '',
+    description: '',
+    type: 'TASK',
+    severity: 'MEDIUM',
+    priority: 'P2',
+    dueAt: '',
+    assigneeUserId: '',
+    reviewerUserId: '',
+    controlId: '',
+};
+
 export function useNewTaskForm({
     onSuccess,
 }: UseNewTaskFormOptions): NewTaskFormReturn {
     const apiUrl = useTenantApiUrl();
     const telemetry = useFormTelemetry('NewTaskPage');
 
-    const [fields, setFields] = useState<NewTaskFormFields>({
-        title: '',
-        description: '',
-        type: 'TASK',
-        severity: 'MEDIUM',
-        priority: 'P2',
-        dueAt: '',
-        assigneeUserId: '',
-        controlId: '',
-        findingSource: '',
-        controlGapType: '',
-    });
+    // Extras kept outside Zod — see file header.
+    const [findingSource, setFindingSource] = useState('');
+    const [controlGapType, setControlGapType] = useState('');
     const [pendingLinks, setPendingLinks] = useState<PendingLink[]>([]);
     const [linkEntityType, setLinkEntityType] = useState('CONTROL');
     const [linkEntityId, setLinkEntityId] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [isDirty, setIsDirty] = useState(false);
+    const [extrasDirty, setExtrasDirty] = useState(false);
 
-    const setField = <K extends keyof NewTaskFormFields>(
-        key: K,
-        value: NewTaskFormFields[K],
-    ) => {
-        setFields((f) => ({ ...f, [key]: value }));
-        setIsDirty(true);
+    const zod = useZodForm({
+        schema: NewTaskFormSchema,
+        initial: INITIAL,
+        onSubmit: async (payload) => {
+            telemetry.trackSubmit({
+                type: payload.type,
+                severity: payload.severity,
+                priority: payload.priority,
+                pendingLinkCount: pendingLinks.length,
+                hasAssignee: Boolean(payload.assigneeUserId),
+            });
+
+            try {
+                const metadataJson: Record<string, string> = {};
+                if (findingSource) metadataJson.findingSource = findingSource;
+                if (controlGapType) metadataJson.controlGapType = controlGapType;
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const body: any = {
+                    title: payload.title,
+                    type: payload.type,
+                    severity: payload.severity,
+                    priority: payload.priority,
+                    description: payload.description || undefined,
+                    dueAt: payload.dueAt || undefined,
+                    assigneeUserId: payload.assigneeUserId || undefined,
+                    controlId: payload.controlId || undefined,
+                    metadataJson:
+                        Object.keys(metadataJson).length > 0
+                            ? metadataJson
+                            : undefined,
+                };
+                const res = await fetch(apiUrl('/tasks'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    const msg =
+                        typeof data.error === 'string'
+                            ? data.error
+                            : data.message || 'Failed to create task';
+                    throw new Error(msg);
+                }
+                const task = await res.json();
+
+                // Best-effort secondary POSTs for the staged links.
+                for (const link of pendingLinks) {
+                    await fetch(apiUrl(`/tasks/${task.id}/links`), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            entityType: link.entityType,
+                            entityId: link.entityId,
+                            relation: 'RELATES_TO',
+                        }),
+                    }).catch(() => {
+                        /* swallow — link is best-effort */
+                    });
+                }
+
+                telemetry.trackSuccess({ taskId: task.id });
+                onSuccess(task);
+            } catch (e) {
+                // Re-throw so useZodForm marks the hook's `error`
+                // state; telemetry sink gets the same instance.
+                telemetry.trackError(e);
+                throw e;
+            }
+        },
+    });
+
+    // Mixed field setter — Zod schema-managed for the core fields,
+    // local state for the extras. Keeps the consumer's
+    // `form.setField('findingSource', '…')` ergonomics intact.
+    const setField: NewTaskFormReturn['setField'] = (key, value) => {
+        if (key === 'findingSource') {
+            setFindingSource(value as string);
+            setExtrasDirty(true);
+            return;
+        }
+        if (key === 'controlGapType') {
+            setControlGapType(value as string);
+            setExtrasDirty(true);
+            return;
+        }
+        // The mixed-keyset means we have to widen the value type
+        // at the hook boundary. The unknown-cast bridge satisfies
+        // the generic without weakening the call-site type.
+        type FormKey = keyof NewTaskFormValues;
+        type FormValue = NewTaskFormValues[FormKey];
+        zod.setField(key as FormKey, value as unknown as FormValue);
+    };
+
+    const touchField: NewTaskFormReturn['touchField'] = (key) => {
+        if (key === 'findingSource' || key === 'controlGapType') return;
+        zod.touchField(key as keyof NewTaskFormValues);
+    };
+
+    const fieldError: NewTaskFormReturn['fieldError'] = (key) => {
+        if (key === 'findingSource' || key === 'controlGapType') return undefined;
+        return zod.fieldError(key as keyof NewTaskFormValues);
+    };
+
+    const fields: NewTaskFormFields = {
+        ...zod.values,
+        findingSource,
+        controlGapType,
     };
 
     const addPendingLink = () => {
@@ -122,7 +217,7 @@ export function useNewTaskForm({
             { entityType: linkEntityType, entityId: linkEntityId.trim() },
         ]);
         setLinkEntityId('');
-        setIsDirty(true);
+        setExtrasDirty(true);
     };
     const removePendingLink = (idx: number) => {
         setPendingLinks((prev) => prev.filter((_, i) => i !== idx));
@@ -152,91 +247,11 @@ export function useNewTaskForm({
         return '';
     })();
 
-    const canSubmit =
-        fields.title.trim().length > 0 && !submitting && !validationMessage;
-
-    const submit = async (): Promise<void> => {
-        if (validationMessage) {
-            setError(validationMessage);
-            return;
-        }
-        if (!fields.title.trim()) return;
-        setSubmitting(true);
-        setError(null);
-        telemetry.trackSubmit({
-            type: fields.type,
-            severity: fields.severity,
-            priority: fields.priority,
-            pendingLinkCount: pendingLinks.length,
-            hasAssignee: Boolean(fields.assigneeUserId),
-        });
-        try {
-            const metadataJson: Record<string, string> = {};
-            if (fields.findingSource)
-                metadataJson.findingSource = fields.findingSource;
-            if (fields.controlGapType)
-                metadataJson.controlGapType = fields.controlGapType;
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const body: any = {
-                title: fields.title,
-                type: fields.type,
-                severity: fields.severity,
-                priority: fields.priority,
-                description: fields.description || undefined,
-                dueAt: fields.dueAt || undefined,
-                assigneeUserId: fields.assigneeUserId || undefined,
-                controlId: fields.controlId || undefined,
-                metadataJson:
-                    Object.keys(metadataJson).length > 0
-                        ? metadataJson
-                        : undefined,
-            };
-            const res = await fetch(apiUrl('/tasks'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                const msg =
-                    typeof data.error === 'string'
-                        ? data.error
-                        : data.message || 'Failed to create task';
-                throw new Error(msg);
-            }
-            const task = await res.json();
-
-            // Best-effort secondary POSTs for the staged links.
-            for (const link of pendingLinks) {
-                await fetch(apiUrl(`/tasks/${task.id}/links`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        entityType: link.entityType,
-                        entityId: link.entityId,
-                        relation: 'RELATES_TO',
-                    }),
-                }).catch(() => {
-                    /* swallow — link is best-effort */
-                });
-            }
-
-            telemetry.trackSuccess({ taskId: task.id });
-            setIsDirty(false);
-            onSuccess(task);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } catch (e: any) {
-            telemetry.trackError(e);
-            setError(e.message);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
     return {
         fields,
         setField,
+        touchField,
+        fieldError,
         pendingLinks,
         linkEntityType,
         setLinkEntityType,
@@ -244,11 +259,18 @@ export function useNewTaskForm({
         setLinkEntityId,
         addPendingLink,
         removePendingLink,
-        submitting,
-        error,
-        canSubmit,
+        submitting: zod.submitting,
+        error: zod.error,
+        canSubmit: zod.canSubmit && !validationMessage,
         validationMessage,
-        submit,
-        isDirty,
+        submit: async () => {
+            if (validationMessage) {
+                // Surface the semantic-gate message so the consumer
+                // doesn't need a separate guard before calling submit.
+                throw new Error(validationMessage);
+            }
+            await zod.submit();
+        },
+        isDirty: zod.isDirty || extrasDirty,
     };
 }

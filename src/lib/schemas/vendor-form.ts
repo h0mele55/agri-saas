@@ -1,0 +1,73 @@
+/**
+ * B6 — frontend-safe Zod schema for the new-vendor modal form.
+ *
+ * Mirrors the server-side `CreateVendorSchema` in
+ * `src/app-layer/schemas/vendor.schemas.ts` but stripped of any
+ * Prisma-emitted enum imports so the schema is bundle-safe for
+ * client code. Validation rules match the server contract; the
+ * server STILL re-validates on POST so this is purely a UX layer.
+ *
+ * The shape is the `<NewVendorFields>` field set:
+ *   - `name`        — required, trimmed, min 1.
+ *   - `legalName`   — optional free text.
+ *   - `websiteUrl`  — optional, must be a valid URL when present.
+ *   - `domain`      — optional free text.
+ *   - `country`     — optional free text.
+ *   - `description` — optional free text.
+ *   - `criticality` — one of LOW / MEDIUM / HIGH / CRITICAL.
+ *   - `status`      — one of ACTIVE / ONBOARDING.
+ *   - `dataAccess`  — optional, one of NONE / LOW / MEDIUM / HIGH.
+ *   - `isSubprocessor` — boolean.
+ *   - `nextReviewAt`     — optional `YYYY-MM-DD` string.
+ *   - `contractRenewalAt` — optional `YYYY-MM-DD` string.
+ */
+import { z } from 'zod';
+
+// Empty-string-tolerant URL — pre-B6 the hand-rolled validator only
+// inserted the field when non-empty; that semantic is preserved.
+const optionalUrl = z
+    .string()
+    .trim()
+    .max(1024)
+    .refine(
+        (v) => {
+            if (!v) return true;
+            try {
+                new URL(v);
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        { message: 'Must be a valid URL or empty' },
+    );
+
+const optionalYmd = z
+    .string()
+    .trim()
+    .refine((v) => !v || /^\d{4}-\d{2}-\d{2}$/.test(v), {
+        message: 'Must be YYYY-MM-DD',
+    });
+
+export const NewVendorFormSchema = z.object({
+    name: z.string().trim().min(1, 'Vendor name is required').max(255),
+    legalName: z.string().trim().max(255).default(''),
+    websiteUrl: optionalUrl.default(''),
+    domain: z.string().trim().max(255).default(''),
+    country: z.string().trim().max(255).default(''),
+    description: z.string().trim().max(4000).default(''),
+    criticality: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']),
+    status: z.enum(['ACTIVE', 'ONBOARDING']),
+    dataAccess: z
+        .string()
+        .refine(
+            (v) => !v || ['NONE', 'LOW', 'MEDIUM', 'HIGH'].includes(v),
+            { message: 'Invalid data-access level' },
+        )
+        .default(''),
+    isSubprocessor: z.boolean().default(false),
+    nextReviewAt: optionalYmd.default(''),
+    contractRenewalAt: optionalYmd.default(''),
+});
+
+export type NewVendorFormValues = z.input<typeof NewVendorFormSchema>;

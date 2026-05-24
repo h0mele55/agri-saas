@@ -12,6 +12,7 @@ import { AppIcon } from '@/components/icons/AppIcon';
 import { useTenantContext, useTenantApiUrl, useTenantHref } from '@/lib/tenant-context-provider';
 import dynamic from 'next/dynamic';
 import LinkedTasksPanel from '@/components/LinkedTasksPanel';
+import { EmptyState } from '@/components/ui/empty-state';
 import { AsidePanel } from '@/components/ui/aside-panel';
 import { Eyebrow } from '@/components/ui/typography';
 import { CardHeader } from '@/components/ui/card-header';
@@ -125,6 +126,30 @@ export default function RiskDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [editing, setEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // B6 +1 — every detail page wears the canonical 7-tab strip
+    // first introduced on the Controls detail surface. Overview holds
+    // the existing risk body; the other six are inline-routed to the
+    // already-mounted panels or stubbed with an EmptyState that
+    // explains where the related-entity surface lives.
+    type Tab =
+        | 'overview'
+        | 'tasks'
+        | 'evidence'
+        | 'mappings'
+        | 'traceability'
+        | 'activity'
+        | 'tests';
+    const [activeTab, setActiveTab] = useState<Tab>('overview');
+    const tabs: ReadonlyArray<{ key: Tab; label: string }> = [
+        { key: 'overview', label: 'Overview' },
+        { key: 'tasks', label: 'Tasks' },
+        { key: 'evidence', label: 'Evidence' },
+        { key: 'mappings', label: 'Mappings' },
+        { key: 'traceability', label: 'Traceability' },
+        { key: 'activity', label: 'Activity' },
+        { key: 'tests', label: 'Tests' },
+    ];
     const [editForm, setEditForm] = useState<Partial<Risk>>({});
 
     const fetchRisk = useCallback(async () => {
@@ -260,6 +285,9 @@ export default function RiskDetailPage() {
         <EntityDetailLayout
             id="risk-detail-page"
             breadcrumbs={breadcrumbs}
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={(k) => setActiveTab(k)}
 
             title={<span id="risk-title-heading">{risk.title}</span>}
             meta={
@@ -352,6 +380,72 @@ export default function RiskDetailPage() {
                 <div className={cn(cardVariants({ density: 'compact' }), 'border-border-error text-content-error text-sm')}>{error}</div>
             )}
 
+            {activeTab === 'tasks' && (
+                <div className={cardVariants()}>
+                    <LinkedTasksPanel
+                        apiBase={apiUrl('')}
+                        entityType="RISK"
+                        entityId={riskId}
+                        tenantHref={href}
+                    />
+                </div>
+            )}
+            {activeTab === 'traceability' && (
+                <TraceabilityPanel
+                    apiBase={apiUrl('')}
+                    entityType="risk"
+                    entityId={riskId}
+                    canWrite={canWrite}
+                    tenantHref={href}
+                />
+            )}
+            {activeTab === 'evidence' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Evidence lives on linked controls"
+                    description="Risks don't carry evidence directly — open the controls in the Traceability tab to see their attached evidence."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+            {activeTab === 'mappings' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Framework mappings live on controls"
+                    description="A risk inherits framework coverage from its mitigating controls. Open the Traceability tab to navigate to them."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+            {activeTab === 'activity' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Risk activity log"
+                    description="A dedicated activity feed for this risk is on the roadmap. Tenant-wide audit log is available from Admin → Audit Log."
+                />
+            )}
+            {activeTab === 'tests' && (
+                <EmptyState
+                    size="sm"
+                    variant="no-records"
+                    title="Tests run on controls, not risks"
+                    description="Control tests verify mitigations. Navigate to a control via the Traceability tab to see its test plans."
+                    primaryAction={{
+                        label: 'Open Traceability',
+                        onClick: () => setActiveTab('traceability'),
+                    }}
+                />
+            )}
+
+            {activeTab === 'overview' && (
+                <>
             {/* Detail / Edit Card */}
             <div className={cn(cardVariants(), 'space-y-default')} id="risk-detail">
                 {editing ? (
@@ -586,6 +680,8 @@ export default function RiskDetailPage() {
                     canAdmin={tenant.permissions.canAdmin}
                 />
             </div>
+                </>
+            )}
         </EntityDetailLayout>
     );
 }

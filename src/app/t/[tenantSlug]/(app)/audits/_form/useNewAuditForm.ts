@@ -1,23 +1,20 @@
 'use client';
 
 /**
- * Audit-create form hook — modal-form follow-up (audits was missed by
- * the original P2 which scoped tasks / policies / vendors / assets-EDIT
- * only). Same shape as `useNewVendorForm`: state + dirty tracking +
- * canSubmit gate + telemetry-free POST.
+ * Audit-create form hook — B6 useZodForm adoption.
  *
- * Composed by `<NewAuditModal>` (which renders the modal shell + the
- * shared `<NewAuditFields>` markup).
+ * Pre-B6 this was a hand-rolled `useState` shape; B6 ports it onto
+ * `useZodForm` driven by `NewAuditFormSchema`. Return shape stays
+ * compatible with `<NewAuditModal>` + `<NewAuditFields>`.
  */
-import { useState } from 'react';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
+import { useZodForm } from '@/lib/hooks/use-zod-form';
+import {
+    NewAuditFormSchema,
+    type NewAuditFormValues,
+} from '@/lib/schemas/audit-form';
 
-export interface NewAuditFormFields {
-    title: string;
-    scope: string;
-    auditors: string;
-    generateChecklist: boolean;
-}
+export type NewAuditFormFields = NewAuditFormValues;
 
 export interface NewAuditFormReturn {
     fields: NewAuditFormFields;
@@ -25,6 +22,10 @@ export interface NewAuditFormReturn {
         key: K,
         value: NewAuditFormFields[K],
     ) => void;
+    touchField: <K extends keyof NewAuditFormFields>(key: K) => void;
+    fieldError: <K extends keyof NewAuditFormFields>(
+        key: K,
+    ) => string | undefined;
     submitting: boolean;
     error: string | null;
     canSubmit: boolean;
@@ -48,57 +49,40 @@ export function useNewAuditForm({
     onSuccess,
 }: UseNewAuditFormOptions): NewAuditFormReturn {
     const apiUrl = useTenantApiUrl();
-
-    const [fields, setFields] = useState<NewAuditFormFields>(INITIAL);
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [isDirty, setIsDirty] = useState(false);
-
-    const setField = <K extends keyof NewAuditFormFields>(
-        key: K,
-        value: NewAuditFormFields[K],
-    ) => {
-        setFields((f) => ({ ...f, [key]: value }));
-        setIsDirty(true);
-    };
-
-    const canSubmit = fields.title.trim().length > 0 && !submitting;
-
-    const submit = async (): Promise<void> => {
-        setSubmitting(true);
-        setError(null);
-        try {
+    const zod = useZodForm({
+        schema: NewAuditFormSchema,
+        initial: INITIAL,
+        onSubmit: async (payload) => {
             const res = await fetch(apiUrl('/audits'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: fields.title,
-                    scope: fields.scope,
-                    auditors: fields.auditors,
-                    generateChecklist: fields.generateChecklist,
+                    title: payload.title,
+                    scope: payload.scope,
+                    auditors: payload.auditors,
+                    generateChecklist: payload.generateChecklist,
                 }),
             });
-            if (res.ok) {
-                const audit = await res.json();
-                setIsDirty(false);
-                setFields(INITIAL);
-                onSuccess(audit);
-            } else {
+            if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                setError(err.error?.message || 'Failed to create audit');
+                throw new Error(err.error?.message || 'Failed to create audit');
             }
-        } finally {
-            setSubmitting(false);
-        }
-    };
+            const audit = await res.json();
+            onSuccess(audit);
+        },
+    });
 
     return {
-        fields,
-        setField,
-        submitting,
-        error,
-        canSubmit,
-        submit,
-        isDirty,
+        fields: zod.values,
+        setField: zod.setField,
+        touchField: zod.touchField,
+        fieldError: zod.fieldError,
+        submitting: zod.submitting,
+        error: zod.error,
+        canSubmit: zod.canSubmit,
+        submit: async () => {
+            await zod.submit();
+        },
+        isDirty: zod.isDirty,
     };
 }
