@@ -228,26 +228,56 @@ export function parseRangeToken(token: string | null | undefined): DateRangeValu
 // ─── DateRange ↔ DateRangeValue bridging ──────────────────────────────
 
 /**
+ * Re-anchor a local-midnight Date (the shape react-day-picker emits
+ * on click) to a UTC-midnight Date with the SAME calendar Y/M/D.
+ * This is the same fix `<DatePicker>` applies inside its own
+ * single-day handler — without it, a click on May 24 in a negative
+ * timezone gets stored as May 23 once `toYMD(getUTCDate(...))` reads
+ * UTC components.
+ */
+function localMidnightToUtcMidnight(d: Date | null | undefined): Date | null {
+    if (!d) return null;
+    return new Date(
+        Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()),
+    );
+}
+
+/**
+ * Inverse: take a UTC-midnight Date from app state and produce a
+ * local-midnight Date with the SAME calendar Y/M/D, so RDP
+ * highlights the day the user (or the URL) intended.
+ */
+function utcMidnightToLocalMidnight(d: Date | null | undefined): Date | undefined {
+    if (!d) return undefined;
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+/**
  * Convert the react-day-picker `DateRange` shape (undefined-biased)
  * to our domain `DateRangeValue` (null-biased). Use at the boundary
- * where a calendar selection hands off to application state.
+ * where a calendar selection hands off to application state. The
+ * incoming Dates are RDP's local-midnight values — re-anchor to
+ * UTC-midnight so downstream `getUTCDate()` reads the day the user
+ * clicked (calendar TZ-offset bug fix).
  */
 export function toDateRangeValue(range: DateRange | undefined): DateRangeValue {
     if (!range) return { from: null, to: null };
     return {
-        from: range.from ?? null,
-        to: range.to ?? null,
+        from: localMidnightToUtcMidnight(range.from),
+        to: localMidnightToUtcMidnight(range.to),
     };
 }
 
 /**
  * Inverse of {@link toDateRangeValue} — hand a `DateRangeValue`
- * to react-day-picker's matcher/range machinery.
+ * to react-day-picker's matcher/range machinery. RDP works in
+ * local time; bridge UTC-midnight Y/M/D to local-midnight Y/M/D so
+ * the highlighted day matches application state regardless of tz.
  */
 export function fromDateRangeValue(range: DateRangeValue): DateRange {
     return {
-        from: range.from ?? undefined,
-        to: range.to ?? undefined,
+        from: utcMidnightToLocalMidnight(range.from),
+        to: utcMidnightToLocalMidnight(range.to),
     };
 }
 

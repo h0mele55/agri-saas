@@ -85,12 +85,38 @@ export interface DatePickerProps
 }
 
 /**
- * Convert our nullable `DateValue` to the `Date | undefined` shape
- * react-day-picker's `mode="single"` prop wants. `null` → `undefined`
- * so the calendar renders no highlight; a real Date passes through.
+ * Convert our nullable `DateValue` (UTC-midnight Date per the
+ * date-utils contract) to the `Date | undefined` shape
+ * react-day-picker's `mode="single"` prop wants.
+ *
+ * RDP works in LOCAL time — it derives the highlighted day from
+ * the input Date's local Y/M/D. If we pass a UTC-midnight Date
+ * (`2026-05-24T00:00Z`) to a UTC-4 user, RDP would read local
+ * components and see "2026-05-23 20:00" → highlight the 23rd
+ * instead of the 24th. The selection symptom is the same in
+ * reverse: a click on the 24th would round-trip back to the 23rd
+ * once `toYMD` reads UTC components.
+ *
+ * Re-anchor: build a LOCAL midnight whose Y/M/D matches the input's
+ * UTC Y/M/D. RDP then shows the correct day, and the matching
+ * `fromRDPSingle` reverses the bridge.
  */
 function toRDPSingle(v: DateValue): Date | undefined {
-    return v ?? undefined;
+    if (!v) return undefined;
+    return new Date(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate());
+}
+
+/**
+ * Inverse of {@link toRDPSingle}. React-day-picker emits a
+ * LOCAL-midnight Date for a clicked day; rebuild a UTC-midnight
+ * Date with the SAME calendar Y/M/D so downstream callers reading
+ * `getUTCDate()` see the day the user clicked.
+ */
+function fromRDPSingle(local: Date | undefined): DateValue {
+    if (!local) return null;
+    return new Date(
+        Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()),
+    );
 }
 
 export function DatePicker({
@@ -126,7 +152,10 @@ export function DatePicker({
 
     const handleSelect = useCallback(
         (next: Date | undefined) => {
-            const nextValue: DateValue = next ?? null;
+            // RDP gives us local-midnight; rebridge to UTC-midnight
+            // so downstream `toYMD(getUTCDate(...))` reads the day
+            // the user clicked, not the off-by-one in negative tz.
+            const nextValue: DateValue = fromRDPSingle(next);
             if (!isControlled) setInternal(nextValue);
             onChange?.(nextValue);
             setOpen(false);

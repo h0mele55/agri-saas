@@ -65,18 +65,25 @@ describe('UserCombobox — contract', () => {
         expect(USER_COMBO_SRC).toMatch(
             /queryKeys\.members\.list\(tenantSlug\)/,
         );
+        // B1 — the assignment picker reads from the non-admin
+        // `/users/assignable` endpoint so EDITOR / READER users see
+        // the roster. The legacy `/admin/members` URL is no longer
+        // the assignment-picker path.
         expect(USER_COMBO_SRC).toMatch(
-            /`\/api\/t\/\$\{tenantSlug\}\/admin\/members`/,
+            /`\/api\/t\/\$\{tenantSlug\}\/users\/assignable`/,
         );
     });
 
-    it('filters out non-ACTIVE memberships', () => {
-        expect(USER_COMBO_SRC).toMatch(
-            /m\.status\s*===\s*["']ACTIVE["']/,
-        );
+    it('uses the non-admin assignable endpoint (B1 task-assignee fix)', () => {
+        // Pre-B1 the picker fetched `/admin/members`, which is
+        // admin-gated; non-admins saw an empty dropdown. The new
+        // `/users/assignable` endpoint is gated by `assertCanRead`
+        // and returns ACTIVE members only — no client-side status
+        // filter is needed because the server already filters.
+        expect(USER_COMBO_SRC).toMatch(/\/users\/assignable/);
     });
 
-    it('falls back to an empty list when RBAC blocks the fetch (no throw)', () => {
+    it('falls back to an empty list when the fetch returns non-ok (no throw)', () => {
         expect(USER_COMBO_SRC).toMatch(/if \(!res\.ok\)[\s\S]{0,500}return \[\]/);
     });
 

@@ -47,22 +47,6 @@ export interface Member {
     image: string | null;
 }
 
-/**
- * Raw membership entry returned by `/admin/members`. We project it into
- * a flat Member shape before it reaches the Combobox.
- */
-interface AdminMembershipEntry {
-    id: string;
-    userId: string;
-    user: {
-        id: string;
-        name: string | null;
-        email: string | null;
-        image: string | null;
-    };
-    status: string;
-}
-
 // ─── Shared props ───────────────────────────────────────────────────
 
 interface BaseUserComboboxProps {
@@ -124,26 +108,38 @@ export function useTenantMembers(
         queryKey: queryKeys.members.list(tenantSlug),
         enabled: options?.enabled ?? true,
         queryFn: async () => {
+            // B1 — the picker now reads from the non-admin
+            // `/users/assignable` endpoint (gated by `assertCanRead`,
+            // which every signed-in tenant member has). Pre-B1 the
+            // picker read from `/admin/members` and silently
+            // rendered an empty dropdown for EDITOR / READER users.
+            //
+            // Admin-only callers that need session counts /
+            // invite-state / deactivated rows still go through
+            // `/admin/members` directly — this hook is the assignment-
+            // picker seam, not the admin-roster seam.
             const res = await fetch(
-                `/api/t/${tenantSlug}/admin/members`,
+                `/api/t/${tenantSlug}/users/assignable`,
             );
             if (!res.ok) {
-                // RBAC: non-admins may not reach this endpoint. Fall
-                // back to an empty list rather than throwing so a
-                // picker shell still renders (users will see "No
-                // members available to assign" and can contact their
-                // admin).
+                // Fallback: surface an empty roster rather than
+                // crashing the picker. Server-side error logs cover
+                // the API-broken case from the route side; the
+                // client-side path stays silent on auth misses.
                 return [];
             }
-            const data: AdminMembershipEntry[] = await res.json();
-            return data
-                .filter((m) => m.status === "ACTIVE")
-                .map((m) => ({
-                    id: m.user.id,
-                    name: m.user.name,
-                    email: m.user.email,
-                    image: m.user.image,
-                }));
+            const data: Array<{
+                id: string;
+                name: string | null;
+                email: string;
+                image: string | null;
+            }> = await res.json();
+            return data.map((m) => ({
+                id: m.id,
+                name: m.name,
+                email: m.email,
+                image: m.image,
+            }));
         },
         staleTime: 60_000,
     });

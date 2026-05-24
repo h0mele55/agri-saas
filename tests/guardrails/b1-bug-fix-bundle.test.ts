@@ -1,0 +1,175 @@
+/**
+ * B1 — bug-fix bundle structural ratchet.
+ *
+ * Four independent bugs closed by this PR; each locked here so a
+ * future PR can't silently re-introduce.
+ *
+ *   1. Calendar date offset — date-picker boundary now re-anchors
+ *      RDP local-midnight → UTC-midnight so clicking May 24 in
+ *      negative timezones doesn't round-trip to May 23.
+ *   2. Task assignee population — `UserCombobox` reads from a
+ *      non-admin endpoint (`/users/assignable`) so EDITOR / READER
+ *      users see the roster.
+ *   3. Linking dropdowns — `TraceabilityPanel` unwraps the
+ *      `{ rows, truncated }` cap shape that the list endpoints
+ *      return; pre-fix the dropdowns silently rendered empty.
+ *   4. Dashboard card filtering — every KPI either focuses a
+ *      chart (coverage / risks / evidence / findings) or navigates
+ *      to its entity list (tasks / policies); no more dead clicks.
+ */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+const ROOT = path.resolve(__dirname, '../..');
+const read = (rel: string) =>
+    fs.readFileSync(path.join(ROOT, rel), 'utf8');
+
+describe('B1 — bug-fix bundle', () => {
+    describe('Bug 1 — calendar date offset (TZ-aware boundary)', () => {
+        const picker = read('src/components/ui/date-picker/date-picker.tsx');
+        const utils = read('src/components/ui/date-picker/date-utils.ts');
+
+        it('single picker re-anchors RDP local-midnight to UTC-midnight on select', () => {
+            expect(picker).toMatch(/function fromRDPSingle/);
+            expect(picker).toMatch(
+                /new Date\(\s*Date\.UTC\(\s*local\.getFullYear\(\)/,
+            );
+            expect(picker).toMatch(/fromRDPSingle\(next\)/);
+        });
+
+        it('single picker re-anchors stored UTC-midnight back to local for display', () => {
+            expect(picker).toMatch(/function toRDPSingle/);
+            expect(picker).toMatch(
+                /new Date\(\s*v\.getUTCFullYear\(\)/,
+            );
+        });
+
+        it('range picker bridges both directions', () => {
+            // The range-picker uses the utility helpers, not bespoke
+            // ones — lock that the helpers themselves do the bridge.
+            const block = utils.slice(
+                utils.indexOf('export function toDateRangeValue'),
+                utils.indexOf('export function fromDateRangeValue') + 600,
+            );
+            expect(block).toMatch(/localMidnightToUtcMidnight/);
+            expect(block).toMatch(/utcMidnightToLocalMidnight/);
+        });
+    });
+
+    describe('Bug 2 — task assignee population', () => {
+        const usecase = read('src/app-layer/usecases/tenant-admin.ts');
+        const route = read(
+            'src/app/api/t/[tenantSlug]/users/assignable/route.ts',
+        );
+        const ui = read('src/components/ui/user-combobox.tsx');
+
+        it('listAssignableUsers usecase exists with assertCanRead gate', () => {
+            expect(usecase).toMatch(/export async function listAssignableUsers/);
+            // Inside the function body — runs BEFORE the DB call.
+            const fnStart = usecase.indexOf(
+                'export async function listAssignableUsers',
+            );
+            const fnBody = usecase.slice(fnStart, fnStart + 800);
+            expect(fnBody).toMatch(/assertCanRead\(ctx\)/);
+        });
+
+        it('non-admin API route exists', () => {
+            expect(route).toMatch(/listAssignableUsers/);
+            expect(route).toMatch(/getTenantCtx/);
+            // No requirePermission gate — this is read-tier for all members.
+            expect(route).not.toMatch(/requirePermission/);
+        });
+
+        it('UserCombobox fetches the non-admin endpoint', () => {
+            expect(ui).toMatch(
+                /\/api\/t\/\$\{tenantSlug\}\/users\/assignable/,
+            );
+            // Strip comments before checking — the rationale comment
+            // INSIDE the function explains why `/admin/members` is
+            // retired; the executable code is what we care about.
+            const fetchBlock = ui.slice(
+                ui.indexOf('export function useTenantMembers'),
+                ui.indexOf('// ─── Option projection'),
+            );
+            const stripped = fetchBlock
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/\/\/.*$/gm, '');
+            expect(stripped).not.toMatch(/\/admin\/members/);
+        });
+    });
+
+    describe('Bug 3 — linking dropdowns (TraceabilityPanel)', () => {
+        const src = read('src/components/TraceabilityPanel.tsx');
+
+        it('unwraps every list-endpoint shape via the `unwrap` helper', () => {
+            // The helper recognises bare arrays, `{ rows }` cap shape,
+            // entity-keyed shape, and `{ items }` pagination shape.
+            expect(src).toMatch(/const unwrap/);
+            expect(src).toMatch(/Array\.isArray\(d\.rows\)/);
+            expect(src).toMatch(/Array\.isArray\(d\.items\)/);
+        });
+
+        it('all three fetchers route through `unwrap`', () => {
+            // Three useEffects — one per entity. Each should call unwrap.
+            const occurrences = src.match(/unwrap\(d,/g) ?? [];
+            expect(occurrences.length).toBeGreaterThanOrEqual(3);
+        });
+
+        it('legacy `d.risks || []` shape fallback is retired', () => {
+            // The old shape never matched the cap'd response and
+            // collapsed every dropdown to empty.
+            expect(src).not.toMatch(/Array\.isArray\(d\)\s*\?\s*d\s*:\s*d\.risks\s*\|\|\s*\[\]/);
+            expect(src).not.toMatch(/Array\.isArray\(d\)\s*\?\s*d\s*:\s*d\.controls\s*\|\|\s*\[\]/);
+            expect(src).not.toMatch(/Array\.isArray\(d\)\s*\?\s*d\s*:\s*d\.assets\s*\|\|\s*\[\]/);
+        });
+    });
+
+    describe('Bug 4 — dashboard card filtering', () => {
+        const src = read(
+            'src/app/t/[tenantSlug]/(app)/dashboard/DashboardClient.tsx',
+        );
+
+        it('CHART_BOUND_KPIS set classifies which KPIs drive chart focus', () => {
+            expect(src).toMatch(
+                /CHART_BOUND_KPIS:\s*ReadonlySet<DashboardKpiKey>/,
+            );
+            // All four chart-bound entities present.
+            expect(src).toMatch(/['"]coverage['"]/);
+            expect(src).toMatch(/['"]risks['"]/);
+            expect(src).toMatch(/['"]evidence['"]/);
+            expect(src).toMatch(/['"]findings['"]/);
+        });
+
+        it('non-chart-bound KPIs navigate to their list page', () => {
+            expect(src).toMatch(/KPI_NAV_HREF:.*Partial<Record<DashboardKpiKey,\s*string>>/);
+            expect(src).toMatch(/tasks:\s*['"]\/tasks['"]/);
+            expect(src).toMatch(/policies:\s*['"]\/policies['"]/);
+        });
+
+        it('all four chart-bound trend cards are wrapped in ChartFocusWrapper', () => {
+            // The TrendSection block spans ~30 lines and contains four
+            // <TrendCard> instances, each now under a wrapper.
+            const block = src.slice(
+                src.indexOf('function TrendSection'),
+                src.indexOf('function TrendEmptyState'),
+            );
+            const wrapperCount = (block.match(/<ChartFocusWrapper kpiKey="/g) ?? []).length;
+            expect(wrapperCount).toBe(4);
+        });
+
+        it('risk heatmap + expiry calendar subscribe to KPI focus', () => {
+            // The section just before TrendSection composes both with
+            // chart-focus wrappers — pre-B1 they had no binding.
+            const heatmapIdx = src.indexOf('id="risk-heatmap"');
+            const expiryIdx = src.indexOf('id="expiry-calendar"');
+            const heatmapBlock = src.slice(heatmapIdx - 400, heatmapIdx);
+            const expiryBlock = src.slice(expiryIdx - 400, expiryIdx);
+            expect(heatmapBlock).toMatch(
+                /<ChartFocusWrapper kpiKey="risks"/,
+            );
+            expect(expiryBlock).toMatch(
+                /<ChartFocusWrapper kpiKey="evidence"/,
+            );
+        });
+    });
+});

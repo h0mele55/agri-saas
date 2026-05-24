@@ -78,15 +78,33 @@ export default function TraceabilityPanel({ apiBase: apiBaseRaw, entityType, ent
     const data = traceQuery.data;
     const loading = traceQuery.isLoading;
 
-    // Fetch available items when forms open
+    // Fetch available items when forms open.
+    //
+    // B1 — `/risks`, `/assets`, `/controls` all return the cap'd
+    // `{ rows, truncated }` shape from `applyBackfillCap`. Pre-B1
+    // the panel only knew about (a) bare array and (b) the
+    // entity-keyed shape `{ risks: [...] }` / etc. — neither
+    // matched, so every linking dropdown silently rendered empty.
+    // The `unwrap` helper accepts every shape the API has ever
+    // returned for these endpoints; new shapes need an explicit
+    // entry.
+    //
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const unwrap = (d: any, entityKey: 'risks' | 'controls' | 'assets'): any[] => {
+        if (Array.isArray(d)) return d;
+        if (d && Array.isArray(d.rows)) return d.rows;
+        if (d && Array.isArray(d[entityKey])) return d[entityKey];
+        if (d && Array.isArray(d.items)) return d.items;
+        return [];
+    };
     useEffect(() => {
-        if (showAddRisk) fetch(`${apiBase}/risks`).then(r => r.ok ? r.json() : []).then(d => setAvailableRisks(Array.isArray(d) ? d : d.risks || []));
+        if (showAddRisk) fetch(`${apiBase}/risks`).then(r => r.ok ? r.json() : []).then(d => setAvailableRisks(unwrap(d, 'risks')));
     }, [showAddRisk, apiBase]);
     useEffect(() => {
-        if (showAddControl) fetch(`${apiBase}/controls`).then(r => r.ok ? r.json() : []).then(d => setAvailableControls(Array.isArray(d) ? d : d.controls || []));
+        if (showAddControl) fetch(`${apiBase}/controls`).then(r => r.ok ? r.json() : []).then(d => setAvailableControls(unwrap(d, 'controls')));
     }, [showAddControl, apiBase]);
     useEffect(() => {
-        if (showAddAsset) fetch(`${apiBase}/assets`).then(r => r.ok ? r.json() : []).then(d => setAvailableAssets(Array.isArray(d) ? d : d.assets || []));
+        if (showAddAsset) fetch(`${apiBase}/assets`).then(r => r.ok ? r.json() : []).then(d => setAvailableAssets(unwrap(d, 'assets')));
     }, [showAddAsset, apiBase]);
 
     // ─── Mutation: link ───

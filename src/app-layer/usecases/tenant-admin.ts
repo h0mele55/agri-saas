@@ -19,6 +19,7 @@ import {
     assertNotSelfDemotion,
     assertNotSelfDeactivation,
 } from '../policies/admin.policies';
+import { assertCanRead } from '../policies/common';
 import { logEvent } from '../events/audit';
 import { runInTenantContext } from '@/lib/db-context';
 import { notFound, badRequest, forbidden } from '@/lib/errors/types';
@@ -74,6 +75,60 @@ export async function listTenantMembers(ctx: RequestContext) {
     return memberships.map((m) => ({
         ...m,
         activeSessionCount: counts[m.userId] ?? 0,
+    }));
+}
+
+// ─── List Assignable Users (B1 — task-assignee population fix) ───
+//
+// `listTenantMembers` above is admin-gated — that's correct because
+// the admin view exposes session counts, invite state, deactivated
+// rows, and custom-role linkage. But the in-product
+// "assign this task / risk / evidence to a teammate" pickers need a
+// roster too, and non-admin users (EDITOR / READER) have a real
+// reason to read it. Pre-B1 the only roster endpoint was the
+// admin one, so the `<UserCombobox>` silently rendered an empty
+// dropdown for everyone below ADMIN.
+//
+// This usecase returns the MINIMAL safe shape — id + name + email +
+// image, ACTIVE rows only, no session counts, no role badges, no
+// invite/deactivated rows. Read access via `assertCanRead`, which
+// every signed-in tenant member has.
+
+export interface AssignableUser {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+}
+
+export async function listAssignableUsers(
+    ctx: RequestContext,
+): Promise<AssignableUser[]> {
+    assertCanRead(ctx);
+    const memberships = await runInTenantContext(ctx, (db) =>
+        db.tenantMembership.findMany({
+            where: {
+                tenantId: ctx.tenantId,
+                status: 'ACTIVE',
+            },
+            select: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                        image: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'asc' },
+        }),
+    );
+    return memberships.map((m) => ({
+        id: m.user.id,
+        name: m.user.name,
+        email: m.user.email,
+        image: m.user.image,
     }));
 }
 

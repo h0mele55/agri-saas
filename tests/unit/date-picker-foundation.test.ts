@@ -351,8 +351,19 @@ describe('date-picker foundation — preset materialisation', () => {
         expect(mat.label).toBe('Last 7 days');
         expect(mat.dateRange.from).toBeInstanceOf(Date);
         expect(mat.dateRange.to).toBeInstanceOf(Date);
-        // Resolved boundaries survive the bridge.
-        expect(toYMD(mat.dateRange.from ?? null)).toBe('2026-04-09');
-        expect(toYMD(mat.dateRange.to ?? null)).toBe('2026-04-15');
+        // B1 — `materializeDateRangePreset` now goes through
+        // `fromDateRangeValue`, which converts UTC-midnight to
+        // LOCAL-midnight so RDP highlights the right day in any
+        // timezone. Assert via local Y/M/D — `toYMD` (which reads
+        // UTC components) is the wrong probe for an RDP-shaped
+        // Date.
+        const from = mat.dateRange.from as Date;
+        const to = mat.dateRange.to as Date;
+        expect(from.getFullYear()).toBe(2026);
+        expect(from.getMonth()).toBe(3); // April (0-indexed)
+        expect(from.getDate()).toBe(9);
+        expect(to.getFullYear()).toBe(2026);
+        expect(to.getMonth()).toBe(3);
+        expect(to.getDate()).toBe(15);
     });
 });

@@ -54,6 +54,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import {
     ShieldCheck,
@@ -304,17 +305,28 @@ export default function DashboardClient({
             </div>
 
             {/* ─── Risk Heatmap + Evidence Expiry ─── */}
+            {/* B1 — heatmap subscribes to risks KPI; expiry calendar
+                subscribes to evidence KPI. Pre-B1 these were not in
+                the focus graph at all, so clicking the risks card
+                only lit RiskDistribution (not the heatmap), and
+                clicking the evidence card only lit EvidenceStatus
+                (not the expiry calendar). Both compose with
+                <ChartFocusWrapper> the same way the trend cards do. */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-default">
-                <RiskMatrix
-                    id="risk-heatmap"
-                    config={matrixConfig}
-                    cells={exec.riskHeatmap}
-                    showSwapToggle={false}
-                />
-                <ExpiryCalendar
-                    id="expiry-calendar"
-                    items={exec.upcomingExpirations}
-                />
+                <ChartFocusWrapper kpiKey="risks">
+                    <RiskMatrix
+                        id="risk-heatmap"
+                        config={matrixConfig}
+                        cells={exec.riskHeatmap}
+                        showSwapToggle={false}
+                    />
+                </ChartFocusWrapper>
+                <ChartFocusWrapper kpiKey="evidence">
+                    <ExpiryCalendar
+                        id="expiry-calendar"
+                        items={exec.upcomingExpirations}
+                    />
+                </ChartFocusWrapper>
             </div>
 
             {/* ─── Trend Section ─── */}
@@ -418,6 +430,26 @@ function ChartFocusWrapper({
 // toggles the dashboard's selectedKpi. PR-8+ will subscribe the
 // charts to the same focus to filter their data.
 
+// B1 — KPIs that have a corresponding chart on the dashboard. A
+// click on one of these focuses the chart (donut, trend card, or
+// matrix); a click on a KPI OUTSIDE this set has no chart to light
+// up — entering the "dim everything except none" state is what made
+// the earlier behaviour feel broken ("I clicked tasks and nothing
+// happened, everything just dimmed"). Those KPIs now navigate to
+// the entity list page instead, which is the user's likely intent.
+const CHART_BOUND_KPIS: ReadonlySet<DashboardKpiKey> = new Set([
+    'coverage',
+    'risks',
+    'evidence',
+    'findings',
+]);
+
+// Per-KPI nav target for the non-chart-bound subset.
+const KPI_NAV_HREF: Partial<Record<DashboardKpiKey, string>> = {
+    tasks: '/tasks',
+    policies: '/policies',
+};
+
 function InteractiveKpiGrid({
     exec,
     trendBundle,
@@ -428,8 +460,18 @@ function InteractiveKpiGrid({
     t: (key: string, opts?: any) => string;
 }) {
     const { selectedKpi, toggleSelectedKpi } = useDashboardChartFilter();
+    const router = useRouter();
+    const href = useTenantHref();
     const isSelected = (kpi: DashboardKpiKey) => selectedKpi === kpi;
-    const click = (kpi: DashboardKpiKey) => () => toggleSelectedKpi(kpi);
+    const click = (kpi: DashboardKpiKey) => () => {
+        if (CHART_BOUND_KPIS.has(kpi)) {
+            toggleSelectedKpi(kpi);
+            return;
+        }
+        // Non-chart-bound KPI — navigate to the entity list page.
+        const dest = KPI_NAV_HREF[kpi];
+        if (dest) router.push(href(dest));
+    };
 
     return (
         <div
@@ -694,32 +736,45 @@ function TrendSection({ trends }: { trends: TrendPayload }) {
                     {trends.daysAvailable} day{trends.daysAvailable !== 1 ? 's' : ''} of data
                 </span>
             </div>
+            {/* B1 — each TrendCard subscribes to its corresponding KPI
+                via `<ChartFocusWrapper>`. Pre-B1 only the coverage +
+                evidence cards above the trend section had this binding;
+                clicking the findings or risks KPI cards only dimmed
+                things without lighting any chart up. */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-default">
-                <TrendCard
-                    label="Coverage"
-                    value={coveragePoints[coveragePoints.length - 1].value}
-                    format="%"
-                    points={coveragePoints}
-                    colorClassName="text-content-success"
-                />
-                <TrendCard
-                    label="Open Risks"
-                    value={risksOpenPoints[risksOpenPoints.length - 1].value}
-                    points={risksOpenPoints}
-                    colorClassName="text-content-warning"
-                />
-                <TrendCard
-                    label="Overdue Evidence"
-                    value={evidenceOverduePoints[evidenceOverduePoints.length - 1].value}
-                    points={evidenceOverduePoints}
-                    colorClassName="text-content-error"
-                />
-                <TrendCard
-                    label="Open Findings"
-                    value={findingsPoints[findingsPoints.length - 1].value}
-                    points={findingsPoints}
-                    colorClassName="text-content-info"
-                />
+                <ChartFocusWrapper kpiKey="coverage">
+                    <TrendCard
+                        label="Coverage"
+                        value={coveragePoints[coveragePoints.length - 1].value}
+                        format="%"
+                        points={coveragePoints}
+                        colorClassName="text-content-success"
+                    />
+                </ChartFocusWrapper>
+                <ChartFocusWrapper kpiKey="risks">
+                    <TrendCard
+                        label="Open Risks"
+                        value={risksOpenPoints[risksOpenPoints.length - 1].value}
+                        points={risksOpenPoints}
+                        colorClassName="text-content-warning"
+                    />
+                </ChartFocusWrapper>
+                <ChartFocusWrapper kpiKey="evidence">
+                    <TrendCard
+                        label="Overdue Evidence"
+                        value={evidenceOverduePoints[evidenceOverduePoints.length - 1].value}
+                        points={evidenceOverduePoints}
+                        colorClassName="text-content-error"
+                    />
+                </ChartFocusWrapper>
+                <ChartFocusWrapper kpiKey="findings">
+                    <TrendCard
+                        label="Open Findings"
+                        value={findingsPoints[findingsPoints.length - 1].value}
+                        points={findingsPoints}
+                        colorClassName="text-content-info"
+                    />
+                </ChartFocusWrapper>
             </div>
         </Card>
     );
