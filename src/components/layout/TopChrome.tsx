@@ -73,6 +73,18 @@ interface TopChromeProps {
             role: string;
             tenantId: string;
         }>;
+        /**
+         * B4 — organization memberships threaded into the workspace
+         * picker. When the user belongs to one or more orgs, the
+         * switcher popover renders an "Organizations" section above
+         * the workspaces list. Optional so callers in pre-B4 stacks
+         * don't need to thread it.
+         */
+        orgMemberships?: Array<{
+            slug: string;
+            role: string;
+            organizationId: string;
+        }>;
     };
 }
 
@@ -100,7 +112,10 @@ export function TopChrome({ variant, user, onMobileMenuClick }: TopChromeProps) 
         variant === 'org' ? (
             <OrgIdentityPill />
         ) : (
-            <TenantSwitcher memberships={user.memberships ?? []} />
+            <TenantSwitcher
+                memberships={user.memberships ?? []}
+                orgMemberships={user.orgMemberships ?? []}
+            />
         );
 
     // The brand mark's destination is the current variant's root.

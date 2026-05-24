@@ -45,6 +45,11 @@ export default async function AppLayout({
                 email: session.user.email,
                 image: session.user.image,
                 memberships: session.user.memberships,
+                // B4 — thread orgMemberships into the workspace
+                // switcher. JWT field may be undefined for sessions
+                // minted pre-B4 / for users with no org memberships;
+                // an empty array reads as "no orgs section".
+                orgMemberships: session.user.orgMemberships,
             }}
             appName={tc('appName')}
         >

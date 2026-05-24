@@ -42,6 +42,12 @@ const ASSESSMENT_STATUS_BADGE = VENDOR_ASSESSMENT_VARIANT;
 const VENDOR_STATUS_OPTIONS: ComboboxOption[] = ['ACTIVE', 'ONBOARDING', 'OFFBOARDING', 'OFFBOARDED'].map(s => ({ value: s, label: s }));
 const VENDOR_CRIT_OPTIONS: ComboboxOption[] = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map(c => ({ value: c, label: c }));
 const DOC_TYPE_CB_OPTIONS: ComboboxOption[] = DOC_TYPES.map(t => ({ value: t, label: DOC_TYPE_LABELS[t] || t }));
+// B4 — Document filter options. Prepended "All types" sentinel so
+// clearing the type filter is a single click.
+const DOC_TYPE_FILTER_OPTIONS: ComboboxOption[] = [
+    { value: '', label: 'All types' },
+    ...DOC_TYPE_CB_OPTIONS,
+];
 const VENDOR_LINK_TYPE_OPTIONS: ComboboxOption[] = [
     { value: 'ASSET', label: 'Asset' }, { value: 'RISK', label: 'Risk' },
     { value: 'ISSUE', label: 'Issue' }, { value: 'CONTROL', label: 'Control' },
@@ -73,6 +79,9 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
     // Doc form
     const [showDocForm, setShowDocForm] = useState(false);
     const [docForm, setDocForm] = useState({ type: 'CONTRACT', title: '', externalUrl: '', notes: '' });
+    // B4 — Documents filter state.
+    const [docSearch, setDocSearch] = useState('');
+    const [docTypeFilter, setDocTypeFilter] = useState('');
     // Assessment start
     const [showStartAssessment, setShowStartAssessment] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState('');
@@ -376,11 +385,38 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
             {/* DOCUMENTS */}
             {tab === 'documents' && (
                 <div className="space-y-default">
-                    {canWrite && (
-                        <div className="flex justify-end">
-                            {/* B2 cleanup — '+ ' literal in the label
-                                was an action-label-vocabulary
-                                offender. Plus icon goes in the slot. */}
+                    {/* B4 — Documents filter placement consistency.
+                        Pre-B4 the docs tab had only the primary
+                        action button on the right; list pages
+                        elsewhere in the product carry search + filter
+                        controls on the LEFT and the action button on
+                        the right. The compact filter row below
+                        mirrors that pattern: search input + type
+                        filter on the left, "Add document" button on
+                        the right. */}
+                    <div className="flex flex-wrap items-center gap-compact justify-between">
+                        <div className="flex flex-wrap items-center gap-compact min-w-0">
+                            <input
+                                type="search"
+                                className="input w-64 max-w-full"
+                                placeholder="Search documents…"
+                                value={docSearch}
+                                onChange={(e) => setDocSearch(e.target.value)}
+                                id="doc-search-input"
+                                aria-label="Search documents"
+                            />
+                            <Combobox
+                                hideSearch
+                                id="doc-type-filter"
+                                selected={DOC_TYPE_FILTER_OPTIONS.find((o) => o.value === docTypeFilter) ?? null}
+                                setSelected={(opt) => setDocTypeFilter(opt?.value ?? '')}
+                                options={DOC_TYPE_FILTER_OPTIONS}
+                                placeholder="All types"
+                                matchTriggerWidth
+                                buttonProps={{ className: 'w-40' }}
+                            />
+                        </div>
+                        {canWrite && (
                             <Button
                                 variant="primary"
                                 icon={showDocForm ? undefined : <Plus />}
@@ -389,8 +425,8 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                             >
                                 {showDocForm ? 'Cancel' : 'Add document'}
                             </Button>
-                        </div>
-                    )}
+                        )}
+                    </div>
                     {showDocForm && canWrite && (
                         <form onSubmit={addDoc} className={cn(cardVariants({ density: 'compact' }), 'space-y-compact')}>
                             <div className="grid grid-cols-2 gap-compact">
@@ -414,8 +450,20 @@ export default function VendorDetailPage(props: { params: Promise<{ tenantSlug: 
                             <Button type="submit" variant="primary" icon={<Plus />} id="submit-doc-btn">Add document</Button>
                         </form>
                     )}
+                    {/* B4 — apply the search + type filters in-memory.
+                        Docs are pre-loaded in a single GET; client-side
+                        filter is the right shape for a tab with at
+                        most a few dozen rows per vendor. */}
                     <VendorDocsTable
-                        docs={docs}
+                        docs={docs.filter((d: any) => {
+                            if (docTypeFilter && d.type !== docTypeFilter) return false;
+                            if (docSearch.trim()) {
+                                const q = docSearch.trim().toLowerCase();
+                                const haystack = `${d.title || ''} ${d.notes || ''} ${DOC_TYPE_LABELS[d.type] || ''}`.toLowerCase();
+                                if (!haystack.includes(q)) return false;
+                            }
+                            return true;
+                        })}
                         canWrite={canWrite}
                         onRemove={removeDoc}
                     />

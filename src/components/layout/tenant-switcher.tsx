@@ -60,6 +60,19 @@ export interface TenantSwitcherMembership {
     tenantId: string;
 }
 
+/**
+ * B4 (2026-05-24) — organization memberships threaded into the
+ * switcher. Pre-B4 the popover only listed tenant workspaces; orgs
+ * were reachable only via the separate (hidden) `<OrgIdentityPill>`
+ * surface. The combined picker makes the membership graph explicit
+ * — the user sees both contexts and chooses which one to switch to.
+ */
+export interface TenantSwitcherOrgMembership {
+    slug: string;
+    role: string;
+    organizationId: string;
+}
+
 export interface TenantSwitcherProps {
     /**
      * Memberships threaded from the server-side layout (via
@@ -68,6 +81,15 @@ export interface TenantSwitcherProps {
      * no-SessionProvider convention.
      */
     memberships: TenantSwitcherMembership[];
+    /**
+     * Optional. When provided + non-empty, the popover renders a
+     * second section labelled "Organizations" above the workspaces
+     * list. Each row links to `/org/{slug}`. The trigger pill stays
+     * tenant-named (the active context is always a tenant on a
+     * tenant-scoped page); B7 will revisit when the layout
+     * redesign introduces a dedicated org-context affordance.
+     */
+    orgMemberships?: TenantSwitcherOrgMembership[];
 }
 
 // ─── Recipe (extracted so PR-11 can compose the unified slot recipe) ──
@@ -92,10 +114,14 @@ const MENU_ROW_CLASS =
 
 const MENU_ROW_ACTIVE_CLASS = 'bg-bg-subtle text-content-emphasis';
 
-export function TenantSwitcher({ memberships }: TenantSwitcherProps) {
+export function TenantSwitcher({
+    memberships,
+    orgMemberships,
+}: TenantSwitcherProps) {
     const { tenantName, tenantSlug } = useTenantContext();
     const [open, setOpen] = useState(false);
     const close = useCallback(() => setOpen(false), []);
+    const orgs = orgMemberships ?? [];
 
     return (
         <Popover
@@ -106,7 +132,42 @@ export function TenantSwitcher({ memberships }: TenantSwitcherProps) {
             sideOffset={6}
             popoverContentClassName="w-[240px] p-1"
             content={
-                <Popover.Menu aria-label="Switch tenant">
+                <Popover.Menu aria-label="Switch context">
+                    {/* B4 — organizations section appears above
+                        workspaces when the user belongs to one or
+                        more orgs. The header copy + popover aria-
+                        label widen from "tenant" to "context" so
+                        the surface honestly reflects both. */}
+                    {orgs.length > 0 && (
+                        <>
+                            <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-content-subtle">
+                                Organizations
+                            </p>
+                            {orgs.map((o) => (
+                                <Link
+                                    key={o.slug}
+                                    href={`/org/${o.slug}`}
+                                    onClick={close}
+                                    role="menuitem"
+                                    data-testid={`tenant-switcher-org-${o.slug}`}
+                                    className={MENU_ROW_CLASS}
+                                >
+                                    <span className="flex items-center gap-compact min-w-0">
+                                        <InitialsAvatar value={o.slug} mode="slug" />
+                                        <span className="flex flex-col min-w-0">
+                                            <span className="truncate text-content-emphasis">
+                                                {o.slug}
+                                            </span>
+                                            <span className="truncate text-[10px] text-content-subtle">
+                                                org · {o.role.toLowerCase().replace('org_', '')}
+                                            </span>
+                                        </span>
+                                    </span>
+                                </Link>
+                            ))}
+                            <Popover.Separator />
+                        </>
+                    )}
                     <p className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold uppercase tracking-widest text-content-subtle">
                         Workspaces
                     </p>

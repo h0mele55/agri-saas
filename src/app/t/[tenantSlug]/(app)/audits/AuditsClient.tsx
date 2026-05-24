@@ -148,10 +148,26 @@ export function AuditsClient({ initialAudits, tenantSlug, translations: t }: Aud
                     <div className="flex flex-wrap gap-tight">
                         <Link
                             href={`/t/${tenantSlug}/frameworks`}
-                            className={cn(buttonVariants({ variant: 'secondary' }), 'rounded-full')}
+                            className={cn(buttonVariants({ variant: 'secondary' }))}
                             id="audits-frameworks-link"
                         >
                             Frameworks
+                        </Link>
+                        {/* B4 — Clauses moved off the primary nav
+                            and into the Audit page as a secondary
+                            entry-point next to Frameworks. The two
+                            destinations are closely related (a
+                            framework lists its requirements;
+                            clauses are the per-tenant progress
+                            tracker against those requirements) so
+                            grouping them under the audit surface
+                            keeps the related concepts together. */}
+                        <Link
+                            href={`/t/${tenantSlug}/clauses`}
+                            className={cn(buttonVariants({ variant: 'secondary' }))}
+                            id="audits-clauses-link"
+                        >
+                            Clauses
                         </Link>
                         <Button variant="primary" icon={<Plus />} onClick={() => setIsCreateOpen(true)} id="new-audit-btn">{t.newAudit}</Button>
                     </div>

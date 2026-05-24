@@ -42,6 +42,17 @@ interface AppShellUser {
         role: string;
         tenantId: string;
     }>;
+    /**
+     * B4 — active organization memberships from the JWT
+     * (`OrgMembershipEntry`). Threaded into the workspace switcher
+     * so the picker can show both org + tenant contexts in one
+     * popover.
+     */
+    orgMemberships?: Array<{
+        slug: string;
+        role: string;
+        organizationId: string;
+    }>;
 }
 
 export type AppShellVariant = 'tenant' | 'org';
