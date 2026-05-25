@@ -101,6 +101,7 @@ import {
     type CanvasCommandGroup,
 } from "./CanvasCommandPalette";
 import { CanvasDocumentBar } from "./CanvasDocumentBar";
+import { Tooltip } from "@/components/ui/tooltip";
 // R31 — CanvasHelpStrip retired. The "tips" strip occupied a
 // permanent band of chrome to teach four interactions that the
 // canvas's empty state + the palette icon labels can convey on
@@ -1601,26 +1602,45 @@ function Inner({
                     <span className="mx-1 text-content-subtle">·</span>
                     {/* R30 — Group selected. Refuses to nest groups
                         or to fold a node that already lives inside a
-                        group; disabled state mirrors that gate so
-                        the affordance is honest. */}
-                    <button
-                        type="button"
-                        className="rounded-[6px] border border-canvas-border bg-canvas-surface px-2 py-0.5 text-content-muted hover:border-border-emphasis hover:text-content-emphasis disabled:opacity-50"
-                        onClick={handleGroupSelected}
-                        data-testid="group-selected-btn"
-                        aria-label="Group selected nodes"
-                        title="Group selected"
-                        disabled={nodes
+                        group; disabled state mirrors that gate.
+                        R32-PR12 — explanatory <Tooltip> on the
+                        disabled state surfaces WHY the button can't
+                        be clicked. Per the design verdict: "never
+                        let a control fail silently". */}
+                    {(() => {
+                        const groupDisabled = nodes
                             .filter((n) => selectedNodeIds.includes(n.id))
                             .some(
                                 (n) =>
                                     nodeParent(n) != null ||
                                     (n.data as { kind?: unknown })?.kind ===
                                         "group",
-                            )}
-                    >
-                        Group
-                    </button>
+                            );
+                        const groupBtn = (
+                            <button
+                                type="button"
+                                className="rounded-[6px] border border-canvas-border bg-canvas-surface px-2 py-0.5 text-content-muted hover:border-border-emphasis hover:text-content-emphasis disabled:opacity-50"
+                                onClick={handleGroupSelected}
+                                data-testid="group-selected-btn"
+                                aria-label="Group selected nodes"
+                                title={
+                                    groupDisabled
+                                        ? "Can't nest groups or fold a node already inside a group"
+                                        : "Group selected"
+                                }
+                                disabled={groupDisabled}
+                            >
+                                Group
+                            </button>
+                        );
+                        return groupDisabled ? (
+                            <Tooltip content="Can't nest groups or fold a node already inside a group">
+                                {groupBtn}
+                            </Tooltip>
+                        ) : (
+                            groupBtn
+                        );
+                    })()}
                     <span className="mx-1 text-content-subtle">·</span>
                     <button
                         type="button"

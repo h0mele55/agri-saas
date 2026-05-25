@@ -31,7 +31,10 @@
  * The bar owns NO state. Every field flows from `Inner` upstream.
  */
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
+import { Tooltip } from "@/components/ui/tooltip";
 import type { ProcessMapSummary } from "@/app/t/[tenantSlug]/(app)/processes/ProcessesClient";
 
 import type { AutosaveStatus } from "@/lib/processes/use-canvas-autosave";
@@ -94,6 +97,23 @@ export function CanvasDocumentBar({
         loadedMap,
         error,
     } = doc;
+    // R32-PR12 — Combobox option mapping. Stable references so the
+    // primitive doesn't re-render on every parent tick.
+    const processOptions = useMemo<ComboboxOption[]>(
+        () =>
+            processes.map((p) => ({
+                value: p.id,
+                label: p.name,
+            })),
+        [processes],
+    );
+    const selectedProcessOption = useMemo<ComboboxOption | null>(
+        () =>
+            activeId
+                ? processOptions.find((o) => o.value === activeId) ?? null
+                : null,
+        [activeId, processOptions],
+    );
     const { saving, loading, creating, duplicating } = busy;
     const { snapEnabled, autosaveStatus, canUndo, canRedo } = editorState;
     const {
@@ -141,27 +161,38 @@ export function CanvasDocumentBar({
                     ›
                 </span>
             </nav>
-            <select
-                value={activeId ?? ""}
-                onChange={(e) => onActiveIdChange(e.target.value || null)}
-                disabled={processes.length === 0 || loading || saving}
-                className="rounded-[6px] border border-canvas-border bg-canvas-surface px-2 py-1 text-xs text-content-emphasis focus:border-border-emphasis focus:outline-none"
-                aria-label="Select process map"
-                data-testid="process-selector"
-            >
-                {processes.length === 0 && (
-                    <option value="">(no processes yet)</option>
-                )}
-                {processes.map((p) => (
-                    <option key={p.id} value={p.id}>
-                        {p.name}
-                    </option>
-                ))}
-            </select>
+            {/* R32-PR12 — process selector promoted from the raw
+                native picker to the canonical `<Combobox>` (Epic
+                55). Combobox brings keyboard search, fuzzy match,
+                large-list virtualisation, and the IC token
+                vocabulary the rest of the app uses. The bar wraps
+                it in a fixed-width sleeve so the selector reads as
+                a confident pill in the chrome row. */}
+            <div data-testid="process-selector" className="min-w-[160px]">
+                <Combobox
+                    selected={selectedProcessOption}
+                    setSelected={(option) =>
+                        onActiveIdChange(option?.value ?? null)
+                    }
+                    options={processOptions}
+                    disabled={
+                        processes.length === 0 || loading || saving
+                    }
+                    aria-label="Select process map"
+                    placeholder="Select process…"
+                />
+            </div>
             {activeId && (
                 // R26-PR-E — inline rename. Commits on blur or Enter;
                 // pressing Escape reverts to the active process's
                 // stored name.
+                //
+                // R32-PR12 — Figma-style auto-grow. The input's
+                // visible width tracks the typed content via the
+                // `ch` unit (1ch ≈ width of "0"), with floor /
+                // ceiling clamped via CSS min/max so empty inputs
+                // still read as a target and long names don't
+                // crowd the action cluster.
                 <input
                     type="text"
                     value={editedName}
@@ -177,9 +208,15 @@ export function CanvasDocumentBar({
                     }}
                     disabled={saving || loading}
                     aria-label="Process name"
-                    placeholder="Untitled"
+                    placeholder="Untitled process"
                     data-testid="process-name-input"
-                    className="min-w-[140px] rounded-[6px] border border-transparent bg-transparent px-2 py-1 text-xs font-medium text-content-emphasis hover:border-canvas-border focus:border-border-emphasis focus:bg-canvas-surface focus:outline-none"
+                    style={{
+                        width: `${Math.max(
+                            (editedName.length || "Untitled process".length) + 2,
+                            12,
+                        )}ch`,
+                    }}
+                    className="max-w-[28ch] rounded-[6px] border border-transparent bg-transparent px-2 py-1 text-xs font-medium text-content-emphasis hover:border-canvas-border focus:border-border-emphasis focus:bg-canvas-surface focus:outline-none"
                 />
             )}
             <Button
@@ -256,9 +293,21 @@ export function CanvasDocumentBar({
                         {error}
                     </span>
                 )}
+                {/* R32-PR12 — version pill moves AHEAD of the
+                    autosave status so the status reads adjacent
+                    to the Save button (Notion's "All changes
+                    saved" placement). The pill is the persistent
+                    document identity; the status is the verb-tense
+                    of the Save action it sits next to. */}
+                {loadedMap && (
+                    <span className="text-xs text-content-subtle tabular-nums">
+                        v{loadedMap.version}
+                    </span>
+                )}
                 {/* R28 — autosave status. Quietly reports the debounce
                     state; vanishes when idle so the toolbar isn't
-                    carrying constant chrome. */}
+                    carrying constant chrome. R32-PR12 placed it
+                    adjacent to the Save button. */}
                 {autosaveStatus === "pending" && (
                     <span
                         className="text-[11px] text-content-subtle"
@@ -284,11 +333,6 @@ export function CanvasDocumentBar({
                         data-autosave-status="saved"
                     >
                         Saved
-                    </span>
-                )}
-                {loadedMap && (
-                    <span className="text-xs text-content-subtle tabular-nums">
-                        v{loadedMap.version}
                     </span>
                 )}
                 <Button

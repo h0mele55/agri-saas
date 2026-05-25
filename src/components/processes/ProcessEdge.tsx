@@ -356,9 +356,16 @@ interface ControlOnEdgeProps {
 }
 
 export function ControlOnEdge({ label }: ControlOnEdgeProps) {
+    // R32-PR12 — chip vocabulary match. Pre-R32 the control pill
+    // had a larger radius than the edge-label chip shipped in
+    // R31 Bundle 7. Two pills on the same edge with two
+    // different radii — every edge-mounted artefact now reads as
+    // one consistent shape language. Same bg-canvas-frame as the
+    // label chip; the brand-coloured icon is what distinguishes
+    // the control affordance.
     return (
         <div
-            className="inline-flex items-center gap-1 rounded-[8px] border border-border-emphasis bg-bg-elevated px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis shadow-canvas-node"
+            className="inline-flex items-center gap-1 rounded-[4px] border border-canvas-border bg-canvas-frame px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-emphasis"
             data-control-on-edge-badge="true"
         >
             <ShieldCheck className="h-3 w-3 shrink-0 text-[color:var(--brand-default)]" />
