@@ -34,6 +34,7 @@
 import { useEffect, useState } from "react";
 import type { Edge, Node } from "@xyflow/react";
 import { ToggleGroup } from "@/components/ui/toggle-group";
+import { AsidePanel } from "@/components/ui/aside-panel";
 import { NODE_TAXONOMY, isProcessNodeKind } from "./node-taxonomy";
 import {
     DEFAULT_NODE_SIZE,
@@ -129,23 +130,29 @@ export function ProcessInspector({
         });
     };
 
+    // R31 Bundle 5 (PR 6) — Inspector chrome now flows through the
+    // canonical `<AsidePanel>` primitive (Risks + Controls parity).
+    // The pre-R31 bespoke 260px `<aside>` is gone; the new shell
+    // gives the inspector collapse-to-spine, resize, deep-link
+    // (`?aside=processes-inspector`), and a `<Sheet>` fallback
+    // below xl for free. The inner body retains every existing
+    // testid the R28 ratchet pins; only the chrome moved.
     return (
-        <aside
-            className="flex w-[260px] shrink-0 flex-col gap-default border-l border-canvas-border bg-canvas-frame p-default"
-            data-process-inspector="true"
-            aria-label="Selected element properties"
+        <AsidePanel
+            title="Inspector"
+            surfaceKey="processes-inspector"
         >
-            <div className="flex items-center gap-tight">
-                <span className="text-xs uppercase tracking-wide text-content-muted">
-                    Inspector
-                </span>
+            <div
+                className="flex flex-col gap-default"
+                data-process-inspector="true"
+                aria-label="Selected node properties"
+            >
                 {kindMeta && (
-                    <span className="text-[10px] text-content-subtle">
-                        — {kindMeta.label}
+                    <span className="text-[10px] uppercase tracking-wide text-content-subtle">
+                        {kindMeta.label}
                     </span>
                 )}
-            </div>
-            <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase tracking-wide text-content-muted">
                     Label
                 </span>
@@ -200,10 +207,11 @@ export function ProcessInspector({
                     }
                 />
             </div>
-            <p className="text-[10px] text-content-subtle">
-                Click off the field or press Enter to save the edit.
-            </p>
-        </aside>
+                <p className="text-[10px] text-content-subtle">
+                    Click off the field or press Enter to save the edit.
+                </p>
+            </div>
+        </AsidePanel>
     );
 }
 
@@ -235,22 +243,25 @@ function EdgeInspectorBody({
         onEdgeUpdate(edge.id, { label: trimmed === "" ? null : trimmed });
     };
 
+    // R31 Bundle 5 (PR 6) — edge inspector chrome moves to AsidePanel
+    // parity, same as the node inspector above. Same surfaceKey so
+    // a user toggling between node + edge selection sees a single
+    // inspector panel persist its collapse state across both modes.
     return (
-        <aside
-            className="flex w-[260px] shrink-0 flex-col gap-default border-l border-canvas-border bg-canvas-frame p-default"
-            data-process-inspector="true"
-            data-inspector-mode="edge"
-            aria-label="Selected edge properties"
+        <AsidePanel
+            title="Inspector"
+            surfaceKey="processes-inspector"
         >
-            <div className="flex items-center gap-tight">
-                <span className="text-xs uppercase tracking-wide text-content-muted">
-                    Inspector
+            <div
+                className="flex flex-col gap-default"
+                data-process-inspector="true"
+                data-inspector-mode="edge"
+                aria-label="Selected edge properties"
+            >
+                <span className="text-[10px] uppercase tracking-wide text-content-subtle">
+                    Connection
                 </span>
-                <span className="text-[10px] text-content-subtle">
-                    — Connection
-                </span>
-            </div>
-            <label className="flex flex-col gap-1">
+                <label className="flex flex-col gap-1">
                 <span className="text-[10px] uppercase tracking-wide text-content-muted">
                     Label
                 </span>
@@ -291,9 +302,10 @@ function EdgeInspectorBody({
                     {EDGE_VARIANT_META[variant].description}
                 </span>
             </div>
-            <p className="text-[10px] text-content-subtle">
-                Click off the field or press Enter to save the edit.
-            </p>
-        </aside>
+                <p className="text-[10px] text-content-subtle">
+                    Click off the field or press Enter to save the edit.
+                </p>
+            </div>
+        </AsidePanel>
     );
 }

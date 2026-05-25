@@ -111,8 +111,15 @@ describe('ProcessInspector', () => {
                 onUpdate={jest.fn()}
             />,
         );
-        expect(screen.getByText('Inspector')).toBeInTheDocument();
-        // The kind name appears in a separator span.
+        // R31 Bundle 5 — the inspector now lives inside the
+        // <AsidePanel> primitive, which renders 'Inspector' in
+        // BOTH its desktop title bar and its mobile sheet-
+        // trigger button (same component, two responsive
+        // surfaces). Use `getAllByText` and assert at least one
+        // — the title is correctly rendered; we no longer claim
+        // it's unique.
+        expect(screen.getAllByText('Inspector').length).toBeGreaterThan(0);
+        // The kind name appears in a category span.
         expect(screen.getByText(/Decision/)).toBeInTheDocument();
     });
 
