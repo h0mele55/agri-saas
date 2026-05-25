@@ -87,7 +87,16 @@ describe('createControl', () => {
     });
 
     it('emits CONTROL_CREATED audit', async () => {
-        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn({} as never));
+        // The custom-control mint path calls
+        // `db.controlKeySequence.upsert` to allocate `CTL-N` before
+        // the repository write — stub it on the in-test db handle
+        // so the usecase resolves to the CONTROL_CREATED audit.
+        const db = {
+            controlKeySequence: {
+                upsert: jest.fn().mockResolvedValue({ lastValue: 1 }),
+            },
+        };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(db as never));
 
         await createControl(makeRequestContext('EDITOR'), { name: 'X' });
 
@@ -96,6 +105,57 @@ describe('createControl', () => {
             expect.anything(),
             expect.objectContaining({ action: 'CONTROL_CREATED' }),
         );
+    });
+
+    it('mints CTL-N via controlKeySequence.upsert when isCustom AND no code', async () => {
+        const upsertMock = jest.fn().mockResolvedValue({ lastValue: 42 });
+        const db = { controlKeySequence: { upsert: upsertMock } };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(db as never));
+
+        await createControl(makeRequestContext('EDITOR'), { name: 'X' });
+
+        // Counter advanced exactly once.
+        expect(upsertMock).toHaveBeenCalledTimes(1);
+        // Repository got the minted code, not null.
+        expect(mockCreate).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.anything(),
+            expect.objectContaining({ code: 'CTL-42', isCustom: true }),
+        );
+    });
+
+    it('bypasses the counter when a code IS supplied', async () => {
+        const upsertMock = jest.fn();
+        const db = { controlKeySequence: { upsert: upsertMock } };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(db as never));
+
+        await createControl(makeRequestContext('EDITOR'), {
+            name: 'X',
+            code: 'EXTERNAL-CODE',
+        });
+
+        // Caller-supplied code wins — counter NOT advanced.
+        expect(upsertMock).not.toHaveBeenCalled();
+        expect(mockCreate).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.anything(),
+            expect.objectContaining({ code: 'EXTERNAL-CODE' }),
+        );
+    });
+
+    it('bypasses the counter when isCustom is false (framework install)', async () => {
+        const upsertMock = jest.fn();
+        const db = { controlKeySequence: { upsert: upsertMock } };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(db as never));
+
+        await createControl(makeRequestContext('EDITOR'), {
+            name: 'X',
+            isCustom: false,
+        });
+
+        // Framework-installed controls never mint — their code /
+        // annexId comes from the catalogue.
+        expect(upsertMock).not.toHaveBeenCalled();
     });
 });
 
