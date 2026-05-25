@@ -138,8 +138,22 @@ describe("R26-PR-B — palette consumer", () => {
         // The palette MUST drive its render loop from the canonical
         // order — hand-rolling a parallel array of items would
         // drift from the taxonomy on every PR that adds a kind.
+        // R31 Bundle 4 (PR 2) widened the iteration shape: the
+        // vertical-rail palette `for...of`-loops NODE_TAXONOMY_ORDER
+        // to bucket kinds into category groups before rendering,
+        // instead of a direct `.map`. Accept either form — the
+        // invariant is "iterate the canonical order", not the
+        // exact iteration syntax.
         expect(paletteSrc).toMatch(/NODE_TAXONOMY_ORDER/);
-        expect(paletteSrc).toMatch(/NODE_TAXONOMY_ORDER\.map\(/);
+        // Either canonical iteration form is accepted:
+        //   • `NODE_TAXONOMY_ORDER.map(...)` — direct render-list
+        //   • `for (... of NODE_TAXONOMY_ORDER)` — for-of bucket
+        // The invariant is "iterate the canonical order"; both
+        // forms preserve it.
+        expect(
+            paletteSrc.match(/NODE_TAXONOMY_ORDER\.map\(/) ||
+                paletteSrc.match(/of NODE_TAXONOMY_ORDER/),
+        ).not.toBeNull();
     });
 
     it("ships a JSON drop payload with kind + label", () => {

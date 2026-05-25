@@ -1419,7 +1419,15 @@ function Inner({
                 </div>
             </div>
 
-            <ProcessPalette />
+            {/* R31 Bundle 4 (PR 2) — the ProcessPalette moved
+                from a HORIZONTAL strip across the top of the
+                canvas into the VERTICAL left rail below. The
+                taxonomy + drag-source contract are unchanged;
+                only the LAYOUT shifted to match the universal
+                design-tool vocabulary (palette on the left,
+                canvas in the centre, inspector on the right).
+                See the palette mount inside the body's 3-column
+                row below. */}
             {/* R29 — multi-select toolbar. Renders only when ≥2
                 nodes are selected; vanishes back to the natural
                 palette + help-strip layout when the selection
@@ -1593,6 +1601,14 @@ function Inner({
                 </div>
             )}
             <div className="flex flex-1 min-h-0">
+                {/* R31 Bundle 4 (PR 2) — the palette as a vertical
+                    left rail. Lives INSIDE the body's flex row so
+                    its width is reserved alongside the canvas
+                    plane and (optional) right inspector. The
+                    palette → canvas → inspector eye-flow is now
+                    Western-reading L→R, matching every other
+                    design tool. */}
+                <ProcessPalette />
                 {/* The canvas plane — the recessed working surface.
                     A distinct deep token + a top inner shadow make it
                     read as sunk below the chrome: the dominant region,

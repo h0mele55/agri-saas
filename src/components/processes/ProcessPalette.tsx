@@ -1,36 +1,43 @@
 "use client";
 
 /**
- * Roadmap-26 PR-B — ProcessPalette.
+ * Roadmap-26 PR-B → R31 Bundle 4 (PR 2) — ProcessPalette.
  *
- * Slim top toolbar carrying seven draggable "stamps", one per
- * canonical node kind (see `node-taxonomy.ts`). Each stamp is
- * HTML5-draggable; dragging onto the canvas drops a new node of
- * that kind at the cursor position.
+ * Pre-R31 this lived as a HORIZONTAL strip across the top of the
+ * canvas (eight icon-and-label pills wrapping into a second row
+ * once the eighth kind landed). Every world-class design tool —
+ * Figma, Sketch, Adobe XD, Linear's canvas, Excalidraw —
+ * positions its tool palette on the LEFT, not above. Pre-R31 we
+ * had it stacked above; R31 Bundle 4 moves it where the
+ * vocabulary expects it.
  *
- * The drag payload is a JSON-encoded
+ * The new shape:
+ *   • Vertical 56px-wide column on the left of the canvas body.
+ *   • Icon-only buttons. The kind label appears on hover via
+ *     `title=` (Epic 56 tooltip primitive would be ideal; a
+ *     `title` attribute is a deliberate small-surface choice to
+ *     avoid adding a new dep + an extra render path in the canvas
+ *     critical path).
+ *   • Category dividers — a thin hairline between
+ *     Flow (step, decision) →  Context (risk, asset, external) →
+ *     Container (group) → Note (annotation). Exposes the taxonomy
+ *     hierarchy that was hidden by the flat horizontal strip.
+ *   • Drag-source contract unchanged: `application/x-inflect-process-step`
+ *     MIME type with the same `{ kind, label }` JSON payload.
+ *     Existing R26-PR-B + R30 ratchets keep asserting the payload
+ *     shape — only the LAYOUT changed here.
  *
- *     { kind: ProcessNodeKind, label: string }
- *
- * carried on the canonical `PALETTE_DRAG_MIME` mime type. This
- * replaces the R25-era "label-only" payload (which only ever
- * shipped a single kind). The canvas-side drop handler parses the
- * JSON and falls back to `processStep` if the payload is missing
- * or malformed — backwards-compatible with any drag source still
- * sending raw labels.
- *
- * Design discipline (per the R26-PR-B brief): the palette is
- * RESTRAINED. The seven stamps fit on one slim row; no expanding
- * sub-trees, no sidebar palette, no category headers cluttering
- * the chrome. If the canonical taxonomy ever grows past nine
- * kinds, that's the moment to split the palette into a
- * disclosure-style picker — not the moment to "just add another
- * row".
+ * The seven taxonomy kinds plus group (R30) all carry an icon by
+ * design. The hover label is the accessible name for screen
+ * readers via `aria-label`; the visible icon is purely decorative.
  */
 
 import type { DragEvent } from "react";
 import { NODE_TAXONOMY, NODE_TAXONOMY_ORDER } from "./node-taxonomy";
-import type { ProcessNodeKind } from "./node-taxonomy";
+import type {
+    NodeCategory,
+    ProcessNodeKind,
+} from "./node-taxonomy";
 
 /**
  * Canonical drag-data mime type for palette → canvas transfers.
@@ -49,6 +56,18 @@ export interface PaletteDropPayload {
     label: string;
 }
 
+/**
+ * Category display order in the rail. The vertical column reads
+ * top-to-bottom: build the flow → layer the context → wrap a
+ * group → leave a note.
+ */
+const CATEGORY_ORDER: readonly NodeCategory[] = [
+    "flow",
+    "context",
+    "group",
+    "note",
+];
+
 export function ProcessPalette() {
     const onDragStart = (
         event: DragEvent<HTMLDivElement>,
@@ -60,34 +79,75 @@ export function ProcessPalette() {
         event.dataTransfer.effectAllowed = "move";
     };
 
+    // Group the taxonomy by semantic category. The ORDER inside a
+    // category mirrors NODE_TAXONOMY_ORDER so the rail reads the
+    // same as the legacy strip for any tester walking it by index.
+    const grouped: Record<NodeCategory, ProcessNodeKind[]> = {
+        flow: [],
+        context: [],
+        group: [],
+        note: [],
+    };
+    for (const kind of NODE_TAXONOMY_ORDER) {
+        const meta = NODE_TAXONOMY[kind];
+        grouped[meta.category].push(kind);
+    }
+
     return (
-        <div
-            className="flex flex-wrap items-center gap-tight border-b border-canvas-border px-default py-2.5"
+        <aside
+            className="flex w-14 shrink-0 flex-col items-center gap-tight border-r border-canvas-border bg-canvas-frame py-3"
             data-process-palette="true"
+            data-process-palette-layout="vertical"
+            aria-label="Process palette"
         >
-            <span className="mr-1 text-[10px] font-semibold uppercase tracking-wider text-content-subtle">
-                Palette
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-content-subtle">
+                Tools
             </span>
-            {NODE_TAXONOMY_ORDER.map((kind) => {
-                const meta = NODE_TAXONOMY[kind];
-                const Icon = meta.icon;
+            {CATEGORY_ORDER.map((category, categoryIdx) => {
+                const kindsInCategory = grouped[category];
+                if (kindsInCategory.length === 0) return null;
                 return (
                     <div
-                        key={kind}
-                        role="button"
-                        tabIndex={0}
-                        draggable
-                        onDragStart={(e) => onDragStart(e, kind, meta.label)}
-                        data-palette-item={kind}
-                        title={meta.description}
-                        aria-label={`Drag to add a ${meta.label.toLowerCase()} node`}
-                        className="inline-flex h-8 cursor-grab items-center gap-tight rounded-[8px] border border-canvas-border bg-canvas-node-muted px-2.5 text-xs font-medium text-content-default transition-colors hover:border-border-emphasis hover:bg-canvas-node hover:text-content-emphasis active:cursor-grabbing"
+                        key={category}
+                        className="flex flex-col items-center gap-tight"
+                        data-process-palette-category={category}
                     >
-                        <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        {meta.label}
+                        {categoryIdx > 0 && (
+                            // The thin hairline between categories
+                            // exposes the taxonomy hierarchy that
+                            // was hidden by the legacy flat strip.
+                            <span
+                                className="my-1 block h-px w-6 bg-canvas-border"
+                                aria-hidden="true"
+                            />
+                        )}
+                        {kindsInCategory.map((kind) => {
+                            const meta = NODE_TAXONOMY[kind];
+                            const Icon = meta.icon;
+                            return (
+                                <div
+                                    key={kind}
+                                    role="button"
+                                    tabIndex={0}
+                                    draggable
+                                    onDragStart={(e) =>
+                                        onDragStart(e, kind, meta.label)
+                                    }
+                                    data-palette-item={kind}
+                                    title={meta.label}
+                                    aria-label={`Drag to add a ${meta.label.toLowerCase()} node`}
+                                    className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-[8px] border border-canvas-border bg-canvas-node-muted text-content-default transition-colors hover:border-border-emphasis hover:bg-canvas-node hover:text-content-emphasis active:cursor-grabbing"
+                                >
+                                    <Icon
+                                        className="h-3.5 w-3.5"
+                                        aria-hidden="true"
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
                 );
             })}
-        </div>
+        </aside>
     );
 }
