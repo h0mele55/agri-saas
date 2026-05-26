@@ -118,6 +118,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import type { ProcessEdgeVariant } from "./ProcessEdge";
 import type { ProcessMapSummary } from "@/app/t/[tenantSlug]/(app)/processes/ProcessesClient";
 import { useToast } from "@/components/ui/hooks";
+import { useMediaQuery } from "@/components/ui/hooks/use-media-query";
 import { surfaceVersionConflict } from "@/lib/processes/version-conflict-toast";
 import { edgeControlsForSave } from "@/lib/processes/edge-controls";
 
@@ -247,6 +248,11 @@ function Inner({
     // Epic P3-PR-A — ref to the [data-process-canvas] wrapper so
     // the export menu can walk down to xyflow's viewport child.
     const canvasWrapperRef = useRef<HTMLDivElement>(null);
+    // Epic P6-PR-B — emit `data-mobile-layout` on the canvas
+    // wrapper when the viewport is narrower than the tablet
+    // breakpoint so the globals.css media-query rule can fold
+    // the vertical palette into a horizontal scroll strip.
+    const { isMobile } = useMediaQuery();
     // R26-PR-E — inline name editing. Mirrors the active process's
     // name so the user can edit it in place without every keystroke
     // bouncing through the parent state.
@@ -1529,6 +1535,7 @@ function Inner({
             ref={canvasWrapperRef}
             className="flex h-full w-full flex-col"
             data-process-canvas="true"
+            data-mobile-layout={isMobile ? "true" : undefined}
         >
             <CanvasCommandPalette groups={commandGroups} />
             {/* R31 Bundle 3 (PR 1) — the document bar. Pre-R31 this

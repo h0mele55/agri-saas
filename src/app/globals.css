@@ -340,3 +340,62 @@ textarea.input { @apply resize-y min-h-[80px]; }
   --xy-controls-button-color-hover: var(--content-default);
   --xy-controls-button-border-color: var(--canvas-border);
 }
+
+/* ─── Epic P6-PR-B — Touch / coarse-pointer ergonomics ──────────────
+ * xyflow's connection handles default to ~8px hit-targets — fine for
+ * mouse, unusable for fingers (Apple HIG: minimum 44px touch target).
+ * On a coarse-pointer device (touch / pen) we expand the invisible
+ * hit-target box to ~28px while keeping the visible dot at its
+ * canonical size, so the design language stays consistent.
+ *
+ * The xyflow handles are positioned absolutely on each node. We use
+ * a transparent ::before pseudo-element to enlarge the hit area
+ * without affecting layout — pure pointer-events hack, no visual
+ * change.
+ *
+ * Scoped to the Processes canvas so the GraphExplorer (which has
+ * its own touch story) is untouched.
+ *
+ * The same media query also raises the canvas zoom-control button
+ * size to 32px (Apple HIG min) — the default 26px misses the
+ * accessibility target on touch.
+ */
+@media (pointer: coarse) {
+  [data-process-canvas="true"] .react-flow__handle {
+    position: relative;
+  }
+  [data-process-canvas="true"] .react-flow__handle::before {
+    content: "";
+    position: absolute;
+    inset: -10px;
+    /* Keeps the hit area large; transparent so we don't change the
+     * visible affordance. */
+    background: transparent;
+  }
+  [data-process-canvas="true"] .react-flow__controls-button {
+    width: 32px;
+    height: 32px;
+  }
+  /* The process palette's draggable cards — at coarse-pointer
+   * width palette items get a touch-friendly minimum height so a
+   * tap target is reliably hittable. */
+  [data-process-canvas="true"] [data-process-palette-item="true"] {
+    min-height: 44px;
+  }
+}
+
+/* Tablet + narrower — the vertical-left palette folds to a
+ * horizontal scroll strip above the canvas so the canvas itself
+ * doesn't get squeezed below readability. The breakpoint matches
+ * the Tailwind `md` (768px). */
+@media (max-width: 767px) {
+  [data-process-canvas="true"][data-mobile-layout="true"] [data-process-palette="true"] {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--canvas-border);
+  }
+}

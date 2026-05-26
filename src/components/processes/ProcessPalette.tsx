@@ -134,6 +134,7 @@ export function ProcessPalette() {
                                         onDragStart(e, kind, meta.label)
                                     }
                                     data-palette-item={kind}
+                                    data-process-palette-item="true"
                                     title={meta.label}
                                     aria-label={`Drag to add a ${meta.label.toLowerCase()} node`}
                                     className="inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-[8px] border border-canvas-border bg-canvas-node-muted text-content-default transition-colors hover:border-border-emphasis hover:bg-canvas-node hover:text-content-emphasis active:cursor-grabbing"
