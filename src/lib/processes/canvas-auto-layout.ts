@@ -53,11 +53,19 @@ export interface AutoLayoutResult {
  *
  * Nodes whose `data.kind === 'annotation'` are skipped — they're
  * floating tags that don't participate in the flow direction.
+ *
+ * `nodeIdsFilter` (optional) scopes the layout to a subset of node
+ * ids — used by the "Auto-arrange selection" command. Edges whose
+ * endpoints fall outside the filter are dropped from dagre (so the
+ * algorithm only routes among the selected nodes); non-filtered
+ * nodes keep their current positions and the returned `positions`
+ * map omits them.
  */
 export function computeAutoLayout(
     nodes: Node[],
     edges: Edge[],
     direction: AutoLayoutDirection,
+    nodeIdsFilter?: ReadonlySet<string>,
 ): AutoLayoutResult {
     const g = new dagre.graphlib.Graph();
     g.setGraph({
@@ -75,6 +83,7 @@ export function computeAutoLayout(
     for (const node of nodes) {
         const kind = (node.data as { kind?: unknown } | undefined)?.kind;
         if (kind === "annotation") continue;
+        if (nodeIdsFilter && !nodeIdsFilter.has(node.id)) continue;
         // Use the node's measured dimensions if xyflow has them,
         // else the design defaults. Group nodes get the larger box.
         const measuredW =
@@ -123,5 +132,38 @@ export function computeAutoLayout(
             y: pos.y - h / 2,
         };
     }
+
+    // When laying out a SUBSET, translate the result so the
+    // selection's centroid matches its pre-layout centroid.
+    // Without this, dagre would dump the subset near (0, 0),
+    // wildly off from where the user expects to see it.
+    if (nodeIdsFilter && participatingIds.size > 0) {
+        const before = { x: 0, y: 0, count: 0 };
+        const after = { x: 0, y: 0, count: 0 };
+        for (const node of nodes) {
+            if (!participatingIds.has(node.id)) continue;
+            before.x += node.position.x;
+            before.y += node.position.y;
+            before.count += 1;
+        }
+        for (const id of participatingIds) {
+            const p = positions[id];
+            if (!p) continue;
+            after.x += p.x;
+            after.y += p.y;
+            after.count += 1;
+        }
+        if (before.count > 0 && after.count > 0) {
+            const dx = before.x / before.count - after.x / after.count;
+            const dy = before.y / before.count - after.y / after.count;
+            for (const id of Object.keys(positions)) {
+                positions[id] = {
+                    x: positions[id].x + dx,
+                    y: positions[id].y + dy,
+                };
+            }
+        }
+    }
+
     return { positions };
 }

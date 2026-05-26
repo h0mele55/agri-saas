@@ -38,6 +38,7 @@ import {
 import {
     Background,
     BackgroundVariant,
+    ConnectionMode,
     Controls,
     ReactFlow,
     ReactFlowProvider,
@@ -141,6 +142,18 @@ import { edgeControlsForSave } from "@/lib/processes/edge-controls";
  * the same constant.
  */
 const PROXIMITY_PREVIEW_ID = "__proximity_preview__";
+
+/**
+ * PR-A polish — human-readable reasons for `isValidConnection`
+ * verdicts. Surfaced via `toast.warning(...)` from the canvas's
+ * rejection path. A shared `id: "canvas-connection-rejected"`
+ * collapses rapid-fire misclicks into one toast.
+ */
+const REJECT_MESSAGES: Record<"self" | "duplicate" | "annotation", string> = {
+    self: "A step can't connect to itself.",
+    duplicate: "These steps are already connected.",
+    annotation: "Annotations don't carry the flow — they sit beside it.",
+};
 
 // Every taxonomy kind registers the SAME renderer. The renderer
 // branches internally on `data.kind` so the chassis stays shared.
@@ -341,7 +354,7 @@ function Inner({
             snapEnabled ? "1" : "0",
         );
     }, [snapEnabled]);
-    const { screenToFlowPosition } = useReactFlow();
+    const { screenToFlowPosition, updateNodeData, updateEdgeData } = useReactFlow();
     // R28 — undo/redo history. Snapshots are pushed AFTER each
     // substantive edit (create/delete/move-stop/inspector-commit/
     // variant-cycle); keyboard binds Cmd+Z / Cmd+Shift+Z.
@@ -685,36 +698,30 @@ function Inner({
                 linkedEntityId?: string | null;
             },
         ) => {
-            setNodes((nds) =>
-                nds.map((n) => {
-                    if (n.id !== nodeId) return n;
-                    const prevData = (n.data ?? {}) as Record<string, unknown>;
-                    return {
-                        ...n,
-                        data: {
-                            ...prevData,
-                            ...(patch.label !== undefined
-                                ? { label: patch.label }
-                                : {}),
-                            ...(patch.subtitle !== undefined
-                                ? patch.subtitle === null
-                                    ? { subtitle: undefined }
-                                    : { subtitle: patch.subtitle }
-                                : {}),
-                            ...(patch.size !== undefined
-                                ? { size: patch.size }
-                                : {}),
-                            ...(patch.linkedEntityId !== undefined
-                                ? patch.linkedEntityId === null
-                                    ? { linkedEntityId: undefined }
-                                    : { linkedEntityId: patch.linkedEntityId }
-                                : {}),
-                        },
-                    };
-                }),
-            );
+            // PR-A polish — migrate from the prior whole-array
+            // `setNodes` + `.map(...)` walker to xyflow v12's
+            // `updateNodeData` hook. The hook scopes the re-render
+            // to the single touched node instead of re-running the
+            // entire node array map; on dense maps the difference
+            // is measurable. The merge semantics match the old map
+            // walker (shallow merge into `node.data`), so the
+            // contract for callers is unchanged.
+            const partial: Record<string, unknown> = {};
+            if (patch.label !== undefined) partial.label = patch.label;
+            if (patch.subtitle !== undefined) {
+                partial.subtitle =
+                    patch.subtitle === null ? undefined : patch.subtitle;
+            }
+            if (patch.size !== undefined) partial.size = patch.size;
+            if (patch.linkedEntityId !== undefined) {
+                partial.linkedEntityId =
+                    patch.linkedEntityId === null
+                        ? undefined
+                        : patch.linkedEntityId;
+            }
+            updateNodeData(nodeId, partial);
         },
-        [],
+        [updateNodeData],
     );
 
     // ─── Rename: commit the inline name edit ──────────────────────
@@ -1017,9 +1024,19 @@ function Inner({
             // `data-connection-rejected` attribute drives a CSS
             // shake animation. The state clears after 600ms via
             // the effect declared at the top of Inner.
+            //
+            // PR-A polish — also fire a `toast.warning(...)` carrying
+            // the reason text. The gap analysis flagged "tooltip
+            // explaining rejection reason", but a tooltip has no
+            // stable hover host once the rejection lands (the user's
+            // mouse has already left the handle by then). A toast
+            // hits the same goal — the user sees WHY their drop was
+            // refused — without inventing a phantom anchor element.
             const reject = (reason: "self" | "duplicate" | "annotation") => {
                 setRejectedSource(src);
-                void reason;
+                toast.warning(REJECT_MESSAGES[reason], {
+                    id: "canvas-connection-rejected",
+                });
                 return false;
             };
             if (src === tgt) return reject("self");
@@ -1035,7 +1052,7 @@ function Inner({
             }
             return true;
         },
-        [nodes, edges],
+        [nodes, edges, toast],
     );
 
     // R28 — edge inspector commit. Patches the edge's label (top-
@@ -1156,6 +1173,45 @@ function Inner({
             });
         },
         [nodes, edges, history, autosave, changeEmitter],
+    );
+    // PR-A polish — Auto-arrange SELECTION only. The dagre call
+    // is scoped to the selected node ids; the rest of the canvas
+    // keeps its current positions. The selection's centroid is
+    // preserved (see `nodeIdsFilter` branch in computeAutoLayout)
+    // so the rearranged subset lands roughly where the user
+    // expected, not at the canvas origin.
+    const handleAutoLayoutSelection = useCallback(
+        (direction: AutoLayoutDirection) => {
+            if (selectionCount < 2) return;
+            const ids = new Set(selectedNodeIds);
+            history.push({ nodes, edges });
+            const { positions } = computeAutoLayout(
+                nodes,
+                edges,
+                direction,
+                ids,
+            );
+            setNodes((nds) =>
+                nds.map((n) =>
+                    positions[n.id]
+                        ? { ...n, position: positions[n.id] }
+                        : n,
+                ),
+            );
+            autosave.markDirty();
+            changeEmitter.emit("node.move", {
+                nodeIds: Object.keys(positions),
+            });
+        },
+        [
+            selectionCount,
+            selectedNodeIds,
+            nodes,
+            edges,
+            history,
+            autosave,
+            changeEmitter,
+        ],
     );
     const handleDistribute = useCallback(
         (axis: DistributeAxis) => {
@@ -1581,6 +1637,27 @@ function Inner({
                     description: "Auto-layout the canvas with a top-to-bottom flow",
                     disabled: nodes.length === 0 || saving || loading,
                     onSelect: () => handleAutoLayout("TB"),
+                },
+                // PR-A polish — selection-only auto-arrange. Enabled
+                // only when ≥2 nodes are selected; lays out just
+                // that subset and re-centres on the selection's
+                // pre-layout centroid so the result lands where the
+                // user expects.
+                {
+                    id: "arrange-selection-lr",
+                    label: "Auto-arrange selection (left-to-right)",
+                    description:
+                        "Auto-layout only the selected nodes — left-to-right",
+                    disabled: selectionCount < 2 || saving || loading,
+                    onSelect: () => handleAutoLayoutSelection("LR"),
+                },
+                {
+                    id: "arrange-selection-tb",
+                    label: "Auto-arrange selection (top-to-bottom)",
+                    description:
+                        "Auto-layout only the selected nodes — top-to-bottom",
+                    disabled: selectionCount < 2 || saving || loading,
+                    onSelect: () => handleAutoLayoutSelection("TB"),
                 },
             ],
         },
@@ -2103,6 +2180,14 @@ function Inner({
                         // loops, duplicate directed pairs, and any
                         // edge touching an annotation node.
                         isValidConnection={isValidConnection}
+                        // PR-A polish — `loose` mode lets the user
+                        // initiate a drag from either end of a handle
+                        // (target → source AND source → target), so
+                        // dragging "backwards" feels right when the
+                        // author retraces a connection. `isValid-
+                        // Connection` above is still the authority
+                        // on whether the resulting pair is allowed.
+                        connectionMode={ConnectionMode.Loose}
                         // R28 — snap to grid. Toggled by the
                         // toolbar control; persisted per tenant in
                         // localStorage. 16px grid is one Background

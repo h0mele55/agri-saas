@@ -32,8 +32,13 @@ describe("Epic P4-PR-A — canvas auto-layout (dagre)", () => {
         const src = read("src/lib/processes/canvas-auto-layout.ts");
 
         it("exports computeAutoLayout with the canonical signature", () => {
+            // PR-A polish added an optional 4th parameter
+            // (`nodeIdsFilter`) for selection-only auto-arrange.
+            // The first three positional params stay required +
+            // ordered; the 4th is opt-in via `?:` so legacy callers
+            // keep compiling. Locked by p-polish-a too.
             expect(src).toMatch(
-                /export function computeAutoLayout\(\s*nodes:\s*Node\[\],\s*edges:\s*Edge\[\],\s*direction:\s*AutoLayoutDirection,?\s*\):\s*AutoLayoutResult/,
+                /export function computeAutoLayout\(\s*nodes:\s*Node\[\],\s*edges:\s*Edge\[\],\s*direction:\s*AutoLayoutDirection,\s*nodeIdsFilter\?:\s*ReadonlySet<string>,?\s*\):\s*AutoLayoutResult/,
             );
         });
 
