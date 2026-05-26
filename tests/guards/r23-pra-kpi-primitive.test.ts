@@ -83,6 +83,30 @@ describe('R23-PR-A — KpiFilterCard primitive', () => {
             // Screen readers need to announce the active toggle.
             expect(src).toMatch(/aria-pressed=\{selected\}/);
         });
+
+        it('selected ring uses ring-inset (load-bearing for glass-card)', () => {
+            // The Card chassis is `glass-card` (raised default), which
+            // paints with `backdrop-filter: blur(...)`. Backdrop-filter
+            // creates a stacking context clipped to the element's
+            // border-radius box; an OUTSET `ring-2` extends 2px beyond
+            // that box and Chrome's compositor draws the bottom rounded
+            // corners inconsistently — the lower curve of the ring
+            // fades visibly. `ring-inset` renders the ring INSIDE the
+            // radius envelope, inside the same compositing layer as
+            // the card's content, so every corner traces identically.
+            //
+            // A future refactor that drops `ring-inset` and goes back
+            // to outset ring (or replaces the ring with `border-2`,
+            // which would shift the card's effective dimensions) will
+            // re-surface the same visibility bug on every consumer
+            // page. Lock it here.
+            //
+            // CalendarMonth.tsx:214 shares the same recipe for the
+            // same reason.
+            expect(src).toMatch(
+                /ring-2\s+ring-inset\s+ring-\[color:var\(--brand-default\)\]/,
+            );
+        });
     });
 
     describe('Risks page consumes the shared primitive', () => {

@@ -112,9 +112,21 @@ const CLICKABLE_CARD_CLASSES =
  * from the cursor-hover state. Composes with CLICKABLE_CARD_CLASSES
  * — selected cards stay clickable (the toggle is "click active card
  * to deactivate").
+ *
+ * `ring-inset` is LOAD-BEARING. The Card chassis is `glass-card`
+ * (raised default), which paints with `backdrop-filter: blur(...)`.
+ * Backdrop-filter creates a stacking context clipped to the
+ * element's border-radius box; an OUTSET `ring-2` (the prior
+ * recipe) extends 2px beyond that box and Chrome's compositor
+ * draws the bottom rounded corners inconsistently — the lower
+ * curve of the ring fades visibly. The inset ring renders inside
+ * the radius envelope, lives inside the same compositing layer as
+ * the card's content, and traces every corner identically. Same
+ * pattern as `CalendarMonth.tsx:214` (selected day cell) which
+ * faced the identical issue.
  */
 const SELECTED_CARD_CLASSES =
-    "ring-2 ring-[color:var(--brand-default)] bg-bg-elevated";
+    "ring-2 ring-inset ring-[color:var(--brand-default)] bg-bg-elevated";
 
 export function KpiFilterCard({
     label,
