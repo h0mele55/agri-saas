@@ -236,6 +236,33 @@ describe('saveProcessMap', () => {
             saveProcessMap(readerCtx, 'pm-1', { nodes: [], edges: [] }),
         ).rejects.toThrow(/permission/i);
     });
+
+    it('forwards expectedVersion to the repo (Epic P1)', async () => {
+        // The usecase is a thin orchestration layer — `expectedVersion`
+        // arrives from the route's Zod-validated body and must flow to
+        // the repo verbatim. Anchoring this here means a future
+        // refactor that silently drops the field gets caught before
+        // anyone notices the concurrency check stopped firing.
+        (ProcessMapRepository.replaceGraph as jest.Mock).mockResolvedValue({
+            ...SAMPLE_MAP,
+            version: 3,
+            nodes: [],
+            edges: [],
+        });
+
+        await saveProcessMap(writerCtx, 'pm-1', {
+            nodes: [],
+            edges: [],
+            expectedVersion: 2,
+        });
+
+        expect(ProcessMapRepository.replaceGraph).toHaveBeenCalledWith(
+            mockDb,
+            writerCtx,
+            'pm-1',
+            expect.objectContaining({ expectedVersion: 2 }),
+        );
+    });
 });
 
 describe('deleteProcessMap', () => {

@@ -89,8 +89,13 @@ export type CreateProcessMapInput = z.infer<typeof CreateProcessMapSchema>;
 /**
  * Save payload. Carries metadata edits AND the full graph.
  *
- * `expectedVersion` is reserved — repo layer ignores it today;
- * PR-E will turn it into an optimistic-concurrency guard.
+ * `expectedVersion` — optimistic-concurrency guard (Epic P1).
+ * When the client sends a version, the repo refuses the write if
+ * the server's current version doesn't match — the route returns
+ * HTTP 409 + `{ code: 'STALE_DATA', details: { currentVersion } }`.
+ * Older clients that omit `expectedVersion` get last-write-wins
+ * semantics (no breaking change) — the canvas client always sends
+ * it now.
  */
 export const SaveProcessMapSchema = z.object({
     name: z.string().min(1).max(200).optional(),

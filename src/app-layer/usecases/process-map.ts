@@ -77,6 +77,10 @@ export async function saveProcessMap(
             status: input.status,
             nodes: input.nodes,
             edges: input.edges,
+            // Epic P1 — optimistic concurrency. Forward the
+            // client's claimed version so the repo can refuse the
+            // write on conflict (HTTP 409 / `STALE_DATA`).
+            expectedVersion: input.expectedVersion,
         });
         if (!map) throw notFound('Process map not found');
 

@@ -26,6 +26,7 @@
 import { PrismaTx } from '@/lib/db-context';
 import { Prisma } from '@prisma/client';
 import { RequestContext } from '../types';
+import { staleData } from '@/lib/errors/types';
 import type {
     ProcessNodeInput,
     ProcessEdgeInput,
@@ -226,6 +227,17 @@ export class ProcessMapRepository {
             status?: ProcessMapStatusValue;
             nodes: ProcessNodeInput[];
             edges: ProcessEdgeInput[];
+            /**
+             * Epic P1 — optimistic-concurrency guard. When set, the
+             * repo refuses the write if the server's current
+             * `version` doesn't match. Surfaces as
+             * `staleData(...)` → HTTP 409 + `{ code: 'STALE_DATA',
+             * details: { currentVersion } }`.
+             *
+             * Omit for last-write-wins semantics (older clients) —
+             * the canvas always sends it now.
+             */
+            expectedVersion?: number;
         },
     ): Promise<ProcessMapWithGraph | null> {
         // Structural validation — fail fast before opening a tx.
@@ -264,9 +276,32 @@ export class ProcessMapRepository {
 
         const existing = await db.processMap.findFirst({
             where: { id, tenantId: ctx.tenantId, deletedAt: null },
-            select: { id: true },
+            select: { id: true, version: true },
         });
         if (!existing) return null;
+
+        // Epic P1 — optimistic concurrency. Refuse the write if the
+        // client's `expectedVersion` doesn't match the server's
+        // current version. Doing the check up-front skips the
+        // destructive delete-and-insert when we already know the
+        // conditional commit at the end would lose the race; the
+        // conditional `updateMany` below is the second line of
+        // defence catching any concurrent commit that lands BETWEEN
+        // the check and the version bump.
+        //
+        // Callers who omit `expectedVersion` are accepting last-
+        // write-wins by omission. The canvas client always sends it
+        // now; the omission path keeps the migration door open for
+        // older bundles still in browser caches.
+        if (
+            input.expectedVersion !== undefined &&
+            existing.version !== input.expectedVersion
+        ) {
+            throw staleData(
+                'This process map was modified by another user. Reload to see the latest version.',
+                { currentVersion: existing.version },
+            );
+        }
 
         // The repo is invoked from the usecase via `runInTenantContext`
         // which already opens a Prisma `$transaction` and binds the
@@ -350,8 +385,24 @@ export class ProcessMapRepository {
             }
         }
 
-        await db.processMap.update({
-            where: { id },
+        // Conditional version bump — the SECOND line of defence
+        // for optimistic concurrency. A concurrent save that landed
+        // between the up-front check and here would fail with
+        // `count === 0`; the outer tx then rolls back the
+        // delete-and-insert, leaving the previous graph intact.
+        //
+        // When `expectedVersion` is omitted (last-write-wins
+        // callers), the `version` predicate is omitted too — the
+        // bump happens unconditionally, matching the pre-Epic-P1
+        // behaviour.
+        const updated = await db.processMap.updateMany({
+            where: {
+                id,
+                tenantId: ctx.tenantId,
+                ...(input.expectedVersion !== undefined
+                    ? { version: input.expectedVersion }
+                    : {}),
+            },
             data: {
                 ...(input.name !== undefined ? { name: input.name } : {}),
                 ...(input.description !== undefined
@@ -363,6 +414,21 @@ export class ProcessMapRepository {
                 version: { increment: 1 },
             },
         });
+        if (updated.count === 0) {
+            // Only reachable when `expectedVersion` is set and lost
+            // a race with another commit between the up-front check
+            // and the bump. Refresh the current version so the
+            // client gets the post-race value, not the pre-race
+            // value we read at the top of this method.
+            const current = await db.processMap.findFirst({
+                where: { id, tenantId: ctx.tenantId },
+                select: { version: true },
+            });
+            throw staleData(
+                'This process map was modified by another user. Reload to see the latest version.',
+                { currentVersion: current?.version ?? existing.version },
+            );
+        }
 
         return ProcessMapRepository.getByIdWithGraph(db, ctx, id);
     }

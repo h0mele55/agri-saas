@@ -165,8 +165,10 @@ export const internal = (message: string = 'Internal Server Error') =>
 export const tenantIsolationViolation = (message: string = 'Tenant isolation violation') =>
     new DomainError(message, 'TENANT_ISOLATION_VIOLATION', 403);
 
-export const staleData = (message: string = 'Data has been modified by another user') =>
-    new DomainError(message, 'STALE_DATA', 409);
+export const staleData = (
+    message: string = 'Data has been modified by another user',
+    details?: unknown,
+) => new DomainError(message, 'STALE_DATA', 409, details);
 
 export const deprecatedResource = (message: string = 'This resource is no longer supported') =>
     new DomainError(message, 'DEPRECATED_RESOURCE', 410);

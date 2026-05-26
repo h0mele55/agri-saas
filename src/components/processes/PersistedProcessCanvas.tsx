@@ -111,6 +111,8 @@ import { Tooltip } from "@/components/ui/tooltip";
 // capstones are updated to document the supersession.
 import type { ProcessEdgeVariant } from "./ProcessEdge";
 import type { ProcessMapSummary } from "@/app/t/[tenantSlug]/(app)/processes/ProcessesClient";
+import { useToast } from "@/components/ui/hooks";
+import { surfaceVersionConflict } from "@/lib/processes/version-conflict-toast";
 
 /**
  * Reserved edge id for the in-flight proximity preview. The
@@ -219,6 +221,10 @@ function Inner({
     const [creating, setCreating] = useState(false);
     const [duplicating, setDuplicating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Epic P1 — bumped by the STALE_DATA Reload toast to re-trigger
+    // the load effect without flickering through activeId=null.
+    const [reloadCounter, setReloadCounter] = useState(0);
+    const toast = useToast();
     // R26-PR-E — inline name editing. Mirrors the active process's
     // name so the user can edit it in place without every keystroke
     // bouncing through the parent state.
@@ -440,7 +446,9 @@ function Inner({
         return () => {
             cancelled = true;
         };
-    }, [activeId, tenantSlug]);
+        // `reloadCounter` is bumped by the Epic-P1 STALE_DATA toast's
+        // Reload action and forces a re-fetch of the same activeId.
+    }, [activeId, tenantSlug, reloadCounter]);
 
     // ─── Save current canvas state ─────────────────────────────────
 
@@ -495,6 +503,11 @@ function Inner({
                         typeof e.label === "string" ? e.label : null,
                     controls: [],
                 })),
+                // Epic P1 — version we last loaded/saved; server
+                // refuses on mismatch (409 / STALE_DATA).
+                ...(loadedMap?.version !== undefined
+                    ? { expectedVersion: loadedMap.version }
+                    : {}),
             };
             const res = await fetch(
                 `/api/t/${tenantSlug}/processes/${activeId}`,
@@ -504,6 +517,15 @@ function Inner({
                     body: JSON.stringify(payload),
                 },
             );
+            // Epic P1 — 409 / STALE_DATA: helper surfaces the Reload
+            // toast and signals us to stop the save flow.
+            const conflict = await surfaceVersionConflict(res, toast, () =>
+                setReloadCounter((c) => c + 1),
+            );
+            if (conflict) {
+                setError(null);
+                return;
+            }
             if (!res.ok) throw new Error(`Save failed (${res.status})`);
             const data = await res.json();
             // Update the summary list with the fresh version + updatedAt
@@ -531,7 +553,7 @@ function Inner({
         } finally {
             setSaving(false);
         }
-    }, [activeId, nodes, edges, tenantSlug, processes, onProcessesChange]);
+    }, [activeId, nodes, edges, tenantSlug, processes, onProcessesChange, loadedMap, toast]);
 
     // ─── R28 — Autosave. Debounced 3s after the last edit. ────────
     // `markDirty()` fires from the change handlers below; the save
