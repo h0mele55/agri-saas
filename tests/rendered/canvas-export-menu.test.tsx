@@ -22,6 +22,12 @@ import { CanvasExportMenu } from '@/components/processes/CanvasExportMenu';
 jest.mock('@/lib/processes/canvas-export', () => ({
     exportCanvasAsPng: jest.fn(async () => 'data:image/png;base64,STUB'),
     exportCanvasAsSvg: jest.fn(async () => 'data:image/svg+xml;base64,STUB'),
+    // PR-B polish — clipboard surface. The mock defaults to
+    // "unsupported" so the menu's visibility gate doesn't have to
+    // know about ClipboardItem in this test runtime; the helper's
+    // own unit tests cover the real feature-detection logic.
+    canCopyImageToClipboard: jest.fn(() => false),
+    copyCanvasAsImageToClipboard: jest.fn(async () => undefined),
 }));
 
 describe('CanvasExportMenu — P3-PR-A', () => {

@@ -28,8 +28,9 @@
  * free-form resize handle (which invites ragged, mis-aligned maps).
  */
 
-import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { memo } from "react";
+import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
+import { memo, useCallback, type MouseEvent } from "react";
+import { ChevronRight } from "@/components/ui/icons/nucleo/chevron-right";
 import { cn } from "@dub/utils";
 import {
     NODE_TAXONOMY,
@@ -42,6 +43,16 @@ import {
     classifyForEmphasis,
     useCanvasEmphasis,
 } from "@/lib/processes/canvas-emphasis-context";
+
+/**
+ * PR-B polish — collapsed group geometry. When the user clicks the
+ * chevron, the group node shrinks to this footprint and every
+ * descendant's `hidden` flag flips on. The expanded width/height
+ * live on `data.width` / `data.height` from R30 onwards; the
+ * toggle helper reads them back when expanding.
+ */
+const COLLAPSED_GROUP_W = 220;
+const COLLAPSED_GROUP_H = 40;
 
 /** Per-instance footprint. Three discrete steps — not free resize. */
 export type ProcessNodeSize = "sm" | "md" | "lg";
@@ -119,6 +130,15 @@ function ProcessTypedNodeImpl({ id, data, selected }: NodeProps) {
     const kind: ProcessNodeKind = isProcessNodeKind(nodeData.kind)
         ? nodeData.kind
         : "processStep";
+    // PR-B polish — collapsed flag (groups only). The toggle handler
+    // mutates this on click via xyflow's `setNodes`. Runtime-only
+    // today: reloading the canvas brings groups back expanded (the
+    // save serialiser intentionally drops `collapsed` from
+    // `dataJson`). A persistent collapse mode is a future
+    // follow-up — the trade-off was a single isolated PR rather
+    // than a wider data-model migration.
+    const collapsed = (nodeData as { collapsed?: boolean }).collapsed === true;
+    const { setNodes } = useReactFlow();
     const size: ProcessNodeSize = isProcessNodeSize(nodeData.size)
         ? nodeData.size
         : DEFAULT_NODE_SIZE;
@@ -147,37 +167,32 @@ function ProcessTypedNodeImpl({ id, data, selected }: NodeProps) {
     // xyflow's nested-positioning. The dashed border + low-opacity
     // fill keep the group readable as "context container", not as
     // a process step competing for the eye.
+    //
+    // PR-B polish — chevron toggle in the title sticker collapses
+    // the group to a single pill (shrinks the xyflow bbox + hides
+    // every descendant). Double-click on the body still drills via
+    // the canvas's `onNodeDoubleClick` handler — the chevron is
+    // the only collapse affordance to avoid a gesture clash.
     if (meta.category === "group") {
         return (
-            <div
-                className={cn(
-                    "relative h-full w-full rounded-[12px] border-2 border-dashed transition-colors",
-                    selected
-                        ? "border-[color:var(--brand-default)] bg-bg-elevated/40"
-                        : "border-border-subtle bg-canvas-node-muted/30 hover:border-border-emphasis",
-                    emphasisStyle,
-                )}
-                data-process-node="true"
-                data-process-node-kind={kind}
-                data-process-node-size={size}
-                data-process-node-emphasis={emphasisClass}
-                data-selected={selected ? "true" : "false"}
-            >
-                {/* Title sticker — anchored to the top-left so the
-                    label never overlaps a child's content. */}
-                <div className="absolute left-2 top-2 inline-flex items-center gap-tight rounded-[6px] border border-canvas-border bg-canvas-frame px-2 py-0.5 text-[11px] font-semibold text-content-emphasis">
-                    <Icon
-                        className={cn("h-3 w-3", iconTone)}
-                        aria-hidden="true"
-                    />
-                    <span className="truncate max-w-trunc-default">{label}</span>
-                </div>
-                {nodeData.subtitle && (
-                    <div className="absolute right-2 top-2 truncate text-[10px] uppercase tracking-wide text-content-subtle">
-                        {nodeData.subtitle}
-                    </div>
-                )}
-            </div>
+            <GroupNodeChrome
+                id={id}
+                label={label}
+                subtitle={
+                    typeof nodeData.subtitle === "string"
+                        ? nodeData.subtitle
+                        : undefined
+                }
+                kind={kind}
+                size={size}
+                selected={selected ?? false}
+                emphasisClass={emphasisClass}
+                emphasisStyle={emphasisStyle}
+                collapsed={collapsed}
+                iconTone={iconTone}
+                Icon={Icon}
+                setNodes={setNodes}
+            />
         );
     }
 
@@ -291,6 +306,202 @@ function ProcessTypedNodeImpl({ id, data, selected }: NodeProps) {
                     position={Position.Right}
                     className={HANDLE_CLASS}
                 />
+            )}
+        </div>
+    );
+}
+
+/**
+ * PR-B polish — Group node chrome (expanded + collapsed variants).
+ *
+ * Split from the main renderer so the `useCallback` for the
+ * chevron handler can capture `id` + `setNodes` without polluting
+ * the per-frame closure of every node kind. Children whose
+ * `parentId === id` are toggled hidden via `setNodes`; the group's
+ * own `style.width/height` flips between `data.width/height` and
+ * the COLLAPSED_GROUP_* constants.
+ */
+function GroupNodeChrome({
+    id,
+    label,
+    subtitle,
+    kind,
+    size,
+    selected,
+    emphasisClass,
+    emphasisStyle,
+    collapsed,
+    iconTone,
+    Icon,
+    setNodes,
+}: {
+    id: string;
+    label: string;
+    subtitle?: string;
+    kind: ProcessNodeKind;
+    size: ProcessNodeSize;
+    selected: boolean;
+    emphasisClass: ReturnType<typeof classifyForEmphasis>;
+    emphasisStyle: string;
+    collapsed: boolean;
+    iconTone: string;
+    Icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
+    setNodes: ReturnType<typeof useReactFlow>["setNodes"];
+}) {
+    const toggleCollapsed = useCallback(
+        (event: MouseEvent<HTMLButtonElement>) => {
+            event.stopPropagation();
+            event.preventDefault();
+            setNodes((nds) => {
+                // Walk parent chains to gather every descendant id.
+                // Bounded by the group's children + grandchildren —
+                // a linear scan per BFS level is fine at the
+                // canvas's bounded sizes (dozens of nodes).
+                const descendants = new Set<string>();
+                const queue = [id];
+                while (queue.length > 0) {
+                    const head = queue.shift() as string;
+                    for (const n of nds) {
+                        const parent = (n as { parentId?: string }).parentId;
+                        if (parent === head && !descendants.has(n.id)) {
+                            descendants.add(n.id);
+                            queue.push(n.id);
+                        }
+                    }
+                }
+                const nextCollapsed = !collapsed;
+                return nds.map((n) => {
+                    if (n.id === id) {
+                        const prevData = (n.data ?? {}) as Record<
+                            string,
+                            unknown
+                        >;
+                        const expandedW =
+                            typeof prevData.width === "number"
+                                ? prevData.width
+                                : 480;
+                        const expandedH =
+                            typeof prevData.height === "number"
+                                ? prevData.height
+                                : 240;
+                        return {
+                            ...n,
+                            data: { ...prevData, collapsed: nextCollapsed },
+                            style: {
+                                ...(n.style ?? {}),
+                                width: nextCollapsed
+                                    ? COLLAPSED_GROUP_W
+                                    : expandedW,
+                                height: nextCollapsed
+                                    ? COLLAPSED_GROUP_H
+                                    : expandedH,
+                            },
+                        };
+                    }
+                    if (descendants.has(n.id)) {
+                        return { ...n, hidden: nextCollapsed };
+                    }
+                    return n;
+                });
+            });
+        },
+        [id, collapsed, setNodes],
+    );
+
+    // Nucleo ships ChevronRight but not ChevronDown — when the
+    // group is expanded the chevron rotates 90° via CSS so it
+    // points downward (the canonical "click to collapse" visual).
+    const chevronRotation = collapsed ? "" : "rotate-90";
+    const chevronLabel = collapsed ? "Expand group" : "Collapse group";
+
+    if (collapsed) {
+        // Compact pill — single row with icon + label + chevron.
+        // The xyflow node's style is the COLLAPSED_GROUP_* footprint
+        // (set by the toggle), so this fills the bbox completely.
+        return (
+            <div
+                className={cn(
+                    "flex h-full w-full items-center gap-tight rounded-[10px] border bg-canvas-frame px-default text-[11px] font-semibold text-content-emphasis transition-colors",
+                    selected
+                        ? "border-[color:var(--brand-default)] bg-bg-elevated"
+                        : "border-canvas-border hover:border-border-emphasis",
+                    emphasisStyle,
+                )}
+                data-process-node="true"
+                data-process-node-kind={kind}
+                data-process-node-size={size}
+                data-process-node-emphasis={emphasisClass}
+                data-process-node-collapsed="true"
+                data-selected={selected ? "true" : "false"}
+            >
+                <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label={chevronLabel}
+                    title={chevronLabel}
+                    data-testid="group-collapse-toggle"
+                    className="inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-[4px] text-content-muted hover:bg-bg-muted hover:text-content-emphasis"
+                >
+                    <ChevronRight
+                        className={cn("h-3.5 w-3.5 transition-transform", chevronRotation)}
+                        aria-hidden="true"
+                    />
+                </button>
+                <Icon
+                    className={cn("h-3.5 w-3.5 flex-shrink-0", iconTone)}
+                    aria-hidden="true"
+                />
+                <span className="truncate">{label}</span>
+                {subtitle && (
+                    <span className="ml-auto truncate text-[10px] uppercase tracking-wide text-content-subtle">
+                        {subtitle}
+                    </span>
+                )}
+            </div>
+        );
+    }
+
+    // Expanded — the canonical dashed container.
+    return (
+        <div
+            className={cn(
+                "relative h-full w-full rounded-[12px] border-2 border-dashed transition-colors",
+                selected
+                    ? "border-[color:var(--brand-default)] bg-bg-elevated/40"
+                    : "border-border-subtle bg-canvas-node-muted/30 hover:border-border-emphasis",
+                emphasisStyle,
+            )}
+            data-process-node="true"
+            data-process-node-kind={kind}
+            data-process-node-size={size}
+            data-process-node-emphasis={emphasisClass}
+            data-process-node-collapsed="false"
+            data-selected={selected ? "true" : "false"}
+        >
+            <div className="absolute left-2 top-2 inline-flex items-center gap-tight rounded-[6px] border border-canvas-border bg-canvas-frame px-2 py-0.5 text-[11px] font-semibold text-content-emphasis">
+                <button
+                    type="button"
+                    onClick={toggleCollapsed}
+                    aria-label={chevronLabel}
+                    title={chevronLabel}
+                    data-testid="group-collapse-toggle"
+                    className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-[4px] text-content-muted hover:bg-bg-muted hover:text-content-emphasis"
+                >
+                    <ChevronRight
+                        className={cn("h-3 w-3 transition-transform", chevronRotation)}
+                        aria-hidden="true"
+                    />
+                </button>
+                <Icon
+                    className={cn("h-3 w-3", iconTone)}
+                    aria-hidden="true"
+                />
+                <span className="truncate max-w-trunc-default">{label}</span>
+            </div>
+            {subtitle && (
+                <div className="absolute right-2 top-2 truncate text-[10px] uppercase tracking-wide text-content-subtle">
+                    {subtitle}
+                </div>
             )}
         </div>
     );

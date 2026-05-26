@@ -25,9 +25,13 @@ const SRC_ROOT = path.resolve(__dirname, '../../src');
 const ALLOWLIST = new Set(
     [
         'components/ui/hooks/use-copy-to-clipboard.tsx',
-        // If we add another low-level primitive that genuinely needs
-        // to touch the clipboard directly (e.g., a file-to-clipboard
-        // helper), allowlist it explicitly here.
+        // PR-B polish — canvas-image clipboard write. The existing
+        // `useCopyToClipboard` hook is text-only; copying a PNG
+        // requires `ClipboardItem` with an `image/png` blob. Adding
+        // image support to the hook would change its contract for
+        // every text caller, so the canvas-export helper holds the
+        // image-clipboard call on its own.
+        'lib/processes/canvas-export.ts',
     ].map((p) => path.resolve(SRC_ROOT, p)),
 );
 

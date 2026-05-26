@@ -185,6 +185,80 @@ export async function exportCanvasAsSvg(
     return dataUrl;
 }
 
+/**
+ * PR-B polish — Copy the canvas as a PNG into the OS clipboard.
+ *
+ * Why a separate function (not a flag on `exportCanvasAsPng`):
+ *   - The PNG export downloads a file; copying writes to the
+ *     clipboard. They look the same upstream but the side-effect
+ *     is what the caller actually cares about. Splitting keeps
+ *     each entrypoint's contract crisp.
+ *
+ * Browser support:
+ *   - Chrome / Edge / Safari 13.4+ / Firefox 127+ implement
+ *     `navigator.clipboard.write([new ClipboardItem({...})])` with
+ *     image MIME types. We feature-detect at the top and throw a
+ *     human-readable error if either piece is missing so the
+ *     caller can toast it cleanly.
+ *
+ * Permissions:
+ *   - Modern browsers grant clipboard-write silently when the
+ *     write happens inside a user-gesture event handler (a click).
+ *     The CanvasExportMenu fires from a click → no `permissions`
+ *     prompt needed.
+ */
+export async function copyCanvasAsImageToClipboard(
+    opts: CanvasExportOptions,
+): Promise<void> {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.write) {
+        throw new Error(
+            "Your browser doesn't support copying images to the clipboard.",
+        );
+    }
+    if (typeof ClipboardItem === "undefined") {
+        throw new Error(
+            "Your browser doesn't support copying images to the clipboard.",
+        );
+    }
+    const viewportEl = resolveViewportEl(opts.canvasEl);
+    if (!viewportEl) {
+        throw new Error("Canvas viewport not found");
+    }
+    const { width, height, transform } = exportTransform(opts.nodes);
+    const dataUrl = await toPng(viewportEl, {
+        backgroundColor: resolveBackground(),
+        width,
+        height,
+        pixelRatio: opts.pixelRatio,
+        style: {
+            width: `${width}px`,
+            height: `${height}px`,
+            transform: `translate(${transform[0]}px, ${transform[1]}px) scale(${transform[2]})`,
+        },
+    });
+    // Convert the dataURL → Blob. The slice strips the
+    // `data:image/png;base64,` prefix; the rest is base64 PNG.
+    const base64 = dataUrl.slice("data:image/png;base64,".length);
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "image/png" });
+    await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+    ]);
+}
+
+/**
+ * Cheap runtime check the menu uses to decide whether to show the
+ * "Copy as image" item at all. Same feature-detection shape as the
+ * top of `copyCanvasAsImageToClipboard` so the menu's visibility
+ * matches the function's actual behaviour.
+ */
+export function canCopyImageToClipboard(): boolean {
+    if (typeof navigator === "undefined") return false;
+    if (!navigator.clipboard?.write) return false;
+    if (typeof ClipboardItem === "undefined") return false;
+    return true;
+}
+
 // ─── Epic P3-PR-B — PDF + Evidence attachment ──────────────────────
 
 export interface CanvasExportServerRouteOptions extends CanvasExportOptions {

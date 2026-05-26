@@ -33,6 +33,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/hooks";
 import {
     attachCanvasPngToEvidence,
+    canCopyImageToClipboard,
+    copyCanvasAsImageToClipboard,
     exportCanvasAsPdf,
     exportCanvasAsPng,
     exportCanvasAsSvg,
@@ -72,7 +74,7 @@ export function CanvasExportMenu({
     const toast = useToast();
 
     const run = useCallback(
-        async (kind: "png" | "svg" | "pdf" | "evidence") => {
+        async (kind: "png" | "svg" | "pdf" | "evidence" | "clipboard") => {
             if (!canvasEl) return;
             setBusy(true);
             try {
@@ -80,6 +82,18 @@ export function CanvasExportMenu({
                     await exportCanvasAsPng({ canvasEl, nodes, mapName });
                 } else if (kind === "svg") {
                     await exportCanvasAsSvg({ canvasEl, nodes, mapName });
+                } else if (kind === "clipboard") {
+                    // PR-B polish — copy the rendered canvas as a
+                    // PNG into the OS clipboard. The helper feature-
+                    // detects ClipboardItem + clipboard.write; if
+                    // unsupported it throws a human-readable error
+                    // which the catch below surfaces as a toast.
+                    await copyCanvasAsImageToClipboard({
+                        canvasEl,
+                        nodes,
+                        mapName,
+                    });
+                    toast.success("Canvas copied to clipboard.");
                 } else if (kind === "pdf") {
                     if (!tenantSlug || !mapId) {
                         throw new Error("PDF export needs tenantSlug + mapId");
@@ -121,6 +135,10 @@ export function CanvasExportMenu({
     );
 
     const showServerItems = Boolean(tenantSlug && mapId);
+    // PR-B polish — the clipboard item shows only when the browser
+    // supports the ClipboardItem image-MIME write path. Older
+    // Firefox + every Safari pre-13.4 returns false here.
+    const showClipboardItem = canCopyImageToClipboard();
 
     return (
         <Popover
@@ -143,6 +161,15 @@ export function CanvasExportMenu({
                     >
                         Export as SVG
                     </Popover.Item>
+                    {showClipboardItem && (
+                        <Popover.Item
+                            data-testid="canvas-export-clipboard"
+                            onClick={() => void run("clipboard")}
+                            disabled={busy}
+                        >
+                            Copy as image
+                        </Popover.Item>
+                    )}
                     {showServerItems && (
                         <>
                             <Popover.Separator />
