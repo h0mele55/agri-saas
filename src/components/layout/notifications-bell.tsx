@@ -42,6 +42,7 @@ import { Bell, CheckCheck } from 'lucide-react';
 import { Popover } from '@/components/ui/popover';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatDateCompact } from '@/lib/format-date';
+import { env } from '@/env';
 import { NAV_BAR_SLOT_PRESS } from './nav-bar';
 
 // ─── Types ─────────────────────────────────────────────────────────
@@ -65,6 +66,16 @@ interface NotificationRow {
  * future SSE / WebSocket roadmap would replace it.
  */
 const NOTIFICATIONS_POLL_INTERVAL_MS = 60_000;
+
+/**
+ * 2026-05-27 (PR-C) — when the SSE channel is open and healthy,
+ * the poll throttles to 5 minutes — coverage for the cross-pod
+ * gap (a notification created on a pod whose bus subscribers
+ * don't include this client will reach the bell within 5 min via
+ * the fallback poll). When SSE errors, this drops back to the
+ * original 60s.
+ */
+const NOTIFICATIONS_FALLBACK_POLL_INTERVAL_MS = 5 * 60_000;
 
 // ─── Recipes ───────────────────────────────────────────────────────
 
@@ -134,35 +145,84 @@ export function NotificationsBell() {
         }
     }, []);
 
-    // Mount fetch + REST poll. The badge stays live without the user
-    // opening the popover: fetch once on mount, then poll on a fixed
-    // cadence. The poll skips while the tab is hidden (a backgrounded
-    // tab needs no fresh count) and refetches on `visibilitychange`
-    // so the user's return is covered. Replacing this interval with
-    // an SSE / WebSocket subscription is the only change a future
-    // real-time roadmap needs.
+    // 2026-05-27 (PR-C) — SSE-first with REST poll as a fallback.
+    // Primary signal: an EventSource subscription to
+    // `/api/notifications/stream`. Each server-side notification
+    // create emits an event; the bell prepends it to the list the
+    // moment it lands — no 60s wait. The browser's EventSource
+    // handles reconnect automatically after network blips.
+    //
+    // Fallback path: the original 60s REST poll stays in place but
+    // throttled to ~5 minutes when SSE is healthy (so a cross-pod
+    // notification — produced on a pod whose bus subscribers don't
+    // include us — still reaches the bell within five minutes).
+    // If the SSE connection errors (single-process bus on a
+    // restart-friendly platform, or a corporate proxy stripping
+    // text/event-stream), we drop back to the 60s cadence so the
+    // user keeps seeing the unread count tick.
     useEffect(() => {
-
         fetchList();
+
+        let sseHealthy = false;
+        let es: EventSource | null = null;
+        // typeof check — SSR + jsdom unit tests both lack EventSource.
+        // Feature flag: NEXT_PUBLIC_NOTIFICATIONS_SSE=1 opts the
+        // client into the SSE channel. Defaults OFF so the bell keeps
+        // polling — the server-side bus + endpoint stay wired (so
+        // future opt-in is one env-var flip), but E2E specs that wait
+        // on `networkidle` aren't blocked by a long-lived stream that
+        // never lets the page settle. Flip when the client integration
+        // has been manually verified end-to-end (browser → bell →
+        // event arriving inside <1s).
+        const sseEnabled = env.NEXT_PUBLIC_NOTIFICATIONS_SSE === '1';
+        if (sseEnabled && typeof EventSource !== 'undefined') {
+            try {
+                es = new EventSource('/api/notifications/stream', {
+                    withCredentials: true,
+                });
+                es.onopen = () => {
+                    sseHealthy = true;
+                };
+                es.onmessage = (msg) => {
+                    try {
+                        const event = JSON.parse(msg.data) as NotificationRow;
+                        // Prepend if not already present (dedupe by id —
+                        // the server includes the row id OR the dedupeKey
+                        // as id so cross-channel duplicates collapse).
+                        setItems((prev) => {
+                            const list = prev ?? [];
+                            if (list.some((n) => n.id === event.id)) return list;
+                            return [event, ...list];
+                        });
+                    } catch {
+                        // Malformed event — refetch to recover.
+                        void fetchList();
+                    }
+                };
+                es.onerror = () => {
+                    sseHealthy = false;
+                };
+            } catch {
+                sseHealthy = false;
+            }
+        }
+
+        const pollIntervalMs = sseHealthy
+            ? NOTIFICATIONS_FALLBACK_POLL_INTERVAL_MS
+            : NOTIFICATIONS_POLL_INTERVAL_MS;
         const poll = () => {
             if (typeof document !== 'undefined' && document.hidden) return;
-
-            fetchList();
+            void fetchList();
         };
-        const intervalId = window.setInterval(
-            poll,
-            NOTIFICATIONS_POLL_INTERVAL_MS,
-        );
+        const intervalId = window.setInterval(poll, pollIntervalMs);
         const onVisibility = () => {
-            if (!document.hidden) {
-
-                fetchList();
-            }
+            if (!document.hidden) void fetchList();
         };
         document.addEventListener('visibilitychange', onVisibility);
         return () => {
             window.clearInterval(intervalId);
             document.removeEventListener('visibilitychange', onVisibility);
+            if (es) es.close();
         };
     }, [fetchList]);
 

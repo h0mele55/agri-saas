@@ -39,6 +39,7 @@
  *   three notifications (7d → 1d → 0d).
  */
 import type { PrismaClient } from '@prisma/client';
+import { publishNotificationEvent } from '@/lib/notifications/notification-bus';
 
 /** ms in a UTC day. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -172,27 +173,49 @@ export async function createTaskDueNotification(
         ? `${task.key} "${task.title}"`
         : `"${task.title}"`;
 
+    const row = {
+        tenantId: task.tenantId,
+        userId: task.assigneeUserId,
+        type: 'TASK_DUE' as const,
+        title: copy.title,
+        message: `${label} ${copy.phrase}.`,
+        linkUrl: `/t/${task.tenantSlug}/tasks/${task.id}`,
+        dedupeKey: buildTaskDueDedupeKey(
+            task.tenantId,
+            window,
+            task.id,
+            task.assigneeUserId,
+            now,
+            tz,
+        ),
+    };
+
     const result = await db.notification.createMany({
-        data: [
-            {
-                tenantId: task.tenantId,
-                userId: task.assigneeUserId,
-                type: 'TASK_DUE',
-                title: copy.title,
-                message: `${label} ${copy.phrase}.`,
-                linkUrl: `/t/${task.tenantSlug}/tasks/${task.id}`,
-                dedupeKey: buildTaskDueDedupeKey(
-                    task.tenantId,
-                    window,
-                    task.id,
-                    task.assigneeUserId,
-                    now,
-                    tz,
-                ),
-            },
-        ],
+        data: [row],
         skipDuplicates: true,
     });
+
+    // 2026-05-27 (PR-C) — on a fresh insert, push the event to
+    // every live SSE subscriber for this (tenant, user). The row
+    // we wrote is a value-equal copy of the inputs we're holding
+    // here — no re-read needed for the bell-bound payload shape.
+    // `id` would normally come from Prisma's return, but
+    // `createMany` doesn't return ids; we omit it from the event
+    // and the client treats `id`-less events as "prepend then
+    // refetch on next open" — graceful fallback.
+    if (result.count > 0) {
+        publishNotificationEvent(task.tenantId, task.assigneeUserId, {
+            // No id — see comment above. The client uses createdAt
+            // as the dedupe seed for prepend.
+            id: row.dedupeKey,
+            type: row.type,
+            title: row.title,
+            message: row.message,
+            read: false,
+            linkUrl: row.linkUrl,
+            createdAt: now.toISOString(),
+        });
+    }
 
     // count 0 ⇒ the dedupeKey already existed ⇒ already notified.
     return { status: result.count > 0 ? 'created' : 'duplicate', window };

@@ -127,7 +127,22 @@ describe('PR-B TASK_DUE emit coverage', () => {
                 const s = taskSrc();
                 const start = s.indexOf(`export async function ${usecase}(`);
                 expect(start).toBeGreaterThan(-1);
-                const body = s.slice(start, start + 3000);
+                // Scope to the function body — anchored on the
+                // function's closing line. Once PR-A added
+                // `emitTaskAssignedNotification` calls + comments
+                // to createTask + assignTask, the original 3000-
+                // char window stopped reaching `bumpEntityCacheVersion`
+                // (the call sits ~3100 chars in after PR-A).
+                // Find the next `export async function` after
+                // `start` and use that as the upper bound — guaranteed
+                // tighter than a fixed window AND robust to future
+                // body growth.
+                const nextDecl = s.indexOf(
+                    'export async function',
+                    start + 1,
+                );
+                const end = nextDecl > start ? nextDecl : s.length;
+                const body = s.slice(start, end);
                 const emitIdx = body.indexOf('emitTaskDueNotification(ctx,');
                 const bumpIdx = body.indexOf(
                     "bumpEntityCacheVersion(ctx, 'task')",
