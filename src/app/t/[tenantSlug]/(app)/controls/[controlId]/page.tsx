@@ -13,7 +13,6 @@ import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-bad
 import { Heading, textLinkVariants } from '@/components/ui/typography';
 import { CardHeader } from '@/components/ui/card-header';
 import { EditControlModal } from './_modals/EditControlModal';
-import { NewControlTaskModal } from './_modals/NewControlTaskModal';
 import { ControlReverseLookupModal } from '@/components/controls/ControlReverseLookupModal';
 import { ControlMappingsTab } from './_tabs/ControlMappingsTab';
 import { EvidenceSubTable } from './_tabs/EvidenceSubTable';
@@ -210,11 +209,6 @@ export default function ControlDetailPage() {
     const [reverseLookupOpen, setReverseLookupOpen] = useState(false);
 
     // Task creation
-    const [showTaskForm, setShowTaskForm] = useState(false);
-    const [taskTitle, setTaskTitle] = useState('');
-    const [taskDesc, setTaskDesc] = useState('');
-    const [taskDue, setTaskDue] = useState('');
-    const [savingTask, setSavingTask] = useState(false);
 
     // Evidence linking
     const [showEvidenceForm, setShowEvidenceForm] = useState(false);
@@ -525,21 +519,6 @@ export default function ControlDetailPage() {
         await refetch();
         setSavingApp(false);
         setShowApplicability(false);
-    };
-
-    const createTask = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSavingTask(true);
-        await fetch(apiUrl(`/controls/${controlId}/tasks`), {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: taskTitle, description: taskDesc || undefined, dueAt: taskDue || undefined }),
-        });
-        setTaskTitle(''); setTaskDesc(''); setTaskDue('');
-        setShowTaskForm(false);
-        // Revalidate the Tasks-tab list and the header (badge count +
-        // Overview progress both come off page-data).
-        await Promise.all([tasksSWR.mutate(), refetch()]);
-        setSavingTask(false);
     };
 
     const updateTaskStatus = async (taskId: string, status: string) => {
@@ -1150,74 +1129,34 @@ export default function ControlDetailPage() {
 
             {tab === 'tasks' && (
                 <div className="space-y-default">
-                    {permissions.canWrite && (
-                        <div className="flex justify-end">
-                            {/* The create-task affordance opens
-                                <NewControlTaskModal> instead of
-                                toggling an inline form. Matches the
-                                canonical modal-create pattern (see
-                                docs/modal-sheet-strategy.md). */}
-                            <Button
-                                variant="primary"
-                                onClick={() => setShowTaskForm(true)}
-                                id="create-task-btn"
-                            >
-                                + Task
-                            </Button>
+                    {/* Unified task surface — opens the canonical
+                        Tasks-page create modal. New tasks are created in
+                        the global Tasks table (so they appear in the Tasks
+                        list) and linked back to this control via
+                        TaskLink. */}
+                    <LinkedTasksPanel
+                        apiBase={apiUrl('')}
+                        entityType="CONTROL"
+                        entityId={controlId}
+                        tenantHref={tenantHref}
+                        canWrite={permissions.canWrite}
+                    />
+                    {/* Legacy control-scoped tasks (read-only). These
+                        pre-date the unified model (the old per-control
+                        ControlTask table); the section only renders when
+                        a control still has historical rows. */}
+                    {(tasksSWR.data?.length ?? 0) > 0 && (
+                        <div className={cn(cardVariants({ density: 'compact' }), 'mt-4')} id="legacy-control-tasks-section">
+                            <CardHeader title="Control tasks (legacy)" className="mb-3" />
+                            <DataTable
+                                data={tasksSWR.data ?? []}
+                                columns={controlTaskColumns}
+                                getRowId={(t) => t.id}
+                                resourceName={(p) => (p ? 'tasks' : 'task')}
+                                data-testid="control-tasks-table"
+                            />
                         </div>
                     )}
-                    {permissions.canWrite && (
-                        <NewControlTaskModal
-                            open={showTaskForm}
-                            setOpen={setShowTaskForm}
-                            title={taskTitle}
-                            setTitle={setTaskTitle}
-                            description={taskDesc}
-                            setDescription={setTaskDesc}
-                            dueAt={taskDue}
-                            setDueAt={setTaskDue}
-                            saving={savingTask}
-                            onSubmit={createTask}
-                            onCancel={() => {
-                                setShowTaskForm(false);
-                                setTaskTitle('');
-                                setTaskDesc('');
-                                setTaskDue('');
-                            }}
-                        />
-                    )}
-                    {tasksSWR.isLoading && !tasksSWR.data ? (
-                        <SkeletonCard lines={4} />
-                    ) : tasksSWR.error ? (
-                        <InlineEmptyState
-                            title="Couldn't load tasks"
-                            description="Something went wrong fetching this control's tasks. Reload the page to try again."
-                        />
-                    ) : (
-                        <DataTable
-                            data={tasksSWR.data ?? []}
-                            columns={controlTaskColumns}
-                            getRowId={(t) => t.id}
-                            emptyState={
-                                <InlineEmptyState
-                                    title="No tasks yet"
-                                    description="Tasks linked to this control show up here once any are created."
-                                />
-                            }
-                            resourceName={(p) => (p ? 'tasks' : 'task')}
-                            data-testid="control-tasks-table"
-                        />
-                    )}
-                    {/* Linked Work Items (via TaskLink) */}
-                    <div className={cn(cardVariants({ density: 'compact' }), 'mt-4')} id="linked-work-items-section">
-                        <CardHeader title="Linked Work Items (Tasks)" className="mb-3" />
-                        <LinkedTasksPanel
-                            apiBase={apiUrl('')}
-                            entityType="CONTROL"
-                            entityId={controlId}
-                            tenantHref={tenantHref}
-                        />
-                    </div>
                 </div>
             )}
 

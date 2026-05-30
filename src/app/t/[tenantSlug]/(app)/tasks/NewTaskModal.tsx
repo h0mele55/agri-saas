@@ -16,7 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
-import { useNewTaskForm } from './_form/useNewTaskForm';
+import { useNewTaskForm, type PendingLink } from './_form/useNewTaskForm';
 import { NewTaskFields } from './_form/NewTaskFields';
 
 export interface NewTaskModalProps {
@@ -35,6 +35,12 @@ export interface NewTaskModalProps {
      * stays in place after the task lands.
      */
     onCreated?: () => void;
+    /**
+     * Preset entity links staged on open. The control / asset / risk
+     * detail surfaces seed this with their own entity so the task is
+     * linked back (and shows in their tasks panel) on create.
+     */
+    initialPendingLinks?: PendingLink[];
 }
 
 export function NewTaskModal({
@@ -42,6 +48,7 @@ export function NewTaskModal({
     setOpen,
     initialDueAt,
     onCreated,
+    initialPendingLinks,
 }: NewTaskModalProps) {
     const tenantHref = useTenantHref();
     const { tenantSlug } = useTenantContext();
@@ -57,6 +64,7 @@ export function NewTaskModal({
             }
         },
         initialDueAt,
+        initialPendingLinks,
     });
 
     // P3 — unsaved-changes guard. See NewPolicyModal for the pattern.

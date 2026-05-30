@@ -78,6 +78,13 @@ export interface UseNewTaskFormOptions {
      * selected.
      */
     initialDueAt?: string;
+    /**
+     * Preset entity links staged on open. The control / asset / risk
+     * detail pages seed this with their own entity so a task created
+     * from those surfaces is linked back (and lands in the global
+     * Tasks list) without the user having to add the link by hand.
+     */
+    initialPendingLinks?: PendingLink[];
 }
 
 const INITIAL: NewTaskFormValues = {
@@ -95,6 +102,7 @@ const INITIAL: NewTaskFormValues = {
 export function useNewTaskForm({
     onSuccess,
     initialDueAt,
+    initialPendingLinks,
 }: UseNewTaskFormOptions): NewTaskFormReturn {
     const apiUrl = useTenantApiUrl();
     const telemetry = useFormTelemetry('NewTaskPage');
@@ -102,7 +110,9 @@ export function useNewTaskForm({
     // Extras kept outside Zod — see file header.
     const [findingSource, setFindingSource] = useState('');
     const [controlGapType, setControlGapType] = useState('');
-    const [pendingLinks, setPendingLinks] = useState<PendingLink[]>([]);
+    const [pendingLinks, setPendingLinks] = useState<PendingLink[]>(
+        initialPendingLinks ?? [],
+    );
     const [linkEntityType, setLinkEntityType] = useState('CONTROL');
     const [linkEntityId, setLinkEntityId] = useState('');
     const [extrasDirty, setExtrasDirty] = useState(false);

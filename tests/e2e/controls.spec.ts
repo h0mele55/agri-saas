@@ -74,45 +74,43 @@ test.describe('Controls Center', () => {
         await expect(authedPage.locator('#control-status')).toBeVisible();
     });
 
-    test('open control → create task → mark done', async ({ authedPage, isolatedTenant }) => {
+    test('open control → create task via the unified modal → appears in linked tasks + global list', async ({ authedPage, isolatedTenant }) => {
         const { tenantSlug } = isolatedTenant;
         // Self-contained: create the control this test operates on.
         await createControl(authedPage, tenantSlug);
         const uid = Date.now().toString(36);
+        const title = `E2E Task ${uid}`;
 
-        // Go to tasks tab
+        // Go to tasks tab — task creation now uses the SAME canonical
+        // modal as the Tasks page (via the shared LinkedTasksPanel),
+        // and the created task lands in the global Tasks table linked
+        // back to this control.
         await authedPage.click('#tab-tasks');
-        await authedPage.waitForSelector('#create-task-btn', { timeout: 5000 });
+        await authedPage.waitForSelector('#linked-task-create-btn', { timeout: 5000 });
+        await authedPage.click('#linked-task-create-btn');
 
-        // Create task
-        await authedPage.click('#create-task-btn');
+        // Canonical NewTaskModal — same fields as the Tasks page.
         await authedPage.waitForSelector('#task-title-input', { timeout: 5000 });
-        await authedPage.fill('#task-title-input', `E2E Task ${uid}`);
+        await authedPage.fill('#task-title-input', title);
         await Promise.all([
             authedPage.waitForResponse(
-                resp => resp.url().includes('/tasks') && resp.request().method() === 'POST',
+                resp => /\/tasks(\?|$)/.test(resp.url()) && resp.request().method() === 'POST',
                 { timeout: 15000 },
             ),
-            authedPage.click('#submit-task-btn'),
+            authedPage.click('#create-task-btn'),
         ]);
 
+        // The new task shows in the control's linked-tasks list.
         await expect(
-            authedPage.locator('[data-testid="control-tasks-table"]'),
-        ).toContainText(`E2E Task ${uid}`, { timeout: 15000 });
+            authedPage.locator('[id^="linked-task-"]').filter({ hasText: title }),
+        ).toBeVisible({ timeout: 15000 });
 
-        // Mark done — wait for the PATCH API call to complete before asserting
-        const doneBtn = authedPage.locator('button:has-text("Done")').first();
-        await Promise.all([
-            authedPage.waitForResponse(
-                resp =>
-                    resp.url().includes('/tasks/') && resp.request().method() === 'PATCH',
-                { timeout: 10000 },
-            ),
-            doneBtn.click(),
-        ]);
+        // ...and in the global Tasks list (it's a real Task row now,
+        // not an isolated ControlTask).
+        await authedPage.goto(`/t/${tenantSlug}/tasks`);
         await expect(
-            authedPage.locator('[data-testid="control-tasks-table"]'),
-        ).toContainText('DONE', { timeout: 10000 });
+            authedPage.getByRole('main').getByText(title),
+        ).toBeVisible({ timeout: 15000 });
     });
 
     test('attach evidence → see it listed', async ({ authedPage, isolatedTenant }) => {
