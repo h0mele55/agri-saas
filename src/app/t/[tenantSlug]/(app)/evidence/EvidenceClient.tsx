@@ -898,61 +898,62 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                     />
                 </div>
 
-                {/* Retention filter tabs + Control filter */}
-                <div className="flex items-center justify-between flex-wrap gap-compact">
-                    <div className="flex items-center gap-1" id="retention-tabs">
-                        <Button
-                            variant={retentionFilter === 'active' ? 'primary' : 'ghost'}
-                            onClick={() => setFilter('tab', 'active')}
-                            id="tab-active"
-                        >
-                            Active ({activeEvidence.length})
-                        </Button>
-                        <Button
-                            variant={retentionFilter === 'expiring' ? 'destructive' : 'ghost'}
-                            onClick={() => setFilter('tab', 'expiring')}
-                            id="tab-expiring"
-                        >
-                            Expiring ({expiringEvidence.length})
-                        </Button>
-                        <Button
-                            variant={retentionFilter === 'archived' ? 'secondary' : 'ghost'}
-                            onClick={() => setFilter('tab', 'archived')}
-                            id="tab-archived"
-                        >
-                            Archived ({archivedEvidence.length})
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center gap-tight flex-wrap">
-                        {/*
-                          Epic 43.2 view toggle. Filter state lives in
-                          `filterCtx`, NOT in `useUrlFilters`, so
-                          flipping the renderer doesn't disturb search,
-                          search-q, or any active filter pill — both
-                          the table and the gallery read from the same
-                          `displayEvidence` array.
-                        */}
-                        <ToggleGroup
-                            size="sm"
-                            ariaLabel="Evidence view"
-                            options={[
-                                { value: 'list', label: 'List', id: 'evidence-view-list' },
-                                { value: 'gallery', label: 'Gallery', id: 'evidence-view-gallery' },
-                            ]}
-                            selected={viewMode}
-                            selectAction={(v) => setFilter('view', v === 'list' ? '' : v)}
-                            className="shrink-0"
-                        />
-                        <EvidenceFilterToolbar
-                            controls={controls}
-                            evidence={evidence}
-                            columnsDropdown={
-                                viewMode === 'list' ? columnsDropdown : null
-                            }
-                        />
-                    </div>
+                {/* Retention filter tabs — top-level sub-navigation,
+                    on their own row above the filter toolbar. */}
+                <div className="flex items-center gap-1 flex-wrap" id="retention-tabs">
+                    <Button
+                        variant={retentionFilter === 'active' ? 'primary' : 'ghost'}
+                        onClick={() => setFilter('tab', 'active')}
+                        id="tab-active"
+                    >
+                        Active ({activeEvidence.length})
+                    </Button>
+                    <Button
+                        variant={retentionFilter === 'expiring' ? 'destructive' : 'ghost'}
+                        onClick={() => setFilter('tab', 'expiring')}
+                        id="tab-expiring"
+                    >
+                        Expiring ({expiringEvidence.length})
+                    </Button>
+                    <Button
+                        variant={retentionFilter === 'archived' ? 'secondary' : 'ghost'}
+                        onClick={() => setFilter('tab', 'archived')}
+                        id="tab-archived"
+                    >
+                        Archived ({archivedEvidence.length})
+                    </Button>
                 </div>
+
+                {/*
+                  Filter toolbar — the Filter button + live search sit on
+                  the LEFT, matching every other list page (previously
+                  this whole cluster was right-anchored). The Epic 43.2
+                  view toggle + columns gear ride the toolbar's right-edge
+                  `actions` slot. The view toggle stays in `useUrlFilters`,
+                  NOT `filterCtx`, so flipping the renderer doesn't disturb
+                  search-q or any active filter pill — both the table and
+                  the gallery read from the same `displayEvidence` array.
+                */}
+                <EvidenceFilterToolbar
+                    controls={controls}
+                    evidence={evidence}
+                    actions={
+                        <>
+                            <ToggleGroup
+                                size="sm"
+                                ariaLabel="Evidence view"
+                                options={[
+                                    { value: 'list', label: 'List', id: 'evidence-view-list' },
+                                    { value: 'gallery', label: 'Gallery', id: 'evidence-view-gallery' },
+                                ]}
+                                selected={viewMode}
+                                selectAction={(v) => setFilter('view', v === 'list' ? '' : v)}
+                                className="shrink-0"
+                            />
+                            {viewMode === 'list' ? columnsDropdown : null}
+                        </>
+                    }
+                />
 
                 {/* Archived warning */}
                 {retentionFilter === 'archived' && archivedEvidence.length > 0 && (
@@ -1086,11 +1087,11 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
 function EvidenceFilterToolbar({
     controls,
     evidence,
-    columnsDropdown,
+    actions,
 }: {
     controls: unknown[];
     evidence: ReadonlyArray<{ folder?: string | null }>;
-    columnsDropdown?: React.ReactNode;
+    actions?: React.ReactNode;
 }) {
     const filters: FilterType[] = useMemo(
         () =>
@@ -1103,7 +1104,9 @@ function EvidenceFilterToolbar({
     return (
         <FilterToolbar
             filters={filters}
-            actions={columnsDropdown}
+            searchId="evidence-search"
+            searchPlaceholder="Search evidence…"
+            actions={actions}
         />
     );
 }

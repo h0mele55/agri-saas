@@ -92,9 +92,6 @@ const BANNED_PATTERNS: RegExp[] = [
 //   fields). A directory scan can't tell them apart; the curated
 //   list targets exactly the toolbar wiring.
 //
-// Evidence is tracked separately in EVIDENCE_SEARCH_PENDING below —
-// its bespoke toolbar gains the box (and moves the filter cluster to
-// the left) in the follow-up PR; until then it stays search-free.
 const LIST_PAGES_REQUIRE_SEARCH = [
     'src/app/t/[tenantSlug]/(app)/assets/AssetsClient.tsx',
     'src/app/t/[tenantSlug]/(app)/risks/RisksClient.tsx',
@@ -102,10 +99,8 @@ const LIST_PAGES_REQUIRE_SEARCH = [
     'src/app/t/[tenantSlug]/(app)/tasks/TasksClient.tsx',
     'src/app/t/[tenantSlug]/(app)/policies/PoliciesClient.tsx',
     'src/app/t/[tenantSlug]/(app)/vendors/VendorsClient.tsx',
-];
-
-// Evidence: search box + filter-left layout land in the follow-up PR.
-const EVIDENCE_SEARCH_PENDING = [
+    // Evidence's bespoke toolbar now carries the box too, with the
+    // Filter cluster moved to the left to match the other pages.
     'src/app/t/[tenantSlug]/(app)/evidence/EvidenceClient.tsx',
 ];
 
@@ -175,19 +170,6 @@ describe('Live filter-scoped search on list pages', () => {
             );
         }
         expect(missing).toEqual([]);
-    });
-
-    it('evidence stays search-free until its filter-left toolbar lands (follow-up PR)', () => {
-        const rx = /\bsearchPlaceholder\s*[=:]/;
-        for (const rel of EVIDENCE_SEARCH_PENDING) {
-            const abs = path.join(ROOT, rel);
-            expect(fs.existsSync(abs)).toBe(true);
-            const stripped = fs
-                .readFileSync(abs, 'utf8')
-                .replace(/\/\*[\s\S]*?\*\//g, '')
-                .replace(/\/\/[^\n]*/g, '');
-            expect(rx.test(stripped)).toBe(false);
-        }
     });
 
     it('no `<input type="search">` or `placeholder="Search …"` in app/t or app/org', () => {
