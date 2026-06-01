@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { textLinkVariants } from '@/components/ui/typography';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { ListPageShell } from '@/components/layout/ListPageShell';
+import { useRouter } from 'next/navigation';
 import { useTenantApiUrl, useTenantHref, useTenantContext } from '@/lib/tenant-context-provider';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { ToggleGroup } from '@/components/ui/toggle-group';
@@ -60,6 +61,7 @@ const PLAN_STATUS_BADGE: Record<string, StatusBadgeVariant> = {
 export default function TestsRollupPage() {
     const apiUrl = useTenantApiUrl();
     const tenantHref = useTenantHref();
+    const router = useRouter();
     const { permissions } = useTenantContext();
     void permissions;
 
@@ -252,7 +254,17 @@ export default function TestsRollupPage() {
                         emptyState={filter === 'all' ? 'No test plans found. Create test plans from the Control detail page.' : `No ${filter === 'due' ? 'overdue' : 'failed'} test plans.`}
                         resourceName={(p) => p ? 'test plans' : 'test plan'}
                         data-testid="tests-rollup-table"
-                        className="hover:bg-bg-muted"
+                        // Row hover band + brand left-band (and double-click
+                        // → open the plan), matching every other list table.
+                        // The band is gated on the row being clickable, so it
+                        // only appears once onRowClick is wired.
+                        onRowClick={(row) =>
+                            router.push(
+                                tenantHref(
+                                    `/controls/${row.original.control.id}/tests/${row.original.id}`,
+                                ),
+                            )
+                        }
                     />
                 );
             })()}
