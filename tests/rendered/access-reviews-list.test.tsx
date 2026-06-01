@@ -109,6 +109,28 @@ describe('AccessReviewsClient', () => {
         expect(screen.getByTestId('access-review-new-submit')).toBeTruthy();
     });
 
+    it('scope radios: default is checked and clicking a label switches selection', () => {
+        render(
+            withClient(
+                <AccessReviewsClient tenantSlug="acme" initialReviews={[]} />,
+            ),
+        );
+        fireEvent.click(screen.getByTestId('access-review-new-campaign-button'));
+
+        const allUsers = document.getElementById('access-review-scope-ALL_USERS')!;
+        const adminOnly = document.getElementById('access-review-scope-ADMIN_ONLY')!;
+        // Default scope (ALL_USERS) renders CHECKED — the bug report was
+        // a blank radio group (neither selected) + unclickable rows.
+        expect(allUsers.getAttribute('data-state')).toBe('checked');
+        expect(adminOnly.getAttribute('data-state')).toBe('unchecked');
+
+        // Clicking the LABEL (htmlFor → id) must switch the selection —
+        // the previous label-wrapped form didn't associate the control.
+        fireEvent.click(screen.getByText('Owners + admins only'));
+        expect(adminOnly.getAttribute('data-state')).toBe('checked');
+        expect(allUsers.getAttribute('data-state')).toBe('unchecked');
+    });
+
     it('create-modal shows error when name + reviewer are missing', () => {
         render(
             withClient(

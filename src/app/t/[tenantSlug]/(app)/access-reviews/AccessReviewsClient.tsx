@@ -18,6 +18,7 @@ import { ProgressBar } from '@/components/ui/progress-bar';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { UserCombobox } from '@/components/ui/user-combobox';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { ListPageShell } from '@/components/layout/ListPageShell';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -339,26 +340,46 @@ function CreateCampaignButton({
                                     }
                                     className="flex flex-col gap-tight"
                                 >
-                                    <label className="flex items-center gap-tight text-sm">
-                                        <RadioGroupItem value="ALL_USERS" />
-                                        All users
-                                    </label>
-                                    <label className="flex items-center gap-tight text-sm">
-                                        <RadioGroupItem value="ADMIN_ONLY" />
-                                        Owners + admins only
-                                    </label>
+                                    {(
+                                        [
+                                            ['ALL_USERS', 'All users'],
+                                            ['ADMIN_ONLY', 'Owners + admins only'],
+                                        ] as const
+                                    ).map(([value, labelText]) => (
+                                        <label
+                                            key={value}
+                                            htmlFor={`access-review-scope-${value}`}
+                                            className="flex items-center gap-tight text-sm cursor-pointer"
+                                        >
+                                            <RadioGroupItem
+                                                id={`access-review-scope-${value}`}
+                                                value={value}
+                                                size="sm"
+                                            />
+                                            {labelText}
+                                        </label>
+                                    ))}
                                 </RadioGroup>
                             </FormField>
-                            <FormField label="Reviewer user ID" required>
-                                <input
-                                    className="input"
-                                    value={reviewerUserId}
-                                    onChange={(e) =>
-                                        setReviewerUserId(e.target.value)
-                                    }
-                                    placeholder="usr_..."
-                                    data-testid="access-review-new-reviewer"
-                                />
+                            <FormField label="Reviewer" required>
+                                {/* People-picker over the tenant's members
+                                    (replaces the raw "usr_…" id input). The
+                                    wrapping div keeps the stable test id; the
+                                    combobox value is the selected user's id. */}
+                                <div data-testid="access-review-new-reviewer">
+                                    <UserCombobox
+                                        tenantSlug={tenantSlug}
+                                        selectedId={reviewerUserId || null}
+                                        onChange={(userId) =>
+                                            setReviewerUserId(userId ?? '')
+                                        }
+                                        placeholder="Select a reviewer"
+                                        searchPlaceholder="Search members…"
+                                        forceDropdown
+                                        matchTriggerWidth
+                                        id="access-review-reviewer-select"
+                                    />
+                                </div>
                             </FormField>
                             <FormField label="Due date (optional)">
                                 <DatePicker
