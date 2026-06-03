@@ -57,13 +57,13 @@ export function SoAPrintView({ report, tenantName }: SoAPrintViewProps) {
             <div className="print-page">
                 <div className="border-b-2 border-border-emphasis pb-4 mb-6">
                     <Heading level={1} className="text-content-emphasis">Statement of Applicability</Heading>
-                    <p className="text-sm text-content-muted mt-1">ISO/IEC 27001:2022 — Annex A Controls</p>
+                    <p className="text-sm text-content-muted mt-1">{report.frameworkName}</p>
                 </div>
 
                 <table className="w-full text-sm mb-8">
                     <tbody>
                         <tr><td className="py-1 pr-4 font-semibold text-content-default w-48">Organization</td><td className="py-1">{tenantName}</td></tr>
-                        <tr><td className="py-1 pr-4 font-semibold text-content-default">Framework</td><td className="py-1">ISO/IEC 27001:2022</td></tr>
+                        <tr><td className="py-1 pr-4 font-semibold text-content-default">Framework</td><td className="py-1">{report.frameworkName}</td></tr>
                         <tr><td className="py-1 pr-4 font-semibold text-content-default">Generated</td><td className="py-1">{generatedDate}</td></tr>
                         <tr><td className="py-1 pr-4 font-semibold text-content-default">Total Controls</td><td className="py-1">{summary.total}</td></tr>
                     </tbody>
