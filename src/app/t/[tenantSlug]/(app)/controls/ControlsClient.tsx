@@ -27,6 +27,7 @@ import {
     useColumnsDropdown,
 } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
 import {
@@ -35,8 +36,7 @@ import {
     useFilterContext,
     useFilters,
     useFilterCardVisibility,
-    filtersToCards,
-    selectVisibleFilters,
+    type CardDefinition,
     type FilterType,
 } from '@/components/ui/filter';
 import { EntityListPage } from '@/components/layout/EntityListPage';
@@ -331,22 +331,25 @@ function ControlsPageInner({
         [controls],
     );
 
-    // R-filter-gear — the "Edit filter cards" gear: which filter cards
-    // show (and in what order) in the toolbar. Visible defs subset +
-    // reorder `liveFilterDefs`; the FilterProvider state (keyed by
-    // CONTROL_FILTER_KEYS) is untouched, so a hidden filter keeps its value.
-    const filterCards = useMemo(
-        () => filtersToCards(liveFilterDefs),
-        [liveFilterDefs],
+    // R-filter-gear (#3, 2026-06-07): the "Edit filter cards" gear now
+    // controls the QUANTIFIABLE KPI cards above the table (Total /
+    // Implemented / In Progress / Not Started) — their visibility + order —
+    // not the filter categories (those live in the Filter dropdown). The
+    // toolbar still gets the full `liveFilterDefs`.
+    const kpiCards: CardDefinition[] = useMemo(
+        () => [
+            { id: 'total', label: 'Total controls', kind: 'kpi' },
+            { id: 'implemented', label: 'Implemented', kind: 'kpi' },
+            { id: 'inProgress', label: 'In progress', kind: 'kpi' },
+            { id: 'notStarted', label: 'Not started', kind: 'kpi' },
+        ],
+        [],
     );
-    const { visibleCards, dropdown: filtersDropdown } = useFilterCardVisibility({
-        storageKey: 'inflect:filter-vis:controls',
-        cards: filterCards,
-    });
-    const visibleFilterDefs = useMemo(
-        () => selectVisibleFilters(visibleCards, liveFilterDefs),
-        [visibleCards, liveFilterDefs],
-    );
+    const { visibleCards: visibleKpiCards, dropdown: filtersDropdown } =
+        useFilterCardVisibility({
+            storageKey: 'inflect:filter-vis:controls',
+            cards: kpiCards,
+        });
 
     // ─── R23-PR-D — KPI definitions for the Controls page ───
     // Status-based buckets aligned to the existing `status` filter.
@@ -1045,20 +1048,28 @@ function ControlsPageInner({
                             outside the create-permission gate so READERs
                             can still glance at the asset → risk → control
                             flow. */}
-                        <Link href={tenantHref('/controls/sankey')} className={buttonVariants({ variant: 'secondary', size: 'sm' })} id="controls-sankey-btn">
-                            <AppIcon name="share" size={14} /> Sankey
-                        </Link>
+                        <Tooltip content="Sankey flow">
+                            <Link href={tenantHref('/controls/sankey')} aria-label="Sankey flow" className={buttonVariants({ variant: 'secondary', size: 'icon' })} id="controls-sankey-btn">
+                                <AppIcon name="share" size={16} />
+                            </Link>
+                        </Tooltip>
                         {appPermissions.controls.create && (
                             <>
-                                <Link href={tenantHref('/controls/dashboard')} className={buttonVariants({ variant: 'secondary', size: 'sm' })} id="controls-dashboard-btn">
-                                    <AppIcon name="dashboard" size={14} /> Dashboard
-                                </Link>
-                                <Link href={tenantHref('/frameworks')} className={buttonVariants({ variant: 'secondary', size: 'sm' })} id="frameworks-btn">
-                                    <AppIcon name="frameworks" size={14} /> Frameworks
-                                </Link>
-                                <Link href={tenantHref('/controls/templates')} className={buttonVariants({ variant: 'secondary', size: 'sm' })} id="install-templates-btn">
-                                    <AppIcon name="templates" size={14} /> Install from Templates
-                                </Link>
+                                <Tooltip content="Controls dashboard">
+                                    <Link href={tenantHref('/controls/dashboard')} aria-label="Controls dashboard" className={buttonVariants({ variant: 'secondary', size: 'icon' })} id="controls-dashboard-btn">
+                                        <AppIcon name="dashboard" size={16} />
+                                    </Link>
+                                </Tooltip>
+                                <Tooltip content="Frameworks">
+                                    <Link href={tenantHref('/frameworks')} aria-label="Frameworks" className={buttonVariants({ variant: 'secondary', size: 'icon' })} id="frameworks-btn">
+                                        <AppIcon name="frameworks" size={16} />
+                                    </Link>
+                                </Tooltip>
+                                <Tooltip content="Install from templates">
+                                    <Link href={tenantHref('/controls/templates')} aria-label="Install from templates" className={buttonVariants({ variant: 'secondary', size: 'icon' })} id="install-templates-btn">
+                                        <AppIcon name="templates" size={16} />
+                                    </Link>
+                                </Tooltip>
                                 <Button
                                     variant="primary"
                                     icon={<Plus className="-ml-0.5 -mr-2.5" />}
@@ -1077,37 +1088,56 @@ function ControlsPageInner({
                    EntityListPage owns the placement; the page owns
                    the KPI definitions + the card content. */
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-default">
-                    <KpiFilterCard
-                        label="Total controls"
-                        value={totalControls}
-                        onClick={() => toggleControlKpi('total')}
-                        selected={activeControlKpi === 'total'}
-                    />
-                    <KpiFilterCard
-                        label="Implemented"
-                        value={implementedControls}
-                        tone="success"
-                        onClick={() => toggleControlKpi('implemented')}
-                        selected={activeControlKpi === 'implemented'}
-                    />
-                    <KpiFilterCard
-                        label="In progress"
-                        value={inProgressControls}
-                        tone="attention"
-                        onClick={() => toggleControlKpi('inProgress')}
-                        selected={activeControlKpi === 'inProgress'}
-                    />
-                    <KpiFilterCard
-                        label="Not started"
-                        value={notStartedControls}
-                        tone={notStartedControls > 0 ? 'critical' : 'default'}
-                        onClick={() => toggleControlKpi('notStarted')}
-                        selected={activeControlKpi === 'notStarted'}
-                    />
+                    {visibleKpiCards.map((card) => {
+                        // Render config per KPI id — the gear owns which
+                        // cards show + their order (visibleKpiCards).
+                        const cfg: Record<
+                            string,
+                            {
+                                value: number;
+                                tone?:
+                                    | 'success'
+                                    | 'attention'
+                                    | 'critical'
+                                    | 'default';
+                            }
+                        > = {
+                            total: { value: totalControls },
+                            implemented: {
+                                value: implementedControls,
+                                tone: 'success',
+                            },
+                            inProgress: {
+                                value: inProgressControls,
+                                tone: 'attention',
+                            },
+                            notStarted: {
+                                value: notStartedControls,
+                                tone:
+                                    notStartedControls > 0
+                                        ? 'critical'
+                                        : 'default',
+                            },
+                        };
+                        const c = cfg[card.id];
+                        if (!c) return null;
+                        return (
+                            <KpiFilterCard
+                                key={card.id}
+                                label={card.label}
+                                value={c.value}
+                                tone={c.tone}
+                                onClick={() =>
+                                    toggleControlKpi(card.id as ControlKpiId)
+                                }
+                                selected={activeControlKpi === card.id}
+                            />
+                        );
+                    })}
                 </div>
             }
             filters={{
-                defs: visibleFilterDefs,
+                defs: liveFilterDefs,
                 searchId: 'controls-search',
                 searchPlaceholder: 'Search controls…',
                 toolbarActions: (
