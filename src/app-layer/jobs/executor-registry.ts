@@ -566,6 +566,24 @@ executorRegistry.register('compliance-snapshot', async (payload) => {
     return result;
 });
 
+// ── sla-monitor (Automation Epic 5) ──────────────────────────────────
+
+executorRegistry.register('sla-monitor', async (payload) => {
+    const { runSlaMonitorJob } = await import('./sla-monitor');
+    const { result } = await runSlaMonitorJob({ tenantId: payload.tenantId });
+    return result;
+});
+
+// ── rule-chain-dispatch (Automation Epic 7) ──────────────────────────
+
+executorRegistry.register('rule-chain-dispatch', async (payload) => {
+    const { runRuleChainDispatch } = await import('./rule-chain-dispatch');
+    // Tenant scope: payload.tenantId flows through to the chain dispatcher,
+    // which scopes every query by it (and the chained execution rows).
+    const { result } = await runRuleChainDispatch({ ...payload, tenantId: payload.tenantId });
+    return result;
+});
+
 // ── compliance-digest ────────────────────────────────────────────────
 
 executorRegistry.register('compliance-digest', async (payload) => {

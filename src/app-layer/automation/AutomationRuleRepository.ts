@@ -80,6 +80,14 @@ export class AutomationRuleRepository {
                 actionConfigJson: input.actionConfig as unknown as Prisma.InputJsonValue,
                 status: input.status ?? 'DRAFT',
                 priority: input.priority ?? 0,
+                slaWindowMinutes: input.slaWindowMinutes ?? null,
+                slaReminderMinutes: input.slaReminderMinutes ?? null,
+                slaBreachActionType: input.slaBreachActionType ?? null,
+                slaBreachConfigJson: input.slaBreachConfig
+                    ? (input.slaBreachConfig as Prisma.InputJsonValue)
+                    : Prisma.JsonNull,
+                nextRuleId: input.nextRuleId ?? null,
+                nextRuleDelay: input.nextRuleDelay ?? null,
                 createdByUserId: ctx.userId,
                 updatedByUserId: ctx.userId,
             },
@@ -116,6 +124,24 @@ export class AutomationRuleRepository {
         }
         if (input.status !== undefined) data.status = input.status;
         if (input.priority !== undefined) data.priority = input.priority;
+        if (input.slaWindowMinutes !== undefined) data.slaWindowMinutes = input.slaWindowMinutes;
+        if (input.slaReminderMinutes !== undefined) data.slaReminderMinutes = input.slaReminderMinutes;
+        if (input.slaBreachActionType !== undefined) {
+            data.slaBreachActionType = input.slaBreachActionType;
+        }
+        if (input.slaBreachConfig !== undefined) {
+            data.slaBreachConfigJson =
+                input.slaBreachConfig === null
+                    ? Prisma.JsonNull
+                    : (input.slaBreachConfig as Prisma.InputJsonValue);
+        }
+        if (input.nextRuleId !== undefined) {
+            data.nextRule =
+                input.nextRuleId === null
+                    ? { disconnect: true }
+                    : { connect: { id: input.nextRuleId } };
+        }
+        if (input.nextRuleDelay !== undefined) data.nextRuleDelay = input.nextRuleDelay;
 
         return db.automationRule.update({ where: { id }, data });
     }

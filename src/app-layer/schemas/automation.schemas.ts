@@ -89,6 +89,16 @@ const LegacyFlatFilter = z.record(
 
 const TriggerFilter = z.union([FilterGroup, LegacyFlatFilter]).nullable().optional();
 
+// SLA (Epic 5) + chain (Epic 7) fields — shared by create/update.
+const SlaFields = {
+    slaWindowMinutes: z.number().int().min(1).max(525600).nullable().optional(),
+    slaReminderMinutes: z.number().int().min(1).max(525600).nullable().optional(),
+    slaBreachActionType: z.nativeEnum(AutomationActionType).nullable().optional(),
+    slaBreachConfig: z.record(z.string(), z.unknown()).nullable().optional(),
+    nextRuleId: z.string().min(1).nullable().optional(),
+    nextRuleDelay: z.number().int().min(0).max(525600).nullable().optional(),
+};
+
 export const CreateAutomationRuleSchema = z
     .object({
         name: Name,
@@ -99,6 +109,7 @@ export const CreateAutomationRuleSchema = z
         actionConfig: z.record(z.string(), z.unknown()),
         status: z.nativeEnum(AutomationRuleStatus).optional(),
         priority: z.number().int().min(0).max(1000).optional(),
+        ...SlaFields,
     })
     .superRefine((val, ctx) => {
         const schema = ACTION_CONFIG_BY_TYPE[val.actionType];
@@ -122,6 +133,7 @@ export const UpdateAutomationRuleSchema = z
         actionConfig: z.record(z.string(), z.unknown()).optional(),
         status: z.nativeEnum(AutomationRuleStatus).optional(),
         priority: z.number().int().min(0).max(1000).optional(),
+        ...SlaFields,
     })
     .superRefine((val, ctx) => {
         // Only validate config when BOTH type and config are present together
