@@ -252,7 +252,13 @@ describe('New page token discipline', () => {
         //     surfaces — locations list (page + LocationsClient island)
         //     and the location detail page. Semantic tokens throughout;
         //     they count as new until promoted to MIGRATED_PAGES.
-        expect(unmigrated.length).toBeLessThanOrEqual(109);
+        //   - 110 (+1): WP-2 module gating — admin/modules/page.tsx, the
+        //     per-tenant "simple mode" settings page. Token-clean
+        //     (semantic tokens only; uses <Switch>/<Button>/<StatusBadge>/
+        //     <Heading>/<PageBreadcrumbs>/cardVariants); in the unmigrated
+        //     tally only because the surface is new and not yet promoted
+        //     to MIGRATED_PAGES.
+        expect(unmigrated.length).toBeLessThanOrEqual(110);
     });
 
     it('migrated page count is at least 4', () => {

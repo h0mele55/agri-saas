@@ -35,6 +35,8 @@ const ADMIN_ONLY_ROUTES = [
     'admin/members/[membershipId]/route.ts',
     'admin/members/[membershipId]/deactivate/route.ts',
     'admin/settings/route.ts',
+    // WP-2 — per-tenant module gating ("simple mode")
+    'admin/modules/route.ts',
     'admin/scim/route.ts',
     'admin/integrations/route.ts',
     'admin/integrations/diagnostics/route.ts',
