@@ -43,6 +43,27 @@ export function col(name: string): Prisma.Sql {
     return Prisma.raw(`"${name}"`);
 }
 
+/**
+ * Full query computing the WGS84 bounding box of all non-deleted parcels
+ * of a location, as four corners (xmin/ymin/xmax/ymax = west/south/east/
+ * north). Returns no row (or NULL corners) when the location has no
+ * parcels with geometry. Run via `$queryRaw`; the caller maps the row to
+ * `[w, s, e, n]`. Lives here so the `ST_*` stays contained in geo.ts.
+ */
+export function locationParcelBoundsSql(locationId: string, tenantId: string): Prisma.Sql {
+    return Prisma.sql`
+        SELECT ST_XMin(ext) AS "xmin", ST_YMin(ext) AS "ymin",
+               ST_XMax(ext) AS "xmax", ST_YMax(ext) AS "ymax"
+        FROM (
+            SELECT ST_Extent("geometry") AS ext
+            FROM "Parcel"
+            WHERE "locationId" = ${locationId}
+              AND "tenantId" = ${tenantId}
+              AND "deletedAt" IS NULL
+        ) s
+        WHERE ext IS NOT NULL`;
+}
+
 /** Parse a GeoJSON string returned by `ST_AsGeoJSON` back into a typed geometry. */
 export function parseGeometry(geojson: string | null): Geometry | null {
     if (!geojson) return null;

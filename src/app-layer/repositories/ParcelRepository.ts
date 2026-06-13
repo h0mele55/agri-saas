@@ -1,9 +1,16 @@
 import { Prisma } from '@prisma/client';
 import { PrismaTx } from '@/lib/db-context';
 import { RequestContext } from '../types';
-import { geometrySql, areaHectaresSql, asGeoJsonSql, col, parseGeometry } from '@/lib/db/geo';
+import {
+    geometrySql,
+    areaHectaresSql,
+    asGeoJsonSql,
+    col,
+    parseGeometry,
+    locationParcelBoundsSql,
+} from '@/lib/db/geo';
 import type { ParsedParcel } from '@/lib/spatial/parse';
-import type { Geometry } from 'geojson';
+import type { Geometry, Polygon, MultiPolygon } from 'geojson';
 
 /** A parcel returned to the client — geometry serialized to GeoJSON. */
 export interface ParcelGeo {
@@ -96,6 +103,110 @@ export class ParcelRepository {
     /** Count a location's (non-deleted) parcels. */
     static async countForLocation(db: PrismaTx, ctx: RequestContext, locationId: string): Promise<number> {
         return db.parcel.count({ where: { locationId, tenantId: ctx.tenantId, deletedAt: null } });
+    }
+
+    /**
+     * Create ONE parcel from a hand-drawn polygon. Mirrors the inner
+     * loop of `replaceForLocation`: mint the row via Prisma (omitting the
+     * Unsupported geometry column), then stamp geometry + denormalized
+     * areaHa via the geo fragments. Returns the id + computed areaHa.
+     */
+    static async createOne(
+        db: PrismaTx,
+        ctx: RequestContext,
+        locationId: string,
+        input: { name: string; cropType?: string | null; geometry: Polygon | MultiPolygon },
+    ): Promise<{ id: string; areaHa: number | null }> {
+        const row = await db.parcel.create({
+            data: {
+                tenantId: ctx.tenantId,
+                locationId,
+                name: input.name,
+                cropType: input.cropType ?? null,
+            },
+            select: { id: true },
+        });
+        await db.$executeRaw(
+            Prisma.sql`UPDATE "Parcel"
+                SET "geometry" = ${geometrySql(input.geometry)},
+                    "areaHa" = ${areaHectaresSql(geometrySql(input.geometry))}
+                WHERE "id" = ${row.id} AND "tenantId" = ${ctx.tenantId}`,
+        );
+        return { id: row.id, areaHa: await ParcelRepository.areaHaFor(db, ctx, row.id) };
+    }
+
+    /**
+     * Update a single parcel's scalars and/or its geometry (re-derives
+     * areaHa from the new geometry). Geometry edits come from the in-map
+     * vertex editor. Tenant-scoped; returns the (possibly new) areaHa.
+     */
+    static async updateOne(
+        db: PrismaTx,
+        ctx: RequestContext,
+        parcelId: string,
+        input: { name?: string; cropType?: string | null; geometry?: Polygon | MultiPolygon },
+    ): Promise<{ areaHa: number | null }> {
+        const scalar: Prisma.ParcelUpdateInput = {};
+        if (input.name !== undefined) scalar.name = input.name;
+        if (input.cropType !== undefined) scalar.cropType = input.cropType;
+        if (Object.keys(scalar).length > 0) {
+            await db.parcel.update({ where: { id: parcelId }, data: scalar });
+        }
+        if (input.geometry) {
+            await db.$executeRaw(
+                Prisma.sql`UPDATE "Parcel"
+                    SET "geometry" = ${geometrySql(input.geometry)},
+                        "areaHa" = ${areaHectaresSql(geometrySql(input.geometry))}
+                    WHERE "id" = ${parcelId} AND "tenantId" = ${ctx.tenantId}`,
+            );
+        }
+        return { areaHa: await ParcelRepository.areaHaFor(db, ctx, parcelId) };
+    }
+
+    /** Soft-delete a parcel (history-preserving; mirrors the entity trio). */
+    static async softDeleteOne(db: PrismaTx, ctx: RequestContext, parcelId: string): Promise<void> {
+        await db.parcel.update({
+            where: { id: parcelId },
+            data: { deletedAt: new Date(), deletedByUserId: ctx.userId ?? null },
+        });
+    }
+
+    /** Fetch one parcel's identity (ownership/location lookup). Tenant-scoped. */
+    static async getOne(db: PrismaTx, ctx: RequestContext, parcelId: string) {
+        return db.parcel.findFirst({
+            where: { id: parcelId, tenantId: ctx.tenantId, deletedAt: null },
+            select: { id: true, name: true, locationId: true },
+        });
+    }
+
+    /** Read back the denormalized areaHa for a parcel (post-write). */
+    private static async areaHaFor(db: PrismaTx, ctx: RequestContext, parcelId: string): Promise<number | null> {
+        const rows = await db.parcel.findMany({
+            where: { id: parcelId, tenantId: ctx.tenantId },
+            select: { areaHa: true },
+            take: 1,
+        });
+        const a = rows[0]?.areaHa ?? null;
+        return a !== null ? Number(a) : null;
+    }
+
+    /**
+     * Recompute a location's WGS84 bounding box from its current parcels
+     * (after a draw / edit / delete). Returns `[w, s, e, n]` or null when
+     * the location has no parcels with geometry. The `ST_*` lives in
+     * geo.ts (locationParcelBoundsSql).
+     */
+    static async boundsForLocation(
+        db: PrismaTx,
+        ctx: RequestContext,
+        locationId: string,
+    ): Promise<[number, number, number, number] | null> {
+        const rows = await db.$queryRaw<Array<{ xmin: number; ymin: number; xmax: number; ymax: number }>>(
+            locationParcelBoundsSql(locationId, ctx.tenantId),
+        );
+        if (!rows.length || rows[0].xmin === null) return null;
+        const { xmin, ymin, xmax, ymax } = rows[0];
+        return [Number(xmin), Number(ymin), Number(xmax), Number(ymax)];
     }
 
     /**
