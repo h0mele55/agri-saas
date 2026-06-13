@@ -85,4 +85,13 @@ describe('outbox single seam', () => {
         expect(panel).toMatch(/useOfflineSync/);
         expect(/getOutboxStore/.test(panel)).toBe(false);
     });
+
+    it('the hook guards against concurrent flushes (no double-send)', () => {
+        // A `flushing` ref short-circuits a second flush while one is in
+        // flight — without it the `online` event + a manual sync could
+        // drain the same items twice. Lock the guard structurally.
+        const hook = read('src/lib/offline/use-offline-sync.ts');
+        expect(hook).toMatch(/flushing\s*=\s*useRef/);
+        expect(hook).toMatch(/if\s*\(flushing\.current\)/);
+    });
 });
