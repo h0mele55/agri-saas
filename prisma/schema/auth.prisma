@@ -219,6 +219,12 @@ model Tenant {
   // Hub-and-spoke (Epic O-1).
   organization                      Organization?                      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
+  // Agriculture domain (Feature 1).
+  locations        Location[]
+  parcels          Parcel[]
+  items            Item[]
+  operationParcels OperationParcel[]
+
   @@index([organizationId])
 }
 
@@ -743,6 +749,11 @@ model User {
   processMapsDeleted            ProcessMap[]                 @relation("ProcessMapDeletedBy")
   // Epic P5-PR-A — process map snapshots.
   processMapSnapshotsCreated    ProcessMapSnapshot[]         @relation("ProcessMapSnapshotCreatedBy")
+  // Agriculture domain (Feature 1).
+  locationsOwned                Location[]                   @relation("LocationOwner")
+  locationsCreated              Location[]                   @relation("LocationCreator")
+  itemsCreated                  Item[]                       @relation("ItemCreator")
+  operationParcelsCompleted     OperationParcel[]            @relation("OperationParcelCompleter")
 }
 
 model Account {

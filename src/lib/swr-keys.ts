@@ -127,6 +127,17 @@ export const CACHE_KEYS = {
         metrics: () => '/vendors/metrics' as const,
     },
     assets: makeResource('assets'),
+    // ─── Agriculture (Feature 1 — spray-prescription map) ───
+    locations: {
+        ...makeResource('locations'),
+        parcels: (id: string) => `/locations/${id}/parcels` as const,
+        operations: (id: string) => `/locations/${id}/operations` as const,
+    },
+    fieldOperations: {
+        detail: (taskId: string) => `/field-operations/${taskId}` as const,
+    },
+    items: () => '/items' as const,
+    units: () => '/units' as const,
     findings: makeResource('findings'),
     frameworks: makeResource('frameworks'),
     issues: makeResource('issues'),

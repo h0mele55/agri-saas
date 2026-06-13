@@ -47,6 +47,9 @@ const EXEMPT_FILE_PATTERNS: RegExp[] = [
  * length to stop hand-waved exemptions.
  */
 const EXEMPTIONS: Record<string, string> = {
+    // Agriculture (Feature 1) — lean locations roster.
+    "src/app/t/[tenantSlug]/(app)/locations/LocationsClient.tsx":
+        "Lean agriculture roster — name/status/parcel-count with no faceted filters yet; search/filter arrives with the Phase 2 inventory module.",
     // ── Cross-tenant read-only aggregation views (org-level) ──
     // These render a portfolio of tenant-scoped data without the
     // per-tenant filtering surface that FilterToolbar provides.

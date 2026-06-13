@@ -2271,6 +2271,73 @@ exports[`API contract — per-schema snapshots schema: EvidenceUpdateRequest 1`]
 }"
 `;
 
+exports[`API contract — per-schema snapshots schema: FieldOperationCreateRequest 1`] = `
+"{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "operationType": {
+      "type": "string",
+      "enum": [
+        "SPRAY",
+        "FERTILIZE",
+        "SEED",
+        "OTHER"
+      ]
+    },
+    "assigneeUserId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "parcelIds": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "productItemId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "doseValue": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "doseUnitId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "targetNote": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "dueAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "assigneeUserId",
+    "parcelIds",
+    "productItemId",
+    "doseValue",
+    "doseUnitId"
+  ],
+  "description": "Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel."
+}"
+`;
+
 exports[`API contract — per-schema snapshots schema: FindingCreateRequest 1`] = `
 "{
   "type": "object",
@@ -2487,6 +2554,104 @@ exports[`API contract — per-schema snapshots schema: Framework 1`] = `
   ],
   "additionalProperties": {},
   "description": "Compliance framework record (e.g. ISO 27001:2022, SOC 2, NIS2). Key is the stable lookup identifier."
+}"
+`;
+
+exports[`API contract — per-schema snapshots schema: LocationCreateRequest 1`] = `
+"{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 10000
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
+    "ownerUserId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "description": "Create a Location (a farm/field block). Parcels are populated by importing a spatial file (shapefile/KML/GeoJSON)."
+}"
+`;
+
+exports[`API contract — per-schema snapshots schema: LocationUpdateRequest 1`] = `
+"{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 10000
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "ARCHIVED"
+      ]
+    },
+    "ownerUserId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "description": "Partial update for a Location. Only provided fields are persisted."
+}"
+`;
+
+exports[`API contract — per-schema snapshots schema: OperationParcelUpdateRequest 1`] = `
+"{
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "PENDING",
+        "DONE",
+        "SKIPPED"
+      ]
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "description": "Operator updates one per-parcel prescription line. The job auto-resolves when every line is DONE or SKIPPED."
 }"
 `;
 

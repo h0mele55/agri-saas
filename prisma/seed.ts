@@ -5,6 +5,12 @@ import { randomUUID } from 'crypto';
 import { createTenantWithOwner } from '@/app-layer/usecases/tenant-lifecycle';
 import { hashForLookup } from '@/lib/security/encryption';
 import { seedDefaultOrgDashboard } from '@/app-layer/usecases/org-dashboard-presets';
+import type { RequestContext } from '@/app-layer/types';
+import { Role } from '@prisma/client';
+import { getPermissionsForRole } from '@/lib/permissions';
+import { createLocation } from '@/app-layer/usecases/location';
+import { importLocationSpatialFile } from '@/app-layer/usecases/spatial-import';
+import { importUnits } from '../scripts/import-units';
 
 // Prisma 7 — adapter is required for PrismaClient construction.
 const prisma = new PrismaClient({
@@ -965,6 +971,65 @@ async function main() {
     }
     // Silence unused-binding lint for the re-exported bcrypt alias above.
     void bcryptLib;
+
+    // ─── Agriculture (Feature 1 — spray-prescription map) demo data ───
+    // Wrapped so a storage misconfiguration (e.g. STORAGE_PROVIDER unset)
+    // degrades to a warning instead of failing the whole seed.
+    try {
+        await importUnits(prisma);
+        const litre = await prisma.unit.findUnique({ where: { key: 'l' } });
+        const kg = await prisma.unit.findUnique({ where: { key: 'kg' } });
+        const demoProducts: Array<{ name: string; category: 'PESTICIDE' | 'FERTILIZER'; unitId?: string }> = [
+            { name: 'Glyphosate 360 SL', category: 'PESTICIDE', unitId: litre?.id },
+            { name: 'Liquid Nitrogen 28%', category: 'FERTILIZER', unitId: litre?.id },
+            { name: 'Slug Pellets (Ferric)', category: 'PESTICIDE', unitId: kg?.id },
+        ];
+        for (const p of demoProducts) {
+            if (!p.unitId) continue;
+            const existing = await prisma.item.findFirst({ where: { tenantId: tenant.id, name: p.name } });
+            if (!existing) {
+                await prisma.item.create({
+                    data: { tenantId: tenant.id, name: p.name, category: p.category, defaultUnitId: p.unitId, createdByUserId: admin.id },
+                });
+            }
+        }
+        console.log('✅ Agriculture: unit catalog + demo input products seeded');
+
+        const adminCtx: RequestContext = {
+            requestId: randomUUID(),
+            userId: admin.id,
+            tenantId: tenant.id,
+            tenantSlug: undefined,
+            role: 'OWNER' as Role,
+            permissions: { canRead: true, canWrite: true, canAdmin: true, canAudit: false, canExport: true },
+            appPermissions: getPermissionsForRole('OWNER' as Role),
+        };
+        const existingLoc = await prisma.location.findFirst({ where: { tenantId: tenant.id, name: 'Home Farm — Demo' } });
+        if (!existingLoc) {
+            const loc = await createLocation(adminCtx, {
+                name: 'Home Farm — Demo',
+                description: 'Seeded demo field block — three parcels ready for a spray job.',
+            });
+            const demoGeoJson = JSON.stringify({
+                type: 'FeatureCollection',
+                features: [
+                    { type: 'Feature', properties: { name: 'North Field', crop: 'Winter Wheat' }, geometry: { type: 'Polygon', coordinates: [[[-1.100, 52.200], [-1.085, 52.200], [-1.085, 52.212], [-1.100, 52.212], [-1.100, 52.200]]] } },
+                    { type: 'Feature', properties: { name: 'River Meadow', crop: 'Grass' }, geometry: { type: 'Polygon', coordinates: [[[-1.100, 52.185], [-1.088, 52.185], [-1.088, 52.196], [-1.100, 52.196], [-1.100, 52.185]]] } },
+                    { type: 'Feature', properties: { name: 'Top Paddock' }, geometry: { type: 'Polygon', coordinates: [[[-1.082, 52.200], [-1.070, 52.200], [-1.070, 52.210], [-1.082, 52.210], [-1.082, 52.200]]] } },
+                ],
+            });
+            await importLocationSpatialFile(adminCtx, loc.id, {
+                filename: 'home-farm.geojson',
+                buffer: Buffer.from(demoGeoJson),
+                mimeType: 'application/geo+json',
+            });
+            console.log('✅ Agriculture: demo Location "Home Farm — Demo" + 3 parcels seeded');
+        } else {
+            console.log('✅ Agriculture: demo Location already present (skipped)');
+        }
+    } catch (err) {
+        console.warn('⚠️  Agriculture demo seed skipped:', err instanceof Error ? err.message : err);
+    }
 
     console.log('\n🎉 Seed complete! Login as admin@acme.com — password set via SEED_PASSWORD (default in prisma/seed.ts)');
 }

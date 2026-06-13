@@ -19,6 +19,7 @@ import { SkeletonLine } from '@/components/ui/skeleton';
 import { InlineEmptyState } from '@/components/ui/inline-empty-state';
 import { UserCombobox } from '@/components/ui/user-combobox';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
+import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
@@ -611,6 +612,12 @@ export default function TaskDetailPage() {
             {/* Overview Tab */}
             {tab === 'overview' && (
                 <div className={cn(cardVariants(), 'space-y-default')}>
+                    {task && task.type === 'FIELD_OPERATION' && (
+                        <div className="border-b border-border-subtle pb-section">
+                            <Heading level={3} className="mb-3">Field operation</Heading>
+                            <FieldOperationPanel taskId={task.id} />
+                        </div>
+                    )}
                     {/* Overview header with Edit button — mirrors the
                         control detail overview edit affordance. */}
                     {permissions.canWrite && (
@@ -800,7 +807,7 @@ export default function TaskDetailPage() {
                                 <Combobox hideSearch id="link-relation" selected={RELATION_CB_OPTIONS.find(o => o.value === linkRelation) ?? null} setSelected={(opt) => setLinkRelation(opt?.value ?? linkRelation)} options={RELATION_CB_OPTIONS} matchTriggerWidth />
                             </div>
                             <Button type="submit" variant="primary" disabled={savingLink} id="submit-link-btn">
-                                {savingLink ? 'Linking...' : '+ Link'}
+                                {savingLink ? 'Linking...' : 'Link'}
                             </Button>
                         </form>
                     )}
@@ -828,7 +835,7 @@ export default function TaskDetailPage() {
                                 id="comment-body"
                             />
                             <Button type="submit" variant="primary" disabled={savingComment} id="submit-comment-btn">
-                                {savingComment ? 'Posting...' : '+ Comment'}
+                                {savingComment ? 'Posting...' : 'Comment'}
                             </Button>
                         </form>
                     )}

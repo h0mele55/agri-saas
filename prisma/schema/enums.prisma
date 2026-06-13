@@ -293,6 +293,10 @@ enum WorkItemType {
   INCIDENT
   IMPROVEMENT
   TASK
+  /// Agriculture: a field operation (e.g. a spray job) assigned to a
+  /// machine operator. Carries per-parcel prescription lines via
+  /// OperationParcel; links to its Location through TaskLink.
+  FIELD_OPERATION
 }
 
 enum WorkItemSeverity {
@@ -338,6 +342,9 @@ enum TaskLinkEntityType {
   FILE
   AUDIT_PACK
   VENDOR
+  // Agriculture domain
+  LOCATION
+  PARCEL
 }
 
 enum TaskLinkRelation {
@@ -923,4 +930,56 @@ enum LossEventSource {
   /// Recorded from an incident / ticket — the realised cost the
   /// incident closed at.
   INCIDENT
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  AGRICULTURE DOMAIN (Feature 1 — spray-prescription map module)
+// ═══════════════════════════════════════════════════════════════════
+
+/// Lifecycle of a Location (the farm/field block a farmer uploads a
+/// spatial file into). Mirrors AssetStatus semantics.
+enum LocationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// Category of an inventory Item. For Feature 1 only the input
+/// products (PESTICIDE/FERTILIZER) are exercised; the rest are
+/// seeded ahead of the full inventory module.
+enum ItemCategory {
+  SEED
+  PESTICIDE
+  FERTILIZER
+  AMENDMENT
+  FUEL
+  HARVESTED_PRODUCE
+  OTHER
+}
+
+/// Dimension of a unit of measure; constrains which Unit a dose may
+/// use (a spray dose is a RATE such as L/ha).
+enum QuantityMeasure {
+  COUNT
+  WEIGHT
+  VOLUME
+  AREA
+  LENGTH
+  RATE
+  OTHER
+}
+
+/// Type of field operation carried by a FIELD_OPERATION Task.
+enum FieldOperationType {
+  SPRAY
+  FERTILIZE
+  SEED
+  OTHER
+}
+
+/// Per-parcel execution state of a field operation. The job (Task)
+/// auto-resolves when every line is DONE or SKIPPED.
+enum ParcelOperationStatus {
+  PENDING
+  DONE
+  SKIPPED
 }

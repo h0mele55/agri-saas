@@ -135,9 +135,9 @@ export function sanitizeFileName(name: string): string {
 // ─── Storage Domains ───
 
 /** Well-known storage domains for organizing tenant objects */
-export type StorageDomain = 'evidence' | 'reports' | 'exports' | 'temp' | 'general';
+export type StorageDomain = 'evidence' | 'reports' | 'exports' | 'temp' | 'general' | 'spatial';
 
-const VALID_DOMAINS: readonly StorageDomain[] = ['evidence', 'reports', 'exports', 'temp', 'general'] as const;
+const VALID_DOMAINS: readonly StorageDomain[] = ['evidence', 'reports', 'exports', 'temp', 'general', 'spatial'] as const;
 
 // ─── Tenant Object Key Builder ───
 
@@ -198,7 +198,7 @@ export function generatePathKey(tenantId: string, originalName: string): string 
 
 // ─── Key Validation & Parsing ───
 
-const TENANT_KEY_REGEX = /^tenants\/([^/]+)\/(evidence|reports|exports|temp|general)\/\d{4}\/\d{2}\/[a-f0-9-]+_.+$/;
+const TENANT_KEY_REGEX = /^tenants\/([^/]+)\/(evidence|reports|exports|temp|general|spatial)\/\d{4}\/\d{2}\/[a-f0-9-]+_.+$/;
 
 /**
  * Runtime guard: asserts a key belongs to the expected tenant.
