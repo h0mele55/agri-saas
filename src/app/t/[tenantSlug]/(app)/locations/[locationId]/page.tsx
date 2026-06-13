@@ -3,15 +3,21 @@
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { Geometry } from 'geojson';
+import type { Geometry, Polygon } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/typography';
+import { Modal } from '@/components/ui/modal';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { ToggleGroup } from '@/components/ui/toggle-group';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
+import { useTenantApiUrl } from '@/lib/tenant-context-provider';
+import { apiPost, apiPatch } from '@/lib/api-client';
 import { SpatialImportModal } from '@/components/ui/map/SpatialImportModal';
 import { PrescriptionPanel } from '@/components/ui/map/PrescriptionPanel';
 import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
-import type { MapParcel } from '@/components/ui/map/MapCanvas';
+import type { MapParcel, MapMode } from '@/components/ui/map/MapCanvas';
 
 const MapCanvas = dynamic(() => import('@/components/ui/map/MapCanvas').then((m) => m.MapCanvas), { ssr: false });
 
@@ -41,10 +47,15 @@ interface OperationItem {
 
 export default function LocationDetailPage() {
     const { tenantSlug, locationId } = useParams<{ tenantSlug: string; locationId: string }>();
+    const buildUrl = useTenantApiUrl();
     const [tab, setTab] = useState<Tab>('overview');
     const [selected, setSelected] = useState<string[]>([]);
     const [showImport, setShowImport] = useState(false);
     const [activeJob, setActiveJob] = useState<string | null>(null);
+    const [mapMode, setMapMode] = useState<MapMode>('select');
+    const [pendingGeometry, setPendingGeometry] = useState<Polygon | null>(null);
+    const [newParcelName, setNewParcelName] = useState('');
+    const [saving, setSaving] = useState(false);
 
     const locQ = useTenantSWR<LocationDetail>(`/locations/${locationId}`);
     const parcelsQ = useTenantSWR<ParcelsResp>(`/locations/${locationId}/parcels`);
@@ -57,6 +68,28 @@ export default function LocationDetailPage() {
         () => parcels.map((p) => ({ id: p.id, name: p.name, areaHa: p.areaHa ?? null, geometry: (p.geometry ?? null) as Geometry | null })),
         [parcels],
     );
+
+    const saveDrawnParcel = async () => {
+        if (!pendingGeometry || !newParcelName.trim()) return;
+        setSaving(true);
+        try {
+            await apiPost(buildUrl(`/locations/${locationId}/parcels`), {
+                name: newParcelName.trim(),
+                geometry: pendingGeometry,
+            });
+            setPendingGeometry(null);
+            setNewParcelName('');
+            await parcelsQ.mutate();
+            await locQ.mutate();
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const reshapeParcel = async (parcelId: string, geometry: Polygon) => {
+        await apiPatch(buildUrl(`/locations/${locationId}/parcels/${parcelId}`), { geometry });
+        await parcelsQ.mutate();
+    };
 
     const tabs = [
         { key: 'overview' as const, label: 'Overview' },
@@ -99,16 +132,53 @@ export default function LocationDetailPage() {
             )}
 
             {tab === 'map' && (
-                <div className="grid grid-cols-1 gap-section lg:grid-cols-[1fr_320px]">
-                    <MapCanvas parcels={mapParcels} bounds={bounds} selectedIds={selected} onSelectionChange={setSelected} />
-                    <div className="rounded-lg border border-border-subtle p-4">
-                        <Heading level={3} className="mb-3">New spray job</Heading>
-                        <PrescriptionPanel
-                            locationId={locationId}
-                            tenantSlug={tenantSlug}
-                            selectedParcelIds={selected}
-                            onCreated={() => { setSelected([]); setTab('operations'); }}
+                <div className="space-y-default">
+                    <div className="flex flex-wrap items-center gap-compact">
+                        <ToggleGroup
+                            ariaLabel="Map mode"
+                            options={[
+                                { value: 'select', label: 'Select' },
+                                { value: 'draw', label: 'Draw' },
+                                { value: 'edit', label: 'Edit' },
+                            ]}
+                            selected={mapMode}
+                            selectAction={(v) => { setMapMode(v as MapMode); setSelected([]); }}
                         />
+                        <span className="text-xs text-content-subtle">
+                            {mapMode === 'draw'
+                                ? 'Click to add vertices; double-click to finish the parcel.'
+                                : mapMode === 'edit'
+                                  ? 'Drag a vertex to reshape; changes save automatically.'
+                                  : 'Click parcels to select them for a spray job.'}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-section lg:grid-cols-[1fr_320px]">
+                        <MapCanvas
+                            parcels={mapParcels}
+                            bounds={bounds}
+                            selectedIds={selected}
+                            onSelectionChange={setSelected}
+                            mode={mapMode}
+                            onCreateGeometry={(g) => setPendingGeometry(g)}
+                            onUpdateGeometry={reshapeParcel}
+                        />
+                        {mapMode === 'select' ? (
+                            <div className="rounded-lg border border-border-subtle p-4">
+                                <Heading level={3} className="mb-3">New spray job</Heading>
+                                <PrescriptionPanel
+                                    locationId={locationId}
+                                    tenantSlug={tenantSlug}
+                                    selectedParcelIds={selected}
+                                    onCreated={() => { setSelected([]); setTab('operations'); }}
+                                />
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-border-subtle p-4 text-sm text-content-secondary">
+                                {mapMode === 'draw'
+                                    ? 'Draw a polygon on the map. You’ll name it before it’s saved.'
+                                    : 'Reshape parcels by dragging their vertices. Switch to Select to plan a spray job.'}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -170,6 +240,27 @@ export default function LocationDetailPage() {
                 setOpen={setShowImport}
                 onImported={() => { locQ.mutate(); parcelsQ.mutate(); }}
             />
+
+            <Modal
+                showModal={!!pendingGeometry}
+                setShowModal={(v) => { if (!v) { setPendingGeometry(null); setNewParcelName(''); } }}
+                size="sm"
+                title="Name parcel"
+                description="Name the parcel you just drew."
+            >
+                <Modal.Header title="Name parcel" description="Give the drawn parcel a name to save it." />
+                <Modal.Form id="name-parcel-form" onSubmit={(e) => { e.preventDefault(); void saveDrawnParcel(); }}>
+                    <Modal.Body>
+                        <FormField label="Name" required>
+                            <Input value={newParcelName} onChange={(e) => setNewParcelName(e.target.value)} placeholder="e.g. North 40" />
+                        </FormField>
+                    </Modal.Body>
+                    <Modal.Actions>
+                        <Button variant="secondary" size="sm" type="button" onClick={() => { setPendingGeometry(null); setNewParcelName(''); }}>Cancel</Button>
+                        <Button variant="primary" size="sm" type="submit" loading={saving} disabled={!newParcelName.trim() || saving}>Create parcel</Button>
+                    </Modal.Actions>
+                </Modal.Form>
+            </Modal>
         </EntityDetailLayout>
     );
 }

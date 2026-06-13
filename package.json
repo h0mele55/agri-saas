@@ -165,6 +165,8 @@
     "stripe": "^22.2.0",
     "swr": "^2.4.1",
     "tailwind-merge": "^3.5.0",
+    "terra-draw": "^1.31.1",
+    "terra-draw-maplibre-gl-adapter": "^1.4.1",
     "use-debounce": "^10.1.1",
     "vaul": "^1.1.2",
     "zod": "^4.4.3"

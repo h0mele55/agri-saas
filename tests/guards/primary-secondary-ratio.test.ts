@@ -153,8 +153,11 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // Inventory ledger (Phase 1): +4 primaries — the inventory list "New lot"
 // header CTA + three modal confirms (Create product / Create lot / Post
 // movement), each the single primary of a distinct dialog region.
-// Measured = 131; ceiling at 131 (no headroom slot).
-const MAX_PRIMARY_COUNT = 131;
+// Measured = 131.
+// Parcel drawing (Phase 1): +1 primary — the "Create parcel" confirm on
+// the name-the-drawn-parcel modal (Location detail Map tab). Measured =
+// 132; ceiling at 132 (no headroom slot).
+const MAX_PRIMARY_COUNT = 132;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {
