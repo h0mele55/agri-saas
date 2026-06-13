@@ -124,6 +124,13 @@ export const ROUTE_PERMISSIONS: readonly RoutePermissionRule[] = [
         note: 'Tenant settings (display name, branding, defaults).',
     },
 
+    // ── WP-2 module gating ──────────────────────────────────────────
+    {
+        path: new RegExp(`^${T}\\/admin\\/modules(\\/.*)?$`),
+        permission: 'admin.manage',
+        note: 'Per-tenant module gating (enable/disable modules; "simple mode").',
+    },
+
     // ── Outbound integrations ───────────────────────────────────────
     {
         path: new RegExp(`^${T}\\/admin\\/integrations(\\/.*)?$`),

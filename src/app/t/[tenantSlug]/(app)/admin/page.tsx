@@ -1,5 +1,5 @@
 import { getTranslations } from 'next-intl/server';
-import { Shield, CreditCard, KeyRound, ShieldCheck, ShieldPlus, Users, UserCog, CloudCog, Plug, Palette, Grid3x3, Gauge, Bell, ScrollText } from 'lucide-react';
+import { Shield, CreditCard, KeyRound, ShieldCheck, ShieldPlus, Users, UserCog, CloudCog, Plug, Palette, Grid3x3, Gauge, Bell, ScrollText, ToggleLeft } from 'lucide-react';
 import Link from 'next/link';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
@@ -120,6 +120,14 @@ export default async function AdminPage({
                 >
                     <Plug className="w-3.5 h-3.5" />
                     Integrations
+                </Link>
+                <Link
+                    href={tenantHref('/admin/modules')}
+                    className={buttonVariants({ variant: 'secondary' })}
+                    id="modules-pill-btn"
+                >
+                    <ToggleLeft className="w-3.5 h-3.5" />
+                    Modules
                 </Link>
                 <Link
                     href={tenantHref('/admin/security')}

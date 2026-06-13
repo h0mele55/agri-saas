@@ -177,3 +177,16 @@ model OperationParcel {
   @@index([tenantId, parcelId])
   @@index([tenantId, status])
 }
+
+/// WP-2 — per-tenant module gating (one row per tenant). enabledModules
+/// is a Postgres enum array; absence of a row means "all modules
+/// enabled" (resolved in src/lib/modules.ts). Tenant-scoped → RLS trio.
+model TenantModuleSettings {
+  id             String      @id @default(cuid())
+  tenantId       String      @unique
+  enabledModules ModuleKey[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}

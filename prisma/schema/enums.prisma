@@ -983,3 +983,21 @@ enum ParcelOperationStatus {
   DONE
   SKIPPED
 }
+
+/// WP-2 — per-tenant module gating. A module is available when the
+/// tenant has enabled it (TenantModuleSettings.enabledModules). When a
+/// tenant has NO settings row, all modules are enabled (backward-compat);
+/// a tenant opts into "simple mode" by restricting the list. Resolved in
+/// src/lib/modules.ts, enforced by assertModuleEnabled() at the usecase /
+/// API boundary. Coverage: tests/guardrails/module-gate-coverage.test.ts.
+enum ModuleKey {
+  JOURNAL
+  INVENTORY
+  PLANNING
+  CERTIFICATION
+  RISK
+  VENDORS
+  AUTOMATION
+  PROCESSES
+  AI
+}
