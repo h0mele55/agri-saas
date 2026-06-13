@@ -293,6 +293,10 @@ enum WorkItemType {
   INCIDENT
   IMPROVEMENT
   TASK
+  /// Agriculture: a field operation (e.g. a spray job) assigned to a
+  /// machine operator. Carries per-parcel prescription lines via
+  /// OperationParcel; links to its Location through TaskLink.
+  FIELD_OPERATION
 }
 
 enum WorkItemSeverity {
@@ -338,6 +342,9 @@ enum TaskLinkEntityType {
   FILE
   AUDIT_PACK
   VENDOR
+  // Agriculture domain
+  LOCATION
+  PARCEL
 }
 
 enum TaskLinkRelation {
