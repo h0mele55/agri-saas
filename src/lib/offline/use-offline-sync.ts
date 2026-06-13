@@ -10,7 +10,7 @@
  * mount. A terminal 4xx is thrown so the caller can surface it — the
  * operation will never succeed, so queueing it would be a lie.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getOutboxStore, enqueue, type EnqueueInput } from './outbox';
 import { flushOutbox, fetchSender, type FlushSummary } from './sync';
 
@@ -28,15 +28,28 @@ export interface OfflineSync {
 export function useOfflineSync(): OfflineSync {
     const [pending, setPending] = useState(0);
     const [online, setOnline] = useState(true);
+    // Guards against two flushes running at once (the `online` event +
+    // a manual "Sync now" / mount flush) — concurrent drains would read
+    // the same items and double-send them.
+    const flushing = useRef(false);
 
     const refresh = useCallback(async () => {
         setPending((await getOutboxStore().all()).length);
     }, []);
 
-    const flush = useCallback(async () => {
-        const res = await flushOutbox(getOutboxStore(), fetchSender());
-        setPending(res.remaining);
-        return res;
+    const flush = useCallback(async (): Promise<FlushSummary> => {
+        if (flushing.current) {
+            const remaining = (await getOutboxStore().all()).length;
+            return { sent: 0, failed: 0, dropped: 0, remaining };
+        }
+        flushing.current = true;
+        try {
+            const res = await flushOutbox(getOutboxStore(), fetchSender());
+            setPending(res.remaining);
+            return res;
+        } finally {
+            flushing.current = false;
+        }
     }, []);
 
     useEffect(() => {

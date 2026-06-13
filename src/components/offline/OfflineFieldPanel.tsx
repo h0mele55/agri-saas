@@ -11,7 +11,7 @@
  * via apiPatch) — this is the installable-PWA field client.
  */
 import dynamic from 'next/dynamic';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Geometry } from 'geojson';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -44,6 +44,7 @@ export function OfflineFieldPanel({ taskId }: { taskId: string }) {
     const buildUrl = useTenantApiUrl();
     const { data, mutate, isLoading } = useTenantSWR<FieldOpView>(`/field-operations/${taskId}`);
     const { online, pending, submit, flush } = useOfflineSync();
+    const [error, setError] = useState<string | null>(null);
 
     const doneIds = useMemo(
         () => (data?.lines ?? [])
@@ -65,6 +66,7 @@ export function OfflineFieldPanel({ taskId }: { taskId: string }) {
 
     const mark = useCallback(
         async (line: Line, status: LineStatus) => {
+            setError(null);
             // 1 — optimistic local update so the field UI responds instantly,
             //     online or off.
             await mutate(
@@ -83,17 +85,25 @@ export function OfflineFieldPanel({ taskId }: { taskId: string }) {
                         : prev,
                 { revalidate: false },
             );
-            // 2 — send-or-queue.
+            // 2 — send-or-queue. A terminal failure (server rejected the
+            //     mark) throws — roll the optimistic update back to server
+            //     truth and surface the error rather than leaving a phantom
+            //     "Done" on screen.
             const label = `Mark ${line.parcel?.name ?? 'parcel'} ${status.toLowerCase()}`;
-            const result = await submit({
-                url: buildUrl(`/field-operations/${taskId}/parcels/${line.id}`),
-                method: 'PATCH',
-                body: { status },
-                label,
-            });
-            // 3 — when it actually went out, revalidate against the server
-            //     (picks up the job auto-resolve + any stock deduction).
-            if (result === 'sent') await mutate();
+            try {
+                const result = await submit({
+                    url: buildUrl(`/field-operations/${taskId}/parcels/${line.id}`),
+                    method: 'PATCH',
+                    body: { status },
+                    label,
+                });
+                // 3 — when it actually went out, revalidate against the server
+                //     (picks up the job auto-resolve + any stock deduction).
+                if (result === 'sent') await mutate();
+            } catch {
+                setError('Could not save that change — it was reverted. Please retry.');
+                await mutate(); // revalidate → discard the optimistic update
+            }
         },
         [mutate, submit, buildUrl, taskId],
     );
@@ -113,6 +123,12 @@ export function OfflineFieldPanel({ taskId }: { taskId: string }) {
                     <Button variant="secondary" size="sm" onClick={() => void flush()}>Sync now</Button>
                 )}
             </div>
+
+            {error && (
+                <div role="alert" className="rounded-lg border border-border-error bg-bg-error px-3 py-2 text-sm text-content-error">
+                    {error}
+                </div>
+            )}
 
             <div>
                 <Heading level={2}>{data.task.key ? `${data.task.key} · ` : ''}{data.task.title}</Heading>
