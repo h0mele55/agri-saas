@@ -28,6 +28,7 @@ import {
     Workflow,
     PanelLeftClose,
     PanelLeftOpen,
+    MapPin,
     type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -90,6 +91,7 @@ export function useNavSections(): NavSectionDef[] {
             title: 'Govern',
             items: [
                 { href: tenantHref('/assets'), label: 'Asset', icon: Building2 },
+                { href: tenantHref('/locations'), label: 'Location', icon: MapPin },
                 { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle },
                 { href: tenantHref('/controls'), label: 'Control', icon: ShieldCheck },
             ],

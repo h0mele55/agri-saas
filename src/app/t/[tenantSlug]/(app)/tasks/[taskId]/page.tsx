@@ -19,6 +19,7 @@ import { SkeletonLine } from '@/components/ui/skeleton';
 import { InlineEmptyState } from '@/components/ui/inline-empty-state';
 import { UserCombobox } from '@/components/ui/user-combobox';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
+import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
@@ -611,6 +612,12 @@ export default function TaskDetailPage() {
             {/* Overview Tab */}
             {tab === 'overview' && (
                 <div className={cn(cardVariants(), 'space-y-default')}>
+                    {task && task.type === 'FIELD_OPERATION' && (
+                        <div className="border-b border-border-subtle pb-section">
+                            <h3 className="mb-3 text-sm font-semibold">Field operation</h3>
+                            <FieldOperationPanel taskId={task.id} />
+                        </div>
+                    )}
                     {/* Overview header with Edit button — mirrors the
                         control detail overview edit affordance. */}
                     {permissions.canWrite && (
