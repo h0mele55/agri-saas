@@ -86,7 +86,6 @@ async function main() {
 
     const adminCtx = ctxFor({ id: owner.userId, role: 'OWNER' }, tenant);
     const operatorCtx = ctxFor({ id: reader.userId, role: 'READER' }, tenant); // operator = low-priv user
-    const strangerCtx = ctxFor({ id: editor.userId, role: 'EDITOR' }, tenant);
 
     // ── product catalog: ensure a Unit + Item exist ──
     const lPerHa = await prisma.unit.findUnique({ where: { key: 'l-per-ha' } });
