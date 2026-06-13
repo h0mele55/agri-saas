@@ -848,3 +848,46 @@ export const CloneVendorAssessmentTemplateSchema = z.object({
     name: z.string().min(1).max(500).optional(),
     description: z.string().max(10000).nullable().optional(),
 }).strip();
+
+// ─── Agriculture: Locations (Feature 1 — spray-prescription map) ───
+
+export const CreateLocationSchema = z.object({
+    name: z.string().min(1, 'Name is required').max(255),
+    description: z.string().max(10000).nullable().optional(),
+    status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
+    ownerUserId: z.string().optional().nullable(),
+}).strip().openapi('LocationCreateRequest', {
+    description: 'Create a Location (a farm/field block). Parcels are populated by importing a spatial file (shapefile/KML/GeoJSON).',
+});
+
+export const UpdateLocationSchema = z.object({
+    name: z.string().min(1).max(255).optional(),
+    description: z.string().max(10000).nullable().optional(),
+    status: z.enum(['ACTIVE', 'ARCHIVED']).optional(),
+    ownerUserId: z.string().optional().nullable(),
+}).strip().openapi('LocationUpdateRequest', {
+    description: 'Partial update for a Location. Only provided fields are persisted.',
+});
+
+// ─── Agriculture: Field Operations (spray jobs) ───
+
+export const CreateFieldOperationSchema = z.object({
+    title: z.string().min(1).max(255).optional(),
+    operationType: z.enum(['SPRAY', 'FERTILIZE', 'SEED', 'OTHER']).optional(),
+    assigneeUserId: z.string().min(1, 'An operator must be assigned'),
+    parcelIds: z.array(z.string().min(1)).min(1, 'Select at least one parcel'),
+    productItemId: z.string().min(1, 'A product is required'),
+    doseValue: z.coerce.number().positive('Dose must be greater than zero'),
+    doseUnitId: z.string().min(1, 'A dose unit is required'),
+    targetNote: z.string().max(2000).nullable().optional(),
+    dueAt: z.string().nullable().optional(),
+}).strip().openapi('FieldOperationCreateRequest', {
+    description: 'Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel.',
+});
+
+export const UpdateOperationParcelSchema = z.object({
+    status: z.enum(['PENDING', 'DONE', 'SKIPPED']),
+    note: z.string().max(2000).nullable().optional(),
+}).strip().openapi('OperationParcelUpdateRequest', {
+    description: 'Operator updates one per-parcel prescription line. The job auto-resolves when every line is DONE or SKIPPED.',
+});
