@@ -44,7 +44,7 @@
  */
 
 import { useId, useState } from 'react';
-import Pie from '@visx/shape/lib/shapes/Pie';
+import { Pie } from '@visx/shape';
 import { motion } from 'motion/react';
 import {
     ChartFlowGradient,
