@@ -13,9 +13,7 @@
  * primitive next gets a substantive update.
  */
 import { ScaleTypeToD3Scale } from "@visx/scale";
-import { TooltipWithBounds } from "@visx/tooltip";
-import { UseTooltipParams } from "@visx/tooltip/lib/hooks/useTooltip";
-import { TooltipInPortalProps } from "@visx/tooltip/lib/hooks/useTooltipInPortal";
+import { TooltipWithBounds, UseTooltipParams, TooltipInPortalProps } from "@visx/tooltip";
 import { Dispatch, FC, ReactElement, SetStateAction } from "react";
 
 export type Datum = Record<string, any>;
