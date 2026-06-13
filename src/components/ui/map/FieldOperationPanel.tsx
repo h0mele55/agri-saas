@@ -85,8 +85,8 @@ export function FieldOperationPanel({ taskId }: FieldOperationPanelProps) {
                 </div>
                 <div className="text-sm font-medium">{data.task.status}</div>
             </div>
-            <MapCanvas parcels={mapParcels} bounds={bounds} interactive={false} doneIds={doneIds} className="h-[360px] w-full overflow-hidden rounded-lg border border-border-default" />
-            <ul className="divide-y divide-border-subtle rounded-lg border border-border-default">
+            <MapCanvas parcels={mapParcels} bounds={bounds} interactive={false} doneIds={doneIds} className="h-[360px] w-full overflow-hidden rounded-lg border border-border-subtle" />
+            <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle">
                 {data.lines.map((l) => (
                     <li key={l.id} className="flex items-center justify-between gap-default px-4 py-3">
                         <div>
@@ -95,7 +95,7 @@ export function FieldOperationPanel({ taskId }: FieldOperationPanelProps) {
                                 {l.product?.name} · {String(l.doseValue)} {l.doseUnit?.symbol} · {l.parcel?.areaHa ?? '–'} ha
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-tight">
                             <span className="text-xs font-medium">{l.status}</span>
                             {l.status === 'PENDING' ? (
                                 <>

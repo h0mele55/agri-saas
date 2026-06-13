@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import type { Geometry } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/typography';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { SpatialImportModal } from '@/components/ui/map/SpatialImportModal';
 import { PrescriptionPanel } from '@/components/ui/map/PrescriptionPanel';
@@ -64,8 +65,14 @@ export default function LocationDetailPage() {
         { key: 'operations' as const, label: 'Operations' },
     ];
 
+    const breadcrumbs: { label: string; href?: string }[] = [
+        { label: 'Locations', href: `/t/${tenantSlug}/locations` },
+        { label: loc?.name ?? 'Location' },
+    ];
+
     return (
         <EntityDetailLayout<Tab>
+            breadcrumbs={breadcrumbs}
             back={{ href: `/t/${tenantSlug}/locations`, label: 'Locations' }}
             title={loc?.name ?? 'Location'}
             loading={locQ.isLoading && !loc}
@@ -84,7 +91,7 @@ export default function LocationDetailPage() {
                     </dl>
                     {loc?.description && <p className="text-sm">{loc.description}</p>}
                     {parcels.length === 0 && (
-                        <div className="rounded-lg border border-border-default p-6 text-sm text-content-secondary">
+                        <div className="rounded-lg border border-border-subtle p-6 text-sm text-content-secondary">
                             No parcels yet — use “Import parcels” to upload a shapefile, KML, or GeoJSON.
                         </div>
                     )}
@@ -94,8 +101,8 @@ export default function LocationDetailPage() {
             {tab === 'map' && (
                 <div className="grid grid-cols-1 gap-section lg:grid-cols-[1fr_320px]">
                     <MapCanvas parcels={mapParcels} bounds={bounds} selectedIds={selected} onSelectionChange={setSelected} />
-                    <div className="rounded-lg border border-border-default p-4">
-                        <h3 className="mb-3 text-sm font-semibold">New spray job</h3>
+                    <div className="rounded-lg border border-border-subtle p-4">
+                        <Heading level={3} className="mb-3">New spray job</Heading>
                         <PrescriptionPanel
                             locationId={locationId}
                             tenantSlug={tenantSlug}
@@ -109,7 +116,7 @@ export default function LocationDetailPage() {
             {tab === 'parcels' && (
                 <table className="w-full text-sm">
                     <thead>
-                        <tr className="border-b border-border-default text-left text-content-secondary">
+                        <tr className="border-b border-border-subtle text-left text-content-secondary">
                             <th className="py-2 pr-4 font-medium">Name</th>
                             <th className="py-2 pr-4 font-medium">Crop</th>
                             <th className="py-2 pr-4 font-medium">Area (ha)</th>
@@ -130,17 +137,17 @@ export default function LocationDetailPage() {
             {tab === 'operations' && (
                 <div className="space-y-section">
                     {(opsQ.data ?? []).length === 0 ? (
-                        <div className="rounded-lg border border-border-default p-6 text-sm text-content-secondary">
+                        <div className="rounded-lg border border-border-subtle p-6 text-sm text-content-secondary">
                             No spray jobs yet. Select parcels on the Map tab to create one.
                         </div>
                     ) : (
-                        <ul className="divide-y divide-border-subtle rounded-lg border border-border-default">
+                        <ul className="divide-y divide-border-subtle rounded-lg border border-border-subtle">
                             {(opsQ.data ?? []).map((op) => (
                                 <li key={op.id}>
                                     <button
                                         type="button"
                                         onClick={() => setActiveJob(activeJob === op.id ? null : op.id)}
-                                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-bg-subtle"
+                                        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-bg-muted/50"
                                     >
                                         <span className="text-sm font-medium">{op.key ? `${op.key} · ` : ''}{op.title}</span>
                                         <span className="text-xs text-content-secondary">{op.status} · {op._count?.operationParcels ?? 0} parcels</span>

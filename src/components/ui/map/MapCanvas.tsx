@@ -85,7 +85,7 @@ export function MapCanvas({
     }, [interactive, onSelectionChange, selected, selectedIds]);
 
     return (
-        <div className={className ?? 'h-[480px] w-full overflow-hidden rounded-lg border border-border-default'}>
+        <div className={className ?? 'h-[480px] w-full overflow-hidden rounded-lg border border-border-subtle'}>
             <Map
                 initialViewState={initialViewState}
                 mapStyle={DEMO_STYLE}

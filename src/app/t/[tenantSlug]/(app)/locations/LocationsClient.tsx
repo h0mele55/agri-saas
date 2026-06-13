@@ -6,8 +6,10 @@ import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { apiPost } from '@/lib/api-client';
 import { ListPageShell } from '@/components/layout/ListPageShell';
+import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -76,7 +78,14 @@ export function LocationsClient({ tenantSlug }: { tenantSlug: string }) {
             <ListPageShell.Header>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-xl font-semibold">Locations</h1>
+                        <PageBreadcrumbs
+                            items={[
+                                { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
+                                { label: 'Locations' },
+                            ]}
+                            className="mb-1"
+                        />
+                        <Heading level={1}>Locations</Heading>
                         <p className="text-sm text-content-secondary">Field blocks and their parcels.</p>
                     </div>
                     <Button variant="primary" size="sm" onClick={() => setShowNew(true)}>New location</Button>

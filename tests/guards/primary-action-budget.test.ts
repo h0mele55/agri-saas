@@ -56,6 +56,10 @@ const PRIMARY_BUDGET: Record<string, number> = {
     // file-select ("Import/Select") and folder-select ("Use this folder").
     // Each is the single primary of its mode; the static scanner counts both.
     "src/components/integrations/sharepoint/SharePointFilePicker.tsx": 2,
+    // Agriculture (Feature 1) — the locations list header ("New location")
+    // and the create-modal confirm ("Create") are each the single primary
+    // of their region (list header vs dialog) and never on screen together.
+    "src/app/t/[tenantSlug]/(app)/locations/LocationsClient.tsx": 2,
     // Automation Epic 3 — the rule builder is a step wizard: "Next"
     // (steps 1-2) and "Create/Save rule" (step 3) are each the single
     // primary of their step and are never on screen together. The static

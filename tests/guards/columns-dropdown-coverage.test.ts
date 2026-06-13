@@ -39,6 +39,9 @@ const SCAN_DIR = 'src/app/t/[tenantSlug]/(app)';
  * absence of a gear; PRs that mount a gear should REMOVE the entry.
  */
 const EXEMPTIONS: Record<string, string> = {
+    // Agriculture (Feature 1) — lean locations roster, three fixed columns.
+    "locations/LocationsClient.tsx":
+        "(c) lean agriculture roster — three fixed columns (name/status/parcels); column-visibility gear deferred to the Phase 2 inventory module.",
     // ─── (a) Sub-components — parent owns the toolbar ──────────────
     // R13-PR10 — `admin/AdminClient.tsx` was deleted; audit log
     // moved to `admin/audit-log/AuditLogClient.tsx`. The new sub-

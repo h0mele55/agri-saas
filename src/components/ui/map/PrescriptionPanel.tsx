@@ -36,7 +36,7 @@ export interface PrescriptionPanelProps {
     onCreated?: (r: { taskId: string; taskKey?: string | null; parcelCount: number }) => void;
 }
 
-const SELECT_CLASS = 'block w-full rounded-md border border-border-default bg-bg-default px-3 py-2 text-sm';
+const SELECT_CLASS = 'block w-full rounded-md border border-border-subtle bg-bg-default px-3 py-2 text-sm';
 
 export function PrescriptionPanel({ locationId, tenantSlug, selectedParcelIds, onCreated }: PrescriptionPanelProps) {
     const buildUrl = useTenantApiUrl();

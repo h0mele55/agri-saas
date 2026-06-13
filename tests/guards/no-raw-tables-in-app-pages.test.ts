@@ -51,6 +51,9 @@ const APP_ROOT = path.resolve(
  * canonical move) OR confirming the file no longer contains one.
  */
 const EXEMPTIONS: Record<string, string> = {
+    // Agriculture (Feature 1) — detail-tab sub-tables, not a list page.
+    "locations/[locationId]/page.tsx":
+        "(b) detail-tab sub-tables (Parcels) — fixed-scope read-only lists inside the Location detail tabs, not standalone list pages.",
     // ─── (a) Cross-tab matrix — Resource × Action × Role ─────────────
     // Permission-matrix overview. Sticky Resource / Action columns
     // with one dynamic column per role. DataTable's uniform-columns

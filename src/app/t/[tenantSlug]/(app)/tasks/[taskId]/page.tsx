@@ -614,7 +614,7 @@ export default function TaskDetailPage() {
                 <div className={cn(cardVariants(), 'space-y-default')}>
                     {task && task.type === 'FIELD_OPERATION' && (
                         <div className="border-b border-border-subtle pb-section">
-                            <h3 className="mb-3 text-sm font-semibold">Field operation</h3>
+                            <Heading level={3} className="mb-3">Field operation</Heading>
                             <FieldOperationPanel taskId={task.id} />
                         </div>
                     )}
@@ -807,7 +807,7 @@ export default function TaskDetailPage() {
                                 <Combobox hideSearch id="link-relation" selected={RELATION_CB_OPTIONS.find(o => o.value === linkRelation) ?? null} setSelected={(opt) => setLinkRelation(opt?.value ?? linkRelation)} options={RELATION_CB_OPTIONS} matchTriggerWidth />
                             </div>
                             <Button type="submit" variant="primary" disabled={savingLink} id="submit-link-btn">
-                                {savingLink ? 'Linking...' : '+ Link'}
+                                {savingLink ? 'Linking...' : 'Link'}
                             </Button>
                         </form>
                     )}
@@ -835,7 +835,7 @@ export default function TaskDetailPage() {
                                 id="comment-body"
                             />
                             <Button type="submit" variant="primary" disabled={savingComment} id="submit-comment-btn">
-                                {savingComment ? 'Posting...' : '+ Comment'}
+                                {savingComment ? 'Posting...' : 'Comment'}
                             </Button>
                         </form>
                     )}

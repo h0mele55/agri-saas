@@ -144,7 +144,10 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // selector + Remove affordances are secondary/ghost, so the page
 // adds exactly +1 primary. Measured = 124; ceiling at 125 keeps one
 // slot of headroom.
-const MAX_PRIMARY_COUNT = 125;
+// Feature 1 (agriculture): +2 primaries — the locations list create
+// button ("New location") + its create-modal confirm ("Create").
+// Measured = 126.
+const MAX_PRIMARY_COUNT = 126;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

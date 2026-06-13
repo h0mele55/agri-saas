@@ -73,7 +73,7 @@ export function SpatialImportModal({ locationId, open, setOpen, onImported }: Sp
                             type="file"
                             accept=".zip,.kml,.kmz,.geojson,.json"
                             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                            className="block w-full text-sm text-content-secondary file:mr-3 file:rounded-md file:border file:border-border-default file:bg-bg-subtle file:px-3 file:py-1.5 file:text-sm"
+                            className="block w-full text-sm text-content-secondary file:mr-3 file:rounded-md file:border file:border-border-subtle file:bg-bg-subtle file:px-3 file:py-1.5 file:text-sm"
                         />
                     </FormField>
                 </Modal.Body>
