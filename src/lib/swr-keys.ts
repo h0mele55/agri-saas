@@ -136,6 +136,7 @@ export const CACHE_KEYS = {
     fieldOperations: {
         detail: (taskId: string) => `/field-operations/${taskId}` as const,
     },
+    journal: makeResource('journal'),
     items: () => '/items' as const,
     units: () => '/units' as const,
     findings: makeResource('findings'),

@@ -157,7 +157,12 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // Parcel drawing (Phase 1): +1 primary — the "Create parcel" confirm on
 // the name-the-drawn-parcel modal (Location detail Map tab). Measured =
 // 132; ceiling at 132 (no headroom slot).
-const MAX_PRIMARY_COUNT = 132;
+// Field Journal: +2 primaries — the journal list "Entry" header CTA +
+// the create/edit-modal confirm (Create entry / Save entry), each the
+// single primary of its surface. Mirrors the Feature-1 Locations bump
+// (+2: list create + modal confirm). Measured = 134; ceiling at 134
+// (no headroom slot).
+const MAX_PRIMARY_COUNT = 134;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

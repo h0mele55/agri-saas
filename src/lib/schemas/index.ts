@@ -891,3 +891,75 @@ export const UpdateOperationParcelSchema = z.object({
 }).strip().openapi('OperationParcelUpdateRequest', {
     description: 'Operator updates one per-parcel prescription line. The job auto-resolves when every line is DONE or SKIPPED.',
 });
+
+// ─── Agriculture: Field Journal (LogEntry + quantities/links/photos) ───
+
+const LOG_ENTRY_TYPE_VALUES = [
+    'ACTIVITY',
+    'OBSERVATION',
+    'INPUT_APPLICATION',
+    'SEEDING',
+    'TRANSPLANTING',
+    'HARVEST',
+    'IRRIGATION',
+    'MAINTENANCE',
+    'LAB_TEST',
+    'GRAZING',
+] as const;
+
+const QUANTITY_MEASURE_VALUES = [
+    'COUNT',
+    'WEIGHT',
+    'VOLUME',
+    'AREA',
+    'LENGTH',
+    'RATE',
+    'OTHER',
+] as const;
+
+/** One measure+value+unit line on a LogEntry (farmOS Quantity). */
+const LogQuantitySchema = z.object({
+    measure: z.enum(QUANTITY_MEASURE_VALUES),
+    value: z.coerce.number().finite(),
+    unitId: z.string().min(1, 'A unit is required'),
+    label: z.string().max(255).nullable().optional(),
+}).strip();
+
+export const CreateLogEntrySchema = z.object({
+    type: z.enum(LOG_ENTRY_TYPE_VALUES),
+    status: z.enum(['PLANNED', 'DONE']).optional(),
+    occurredAt: z.string().optional().nullable(),
+    title: z.string().min(1, 'Title is required').max(500),
+    notes: z.string().max(20000).optional().nullable(),
+    quantities: z.array(LogQuantitySchema).max(50).optional(),
+    locationIds: z.array(z.string().min(1)).max(100).optional(),
+    equipmentIds: z.array(z.string().min(1)).max(100).optional(),
+    operationParcelId: z.string().optional().nullable(),
+    costAmount: z.coerce.number().nonnegative().optional().nullable(),
+    costCurrency: z.string().max(8).optional().nullable(),
+}).strip().openapi('LogEntryCreateRequest', {
+    description: 'Create a field-journal entry (LogEntry). title is sanitized as plain text; notes is sanitized as rich-text HTML (TipTap). quantities carry the farmOS measure+value+unit lines (an INPUT_APPLICATION entry records the applied amount); locationIds / equipmentIds link the entry to field blocks and equipment. occurredAt defaults to now.',
+});
+
+export const UpdateLogEntrySchema = z.object({
+    type: z.enum(LOG_ENTRY_TYPE_VALUES).optional(),
+    status: z.enum(['PLANNED', 'DONE']).optional(),
+    occurredAt: z.string().optional().nullable(),
+    title: z.string().min(1).max(500).optional(),
+    notes: z.string().max(20000).optional().nullable(),
+    quantities: z.array(LogQuantitySchema).max(50).optional(),
+    locationIds: z.array(z.string().min(1)).max(100).optional(),
+    equipmentIds: z.array(z.string().min(1)).max(100).optional(),
+    operationParcelId: z.string().optional().nullable(),
+    costAmount: z.coerce.number().nonnegative().optional().nullable(),
+    costCurrency: z.string().max(8).optional().nullable(),
+}).strip().openapi('LogEntryUpdateRequest', {
+    description: 'Partial update for a field-journal entry. Every field optional. When quantities / locationIds / equipmentIds are supplied they fully REPLACE the existing set (full-replace semantics, matching the create shape).',
+});
+
+export const AttachLogEntryFileSchema = z.object({
+    fileRecordId: z.string().min(1, 'fileRecordId is required'),
+    caption: z.string().max(500).optional().nullable(),
+}).strip().openapi('LogEntryFileAttachRequest', {
+    description: 'Attach an already-uploaded FileRecord (photo / document) to a journal entry. Upload the file first via /journal/{id}/files (multipart) or /evidence/uploads, then reference its id here.',
+});

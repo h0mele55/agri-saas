@@ -25,6 +25,13 @@ const CSP_ALLOWLIST = new Set([
     // funnel through the same DOMPurify allowlist; widening the
     // allowlist requires a security review.
     'app/t/[tenantSlug]/(app)/policies/[policyId]/page.tsx',
+    // Field-journal detail renders the entry's rich-text notes. Same
+    // defence-in-depth as the policy body: notes are sanitised
+    // server-side on write (`sanitizeRichTextHtml` at the usecase
+    // boundary) AND client-side on render via `sanitizeRichTextHtml(...)`
+    // before `dangerouslySetInnerHTML`. Both calls funnel through the
+    // same allowlist; widening it requires a security review.
+    'app/t/[tenantSlug]/(app)/journal/[id]/page.tsx',
     // 2026-05-14 — CSP `strict-dynamic` webpack chunk loader bridge.
     // The root layout renders an inline <script nonce={nonce}> that
     // sets `__webpack_nonce__` so webpack stamps the same nonce on

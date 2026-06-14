@@ -254,6 +254,15 @@ const FK_INDEX_EXEMPT: Record<string, string> = {
         'Phase 1 — Unit is a small global catalog; the movement unit is read via the parent include, never reverse-scanned.',
     'StockTransaction.actorUserId': R_ACTOR,
     'LogEntry.createdByUserId': R_ACTOR,
+    // ─── Field Journal ───
+    'Equipment.createdByUserId': R_ACTOR,
+    // LogEntryFile.fileRecordId — the photo/document link is always read
+    // through the parent LogEntry's `files` include (LogEntry.getById),
+    // never reverse-scanned "which entries reference file X"; the
+    // [logEntryId, fileRecordId] @@unique + [tenantId, logEntryId] index
+    // serve the only access paths. FileRecord has no [id, tenantId]
+    // barrier so this is a simple FK.
+    'LogEntryFile.fileRecordId': R_CHILD_VIA_PARENT,
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -389,6 +398,11 @@ const LIST_MODELS_TENANT_INDEX_SUFFICIENT: Record<string, string> = {
         'listLots filters by tenantId (+ optional itemId), orders by createdAt DESC — covered by @@index([tenantId, itemId]); getFefoLot filters tenantId+itemId+quantityOnHand>0 ordered by expiresAt — covered by @@index([tenantId, expiresAt]); bounded take:200.',
     StockTransaction:
         'lotLedger filters by tenantId + lotId ordered by occurredAt DESC — covered exactly by @@index([tenantId, lotId, occurredAt]); the verifyStockChain integrity sweep is an explicit unbounded full-tenant scan (guardrail-allow).',
+    // ─── Field Journal (LogEntry + Equipment) ───
+    LogEntry:
+        'listLogEntries filters by tenantId (+ optional type / status / occurredAt range), searches title/notes, orders by occurredAt DESC — covered by @@index([tenantId, type, occurredAt]) + @@index([tenantId, status, occurredAt]); the paginated path is cursor-bounded and the flat path is take:200-bounded.',
+    Equipment:
+        'JournalRepository.validEquipmentIds looks up an id-set scoped to tenantId (link-validation, PK + tenantId) — never a tenant-wide filtered list; @@index([tenantId, name]) / @@index([tenantId, category]) cover the future register list.',
     // EI-3 — SCIM Groups listed/looked-up by tenantId (+ unique externalId);
     // covered by @@index([tenantId]) + @@unique([tenantId, externalId]); bounded take:200.
     ScimGroup:
