@@ -230,6 +230,10 @@ model Tenant {
   inventoryLots     InventoryLot[]
   stockTransactions StockTransaction[]
   logEntries        LogEntry[]
+  equipment         Equipment[]
+  logLocations      LogLocation[]
+  logEquipments     LogEquipment[]
+  logEntryFiles     LogEntryFile[]
 
   @@index([organizationId])
 }
@@ -763,6 +767,7 @@ model User {
   // Phase 1 — inventory ledger + journal.
   stockTxActed                  StockTransaction[]           @relation("StockTxActor")
   logEntriesCreated             LogEntry[]                   @relation("LogEntryCreator")
+  equipmentCreated              Equipment[]                  @relation("EquipmentCreator")
 }
 
 model Account {
