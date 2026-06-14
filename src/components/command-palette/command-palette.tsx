@@ -36,6 +36,7 @@ import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { cn } from '@/lib/cn';
 import { Command } from 'cmdk';
 import {
+    BookOpen,
     CheckSquare,
     FileText,
     FlaskConical,
@@ -158,6 +159,7 @@ const ENTITY_META: Record<
     evidence: { heading: 'Evidence', icon: Paperclip },
     framework: { heading: 'Frameworks', icon: Layers },
     asset: { heading: 'Assets', icon: Package },
+    knowledge: { heading: 'Knowledge', icon: BookOpen },
 };
 
 const ENTITY_ORDER: EntityKind[] = [
@@ -169,6 +171,7 @@ const ENTITY_ORDER: EntityKind[] = [
     'evidence',
     'framework',
     'asset',
+    'knowledge',
 ];
 
 function groupByKind(

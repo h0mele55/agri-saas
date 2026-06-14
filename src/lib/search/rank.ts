@@ -43,6 +43,7 @@ const TYPE_BASELINE: Record<SearchHitType, number> = {
     asset: 2,
     framework: 1,
     evidence: 0,
+    knowledge: 0,
 };
 
 // ─── Normalise ────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ export function capPerType(
         asset: 0,
         task: 0,
         test: 0,
+        knowledge: 0,
     };
     const kept: SearchHit[] = [];
     let truncated = false;

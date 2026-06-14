@@ -220,21 +220,24 @@ model Tenant {
   organization                      Organization?                      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   // Agriculture domain (Feature 1).
-  locations         Location[]
-  parcels           Parcel[]
-  items             Item[]
-  operationParcels  OperationParcel[]
+  locations                Location[]
+  parcels                  Parcel[]
+  items                    Item[]
+  operationParcels         OperationParcel[]
   // WP-2 — per-tenant module gating.
-  moduleSettings    TenantModuleSettings?
+  moduleSettings           TenantModuleSettings?
   // Phase 1 — inventory ledger + journal.
-  inventoryLots     InventoryLot[]
-  stockTransactions StockTransaction[]
-  logEntries        LogEntry[]
-  equipment         Equipment[]
-  logLocations      LogLocation[]
-  logEquipments     LogEquipment[]
-  logEntryFiles     LogEntryFile[]
-  lotLinks          LotLink[]
+  inventoryLots            InventoryLot[]
+  stockTransactions        StockTransaction[]
+  logEntries               LogEntry[]
+  equipment                Equipment[]
+  logLocations             LogLocation[]
+  logEquipments            LogEquipment[]
+  logEntryFiles            LogEntryFile[]
+  lotLinks                 LotLink[]
+  knowledgeArticles        KnowledgeArticle[]
+  knowledgeArticleVersions KnowledgeArticleVersion[]
+  knowledgeAcks            KnowledgeAcknowledgement[]
 
   @@index([organizationId])
 }
@@ -770,6 +773,9 @@ model User {
   logEntriesCreated             LogEntry[]                   @relation("LogEntryCreator")
   equipmentCreated              Equipment[]                  @relation("EquipmentCreator")
   lotLinksActed                 LotLink[]                    @relation("LotLinkActor")
+  knowledgeArticlesOwned        KnowledgeArticle[]           @relation("KnowledgeArticleOwner")
+  knowledgeVersionsCreated      KnowledgeArticleVersion[]    @relation("KnowledgeVersionCreator")
+  knowledgeAcks                 KnowledgeAcknowledgement[]
 }
 
 model Account {

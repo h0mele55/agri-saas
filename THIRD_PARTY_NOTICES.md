@@ -42,6 +42,13 @@ and are not re-listed here.
   calendar/observation patterns behind the journal entry + photo surfaces
   (`src/app/t/[tenantSlug]/(app)/journal/`).
 
+### OpenFarm — CC0 1.0 (Public Domain)
+- **Project:** https://openfarm.cc — "all data is released under CC0".
+- **Used for:** The seeded growing-guide crop data (sowing method, spacing,
+  sun, days to maturity) in `scripts/import-knowledge.ts`. CC0 data is public
+  domain and may be embedded + redistributed freely; this attribution is
+  courtesy. Each seeded article also records `source = "OpenFarm (CC0)"`.
+
 ---
 
 ## Concept-only (copyleft — NO code used)
@@ -56,6 +63,7 @@ are independent.
 | ERPNext | GPL-3.0 | Append-only stock-ledger valuation concept (`StockTransaction`) |
 | Ekylibre | AGPL-3.0 | Intervention + per-activity costing concept (`LogEntry.costAmount`) |
 | LiteFarm | GPL-3.0 | Farm-management domain breadth; the farm task-type catalog (`src/lib/agriculture/farm-task-types.ts`) — type names + category grouping, reimplemented (keys/enum/TS surface are ours) |
+| frappe/wiki | GPL-3.0 | Wiki / knowledge-base feature shape (versioned articles, draft→publish, read-acknowledge) — independently built on IC's Policy machinery |
 
 ---
 

@@ -72,6 +72,7 @@ export function countHitsByKind<T>(
         asset: 0,
         task: 0,
         test: 0,
+        knowledge: 0,
     };
     for (const item of items) out[getKind(item)] += 1;
     return out;

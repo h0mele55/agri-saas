@@ -76,7 +76,7 @@ export async function getUnifiedSearch(
     const allHits: SearchHit[] = [];
 
     await runInTenantContext(ctx, async (db) => {
-        const [controls, risks, policies, evidence, assets, tasks, tests] = await Promise.all([
+        const [controls, risks, policies, evidence, assets, tasks, tests, knowledge] = await Promise.all([
             db.control.findMany({
                 where: {
                     tenantId,
@@ -189,6 +189,20 @@ export async function getUnifiedSearch(
                 },
                 take: dbLimit,
             }),
+            // Knowledge Base — SOPs + growing guides. Matches title +
+            // summary; not status-filtered (authors find their own drafts).
+            db.knowledgeArticle.findMany({
+                where: {
+                    tenantId,
+                    deletedAt: null,
+                    OR: [
+                        { title: { contains, mode: 'insensitive' } },
+                        { summary: { contains, mode: 'insensitive' } },
+                    ],
+                },
+                select: { id: true, title: true, status: true, category: true },
+                take: dbLimit,
+            }),
         ]);
 
         for (const c of controls as Row<{
@@ -235,6 +249,13 @@ export async function getUnifiedSearch(
             control: { code: string | null; name: string };
         }>[]) {
             allHits.push(buildTestHit(t, trimmed, tenantSlug));
+        }
+        for (const k of knowledge as Row<{
+            title: string;
+            status: string;
+            category: string | null;
+        }>[]) {
+            allHits.push(buildKnowledgeHit(k, trimmed, tenantSlug));
         }
     });
 
@@ -288,6 +309,7 @@ function emptyResponse(query: string, limit: number): SearchResponse {
                 asset: 0,
                 task: 0,
                 test: 0,
+                knowledge: 0,
             },
             truncated: false,
             perTypeLimit: limit,
@@ -479,6 +501,24 @@ function buildTestHit(
     };
 }
 
+function buildKnowledgeHit(
+    row: { id: string; title: string; status: string; category: string | null },
+    query: string,
+    slug: string,
+): SearchHit {
+    const meta = SEARCH_TYPE_DEFAULTS.knowledge;
+    return {
+        type: 'knowledge',
+        id: row.id,
+        title: row.title,
+        subtitle: row.category,
+        badge: row.status,
+        href: `/t/${slug}/knowledge/${row.id}`,
+        score: computeRankScore(query, { type: 'knowledge', title: row.title, subtitle: row.category }),
+        ...meta,
+    };
+}
+
 function buildFrameworkHit(
     row: { id: string; key: string; name: string; version: string | null },
     query: string,
@@ -518,4 +558,5 @@ export const __SEARCHABLE_TYPES__: ReadonlyArray<SearchHitType> = [
     'asset',
     'task',
     'test',
+    'knowledge',
 ];
