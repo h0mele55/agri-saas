@@ -52,7 +52,6 @@ function recomputeAle(r: ScenarioRisk): number {
     const vuln = f.vulnerabilityProbability ??
         (f.threatCapability != null && f.controlStrength != null ? computeVulnerability(f.threatCapability, f.controlStrength) : null);
     if (tef == null || vuln == null) return r.ale; // not enough FAIR data — keep legacy ALE
-    const lef = computeLEF(tef, vuln);
     const plm = computePLM({ productivityLoss: f.productivityLoss, responseCost: f.responseCost, replacementCost: f.replacementCost, flatEstimate: f.primaryLossMagnitude });
     return computeFairALE({ tef, vulnerability: vuln, plm, slef: f.secondaryLossEventFrequency ?? 0, slm: f.secondaryLossMagnitude ?? 0 });
 }

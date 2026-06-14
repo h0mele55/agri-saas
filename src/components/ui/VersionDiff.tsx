@@ -69,15 +69,24 @@ export interface VersionDiffProps {
  */
 export function htmlToLines(html: string): string {
     return html
+        // Structural breaks → newlines (before entity decode, so literal
+        // <br>/</p> tags become line boundaries).
         .replace(/<\s*br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
+        // Decode entities BEFORE stripping tags so entity-encoded markup
+        // (`&lt;script&gt;`) is reduced to a real tag and then removed by
+        // the strip below — never left as a live `<script`. `&amp;` is
+        // decoded LAST so it can't re-form another entity.
         .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&')
+        // Strip tag-shaped sequences (`<` + letter or `/`), including an
+        // unterminated one — so a decoded `<script` can never survive,
+        // while a literal `<` in text (e.g. "5 < 10") is preserved.
+        .replace(/<\/?[a-zA-Z][^>]*>?/g, '')
         .trim();
 }
 
