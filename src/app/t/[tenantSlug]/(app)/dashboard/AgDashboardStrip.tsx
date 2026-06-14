@@ -1,0 +1,56 @@
+'use client';
+
+import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
+import { useTenantHref } from '@/lib/tenant-context-provider';
+import { CACHE_KEYS } from '@/lib/swr-keys';
+import type { AgDashboardPayload } from '@/app-layer/usecases/ag-dashboard';
+
+import RecentJournalCard from './RecentJournalCard';
+import LowStockCard from './LowStockCard';
+import MyFarmTasksCard from './MyFarmTasksCard';
+
+/**
+ * Agriculture dashboard strip — a small "your farm today" row of cards
+ * rendered ABOVE the fixed GRC executive cards on the tenant dashboard.
+ *
+ * Gating is module-driven, read from the `enabledModules` the
+ * `/dashboard/ag` payload carries (the tenant's enabled set isn't on the
+ * client `TenantContext`, so the data source threads it through):
+ *
+ *   - Journal card  → only when the JOURNAL module is enabled.
+ *   - Low-stock card → only when the INVENTORY module is enabled.
+ *   - My-tasks card → always (Tasks is not module-gated).
+ *
+ * If NEITHER ag module is enabled the whole strip renders nothing — a
+ * pure-GRC tenant sees no farm row at all. While the first request is in
+ * flight (no `data` yet) the strip also renders nothing, so it never
+ * flashes empty chrome on a GRC tenant.
+ */
+export default function AgDashboardStrip() {
+    const href = useTenantHref();
+    const { data } = useTenantSWR<AgDashboardPayload>(CACHE_KEYS.dashboard.ag());
+
+    if (!data) return null;
+
+    const journalOn = data.enabledModules.includes('JOURNAL');
+    const inventoryOn = data.enabledModules.includes('INVENTORY');
+
+    // The strip exists only for ag tenants. With neither core ag module
+    // enabled, render nothing — the farm row is invisible for pure-GRC.
+    if (!journalOn && !inventoryOn) return null;
+
+    return (
+        <div
+            id="ag-dashboard-strip"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-default"
+        >
+            {journalOn && (
+                <RecentJournalCard href={href('/journal')} items={data.recentJournal} />
+            )}
+            {inventoryOn && (
+                <LowStockCard href={href('/inventory')} items={data.lowStock} />
+            )}
+            <MyFarmTasksCard href={href('/farm-tasks')} items={data.myTasks} />
+        </div>
+    );
+}

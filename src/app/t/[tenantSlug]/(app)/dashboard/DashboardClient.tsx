@@ -97,6 +97,7 @@ import type { TrendPayload } from '@/app-layer/usecases/compliance-trends';
 import type { RiskMatrixConfigShape } from '@/lib/risk-matrix/types';
 import { Heading } from '@/components/ui/typography';
 import { Card, cardVariants } from '@/components/ui/card';
+import AgDashboardStrip from './AgDashboardStrip';
 
 // ─── KPI trend bundle ─────────────────────────────────────────────────
 
@@ -226,6 +227,12 @@ export default function DashboardClient({
             }}
         >
             <OnboardingBanner />
+
+            {/* ─── Agriculture strip (module-gated) ───
+                A small "your farm today" row that sits ABOVE the fixed GRC
+                cards. Renders nothing for a pure-GRC tenant (neither the
+                JOURNAL nor INVENTORY module enabled). */}
+            <AgDashboardStrip />
 
             {/* ─── Masthead — Hero readiness metric (v2-PR-10) ─── */}
             <HeroMetric
