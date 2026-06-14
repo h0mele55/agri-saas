@@ -70,6 +70,18 @@ describe('getLimit', () => {
         const mod = await loadEntitlements(undefined);
         expect(mod.getLimit('ENTERPRISE', 'control')).toBeNull();
     });
+    it('caps users + locations for FREE (startup-farmer tier)', async () => {
+        const mod = await loadEntitlements(undefined);
+        expect(mod.getLimit('FREE', 'user')).toBe(3);
+        expect(mod.getLimit('FREE', 'location')).toBe(5);
+    });
+    it('lifts user + location caps for PRO/TRIAL, unlimited on ENTERPRISE', async () => {
+        const mod = await loadEntitlements(undefined);
+        expect(mod.getLimit('PRO', 'user')).toBe(25);
+        expect(mod.getLimit('TRIAL', 'location')).toBe(50);
+        expect(mod.getLimit('ENTERPRISE', 'user')).toBeNull();
+        expect(mod.getLimit('ENTERPRISE', 'location')).toBeNull();
+    });
 });
 
 // ─── Mocks for plan resolution + count ──────────────────────────

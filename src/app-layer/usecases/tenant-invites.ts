@@ -25,6 +25,7 @@ import {
 import { logEvent } from '../events/audit';
 import { appendAuditEntry } from '@/lib/audit';
 import { runInTenantContext } from '@/lib/db-context';
+import { assertWithinLimit } from '@/lib/billing/entitlements';
 import { notFound, badRequest, forbidden, gone, internal } from '@/lib/errors/types';
 import { prisma } from '@/lib/prisma';
 import { hashForLookup } from '@/lib/security/encryption';
@@ -70,6 +71,10 @@ export async function createInviteToken(
             throw forbidden('Only OWNERs can invite other OWNERs');
         }
     }
+
+    // Plan gate: cap active team members (seats) on the startup-farmer
+    // (FREE) tier; ENTERPRISE is unlimited.
+    await assertWithinLimit(ctx, 'user');
 
     const normalizedEmail = input.email.toLowerCase().trim();
     const token = randomBytes(32).toString('base64url');

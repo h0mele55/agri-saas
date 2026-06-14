@@ -23,6 +23,30 @@ export const ALL_MODULES: readonly ModuleKey[] = [
     'AI',
 ] as const;
 
+/**
+ * "Simple mode" — the curated module set for a startup farmer. Just the
+ * core ag surfaces (field journal, inventory, crop planning); none of the
+ * enterprise GRC / automation modules. A tenant opts into simple mode by
+ * saving this as its `TenantModuleSettings.enabledModules`. The enterprise
+ * persona leaves the row null (all modules) or enables a richer set.
+ *
+ * Note: Tasks + Knowledge Base are NOT module-gated (always available), so
+ * they aren't listed here — a simple-mode farmer still gets them.
+ */
+export const SIMPLE_MODE_MODULES: readonly ModuleKey[] = [
+    'JOURNAL',
+    'INVENTORY',
+    'PLANNING',
+] as const;
+
+/** True when a tenant's enabled set is exactly the simple-mode preset. */
+export function isSimpleMode(modules: readonly ModuleKey[]): boolean {
+    return (
+        modules.length === SIMPLE_MODE_MODULES.length &&
+        SIMPLE_MODE_MODULES.every((m) => modules.includes(m))
+    );
+}
+
 export const MODULE_LABELS: Record<ModuleKey, string> = {
     JOURNAL: 'Farm Journal',
     INVENTORY: 'Inventory',

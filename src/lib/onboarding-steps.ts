@@ -71,7 +71,7 @@ export const DEFAULT_TOUR_STEPS: ReadonlyArray<OnboardingStep> = [
     {
         id: 'welcome',
         selector: null,
-        title: 'Welcome to Inflect Compliance',
+        title: 'Welcome to your farm workspace',
         description:
             'A 30-second tour of the workspace. Use the arrow keys to navigate, or click Skip to dismiss for good.',
     },
@@ -84,46 +84,78 @@ export const DEFAULT_TOUR_STEPS: ReadonlyArray<OnboardingStep> = [
         selector: '[data-testid="nav-dashboard"]',
         title: 'Dashboard',
         description:
-            'Your daily start point — KPIs, due items, and recent activity at a glance.',
+            'Your daily start point — today\'s field work, low stock, and recent activity at a glance.',
         side: 'right',
     },
 
-    // Step 3 — Controls.
+    // ── Core ag steps (both personas; always present) ──
+
+    // Step 3 — Journal.
+    {
+        id: 'sidebar.journal',
+        selector: '[data-testid="nav-journal"]',
+        title: 'Field Journal',
+        description:
+            'The daily logbook — record activities, observations, inputs, and harvests with photos and quantities.',
+        side: 'right',
+    },
+
+    // Step 4 — Inventory.
+    {
+        id: 'sidebar.inventory',
+        selector: '[data-testid="nav-inventory"]',
+        title: 'Inventory',
+        description:
+            'Track seed, fertiliser, and pesticide stock by lot — spray jobs deduct automatically, harvests create new lots.',
+        side: 'right',
+    },
+
+    // Step 5 — Farm Tasks.
+    {
+        id: 'sidebar.farm-tasks',
+        selector: '[data-testid="nav-farm-tasks"]',
+        title: 'Farm Tasks',
+        description:
+            'Assign field work to operators, tied to places and equipment — and see it on the calendar.',
+        side: 'right',
+    },
+
+    // Step 6 — Knowledge.
+    {
+        id: 'sidebar.knowledge',
+        selector: '[data-testid="nav-knowledge"]',
+        title: 'Knowledge Base',
+        description:
+            'Versioned SOPs and growing guides your team reads and acknowledges.',
+        side: 'right',
+    },
+
+    // ── Enterprise steps. These nav items only appear when the
+    //    matching module is enabled, so `filterStepsForCurrentPage`
+    //    drops them for a simple-mode (startup farmer) tenant — the
+    //    tour adapts to the persona automatically, no branching. ──
+
+    // Step 7 — Certification (enterprise only).
     {
         id: 'sidebar.controls',
         selector: '[data-testid="nav-controls"]',
-        title: 'Controls',
+        title: 'Certification',
         description:
-            'The register of every control your tenant operates. Open it to see status, owners, and traceability.',
+            'Audit-ready controls, evidence, and frameworks (GlobalG.A.P. / organic / Red Tractor) — for certified producers.',
         side: 'right',
     },
 
-    // Step 4 — Risks.
+    // Step 8 — Suppliers & buyers (enterprise only).
     {
-        id: 'sidebar.risks',
-        selector: '[data-testid="nav-risks"]',
-        title: 'Risks',
+        id: 'sidebar.vendors',
+        selector: '[data-testid="nav-vendors"]',
+        title: 'Suppliers & Buyers',
         description:
-            'Inherent + residual scoring with an interactive heatmap. Mitigations link directly to controls.',
+            'Your supplier and buyer register with assessments — appears when the Suppliers module is on.',
         side: 'right',
     },
 
-    // Step 5 — Policies.
-    {
-        id: 'sidebar.policies',
-        selector: '[data-testid="nav-policies"]',
-        title: 'Policies',
-        description:
-            'Markdown / external-link / file-upload variants with version history and approval workflow.',
-        side: 'right',
-    },
-
-    // (The previous sidebar.frameworks step was retired when the
-    // Framework nav entry was dropped from the sidebar — the page
-    // is reachable via the Frameworks pill on the Audits page
-    // header and via the command palette.)
-
-    // Step 6 — Command palette tip. No DOM anchor (the palette is
+    // Step 9 — Command palette tip. No DOM anchor (the palette is
     // a portal that only mounts on Cmd+K). Centred card with the
     // shortcut spelled out.
     {
@@ -131,18 +163,11 @@ export const DEFAULT_TOUR_STEPS: ReadonlyArray<OnboardingStep> = [
         selector: null,
         title: 'Command palette',
         description:
-            'Press ⌘K (or Ctrl+K) anywhere to search controls, risks, policies, evidence, and frameworks — or jump to any page.',
+            'Press ⌘K (or Ctrl+K) anywhere to search journal entries, inventory, tasks, and knowledge — or jump to any page.',
     },
 
-    // (The previous sidebar.theme-toggle step was retired when the
-    // theme toggle was dropped from the sidebar chrome — theme is
-    // still toggleable from the command palette via the
-    // `action:toggle-theme` command, which the `tip.command-palette`
-    // step above already advertises.)
-
-    // Step 8 — final tour-complete card. Tells the user how to
-    // restart, which is the single most common follow-up
-    // question.
+    // Step 10 — final tour-complete card. Tells the user how to
+    // restart, which is the single most common follow-up question.
     {
         id: 'tour-complete',
         selector: null,
@@ -151,6 +176,30 @@ export const DEFAULT_TOUR_STEPS: ReadonlyArray<OnboardingStep> = [
             'You can restart this tour any time from the "Take the tour" link in the sidebar footer.',
     },
 ];
+
+// ─── Persona-aware step selection ─────────────────────────────────────
+
+/**
+ * The two product personas. `startup` is the simple-mode farmer (core ag
+ * modules only); `enterprise` is the large producer / certified operation
+ * (the full module surface, often inside an Organization of farms).
+ */
+export type OnboardingPersona = 'startup' | 'enterprise';
+
+/** Step ids that are only meaningful for the enterprise persona. */
+const ENTERPRISE_ONLY_STEP_IDS = new Set(['sidebar.controls', 'sidebar.vendors']);
+
+/**
+ * Curated step set for a persona. The runtime tour ALSO filters by anchor
+ * presence (`filterStepsForCurrentPage`), so a startup farmer never sees a
+ * certification step even via `DEFAULT_TOUR_STEPS` — this selector is the
+ * explicit, analytics-friendly form (and lets a caller pre-trim before the
+ * DOM exists, e.g. SSR or tests).
+ */
+export function getTourStepsForPersona(persona: OnboardingPersona): OnboardingStep[] {
+    if (persona === 'enterprise') return [...DEFAULT_TOUR_STEPS];
+    return DEFAULT_TOUR_STEPS.filter((s) => !ENTERPRISE_ONLY_STEP_IDS.has(s.id));
+}
 
 // ─── Persistence — completion / dismissal tracking ────────────────────
 

@@ -26,6 +26,7 @@
     "framework:import": "tsx scripts/framework-import.ts",
     "import:units": "tsx scripts/import-units.ts",
     "import:knowledge": "tsx scripts/import-knowledge.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "verify:stock-chain": "tsx scripts/verify-stock-chain.ts",
     "test": "jest",
     "test:e2e": "playwright test",

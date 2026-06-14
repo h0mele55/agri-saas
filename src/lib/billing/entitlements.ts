@@ -75,24 +75,27 @@ export type BillingMode = 'SAAS' | 'SELFHOSTED';
  * `assertWithinLimit(ctx, '<resource>')` at the resource's create
  * site.
  */
-export type GatedResource = 'control';
+export type GatedResource = 'control' | 'user' | 'location';
 
 /**
  * Numeric cap by (plan, resource). `null` means unlimited.
  *
- * Numbers chosen to match the documented free-tier evaluation
- * surface: 10 controls is a meaningful "kick the tyres" budget
- * (enough to map a couple of policy areas) without enabling a
- * full ISO 27001 implementation, which is the upgrade trigger.
+ * Re-keyed for the agriculture product: the two resources that
+ * meaningfully separate a startup farmer (FREE / "simple mode") from a
+ * large grain producer (ENTERPRISE) are TEAM SIZE (`user`) and the
+ * number of FARMS/FIELDS (`location`). FREE gets a single-operator,
+ * few-fields budget; the working tiers lift it; ENTERPRISE is
+ * unlimited. `control` is retained for tenants running the
+ * CERTIFICATION module.
  *
  * TRIAL inherits PRO — a paying-customer-on-trial gets the full
  * working surface, not an artificially constrained one.
  */
 const PLAN_LIMITS: Record<Plan, Record<GatedResource, number | null>> = {
-    FREE: { control: 10 },
-    TRIAL: { control: 100 },
-    PRO: { control: 100 },
-    ENTERPRISE: { control: null },
+    FREE: { control: 10, user: 3, location: 5 },
+    TRIAL: { control: 100, user: 25, location: 50 },
+    PRO: { control: 100, user: 25, location: 50 },
+    ENTERPRISE: { control: null, user: null, location: null },
 };
 
 // ─── Mode decision ───────────────────────────────────────────────
@@ -160,15 +163,28 @@ async function getCurrentCount(
     resource: GatedResource,
 ): Promise<number> {
     return runInTenantContext(ctx, async (db) => {
-        if (resource === 'control') {
-            return db.control.count({
-                where: { tenantId: ctx.tenantId, deletedAt: null },
-            });
+        switch (resource) {
+            case 'control':
+                return db.control.count({
+                    where: { tenantId: ctx.tenantId, deletedAt: null },
+                });
+            case 'user':
+                // Active team members (the seats the plan pays for).
+                return db.tenantMembership.count({
+                    where: { tenantId: ctx.tenantId, status: 'ACTIVE' },
+                });
+            case 'location':
+                // Farms / fields (non-deleted).
+                return db.location.count({
+                    where: { tenantId: ctx.tenantId, deletedAt: null },
+                });
+            default: {
+                // Exhaustive — TypeScript flags any new GatedResource
+                // value that isn't handled above.
+                const _exhaustive: never = resource;
+                return _exhaustive;
+            }
         }
-        // Exhaustive — TypeScript will flag any new GatedResource
-        // value that isn't handled above.
-        const _exhaustive: never = resource;
-        return _exhaustive;
     });
 }
 
