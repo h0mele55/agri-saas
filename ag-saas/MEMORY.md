@@ -1,14 +1,14 @@
 # ag-saas — MEMORY (latest status)
 
 **Repo:** `agri-saas` (the product), built ON the inflect-compliance (IC) chassis.
-**Updated:** end of Knowledge Base build.
-**Active branch:** `feat/knowledge-base` (pushed; **not yet merged to main**),
-branched from `feat/farm-tasks`. The
-feat/journal→inventory→farm-tasks→knowledge-base line carries the full ag stack:
-Feature-1 (spray map), WP-2 module gating, the inventory ledger (#13), the Field
-Journal, lot traceability, farm tasks, and now the Knowledge Base.
-(`feat/phase0-platform` is a SEPARATE, richer module-gating cut off `main` — see
-Open follow-ups.)
+**Updated:** end of the Integration capstone — **MVP feature-complete**.
+**Active branch:** `feat/integration` (pushed; **not yet merged to main**),
+branched from `feat/knowledge-base`. The
+feat/journal→inventory→farm-tasks→knowledge-base→integration line carries the
+full ag stack: Feature-1 (spray map), WP-2 module gating, the inventory ledger
+(#13), the Field Journal, lot traceability, farm tasks, the Knowledge Base, and
+the two-persona integration. (`feat/phase0-platform` is a SEPARATE, richer
+module-gating cut off `main` — see Open follow-ups.)
 
 ## Product (1-liner)
 Enterprise agriculture-management SaaS on the IC chassis. Moat = a repurposed
@@ -38,7 +38,46 @@ The compliance domain is **repurposed + module-gated** (NOT deleted).
 - **Field Journal** (`feat/journal`, PUSHED, not merged).
 - **Inventory traceability** (`feat/inventory`, PUSHED, not merged).
 - **Farm Tasks** (`feat/farm-tasks`, PUSHED, not merged).
-- **Knowledge Base** (THIS session, `feat/knowledge-base`, PUSHED, not merged).
+- **Knowledge Base** (`feat/knowledge-base`, PUSHED, not merged).
+- **Integration capstone** (THIS session, `feat/integration`, PUSHED, not merged)
+  — two personas, one product.
+
+## Integration capstone (this session) — what + where
+Goal: one coherent product for a startup farmer AND a large grain producer.
+Achieved almost entirely by WIRING existing systems. Commits `9f93099c`
+(backend + seed) + `82444136` (ag dashboard strip).
+
+- **Simple mode vs enterprise** = the existing module gating, no new flag.
+  `SIMPLE_MODE_MODULES` (src/lib/modules.ts) = [JOURNAL, INVENTORY, PLANNING];
+  `isSimpleMode()`. A startup tenant saves that curated `enabledModules` list →
+  `useNavSections` hides everything else. Enterprise keeps ALL modules + an
+  Organization of child farms.
+- **Entitlements re-keyed** (src/lib/billing/entitlements.ts): `GatedResource +=
+  user, location` (FREE 3/5, PRO/TRIAL 25/50, ENTERPRISE unlimited);
+  `assertWithinLimit` wired at `createLocation` + `createInviteToken`. Caps bite
+  in SAAS mode; self-hosted/dev resolves to ENTERPRISE (unlimited).
+- **Persona onboarding** (src/lib/onboarding-steps.ts): ag-focused Driver.js
+  tour. `filterStepsForCurrentPage` drops absent-nav steps, so ONE set adapts
+  per persona automatically; `getTourStepsForPersona()` is the explicit selector.
+- **Dual-persona demo seed** (`scripts/seed-demo.ts`, `npm run seed:demo`): a
+  Green Acres startup farm (simple mode, FREE) + a BigFarm Co Organization with
+  3 child farms (enterprise, hub-and-spoke), each with location / lot+ledger /
+  journal / farm task / 6 CC0 guides, plus an org admin (`admin@bigfarm.demo`)
+  provisioned across the farms. Idempotent; **uses direct prisma for task +
+  journal** (seed convention — the createTask BullMQ enqueue hangs without
+  Redis) and force-exits.
+- **Ag dashboard strip** (src/app/.../dashboard/AgDashboardStrip + 3 cards +
+  `/dashboard/ag` route + `getAgDashboard` usecase): recent journal / low stock
+  / my farm tasks, gated by the enabledModules the payload carries; renders
+  nothing for a pure-GRC tenant. The configurable react-grid-layout widget
+  system stays at the ORG level (the enterprise portfolio).
+
+**Verified:** tsc 0; demo seed runs clean (both personas, DB-verified data);
+billing/entitlements + modules + onboarding + invite + control-mutations suites
+green; structural guardrails green (codebase-hygiene meta-ratchet, module-gate,
+rls-coverage, no-secrets, no-explicit-any, …) + 12 design-system ratchets for
+the dashboard strip. Manual verification log in
+`docs/implementation-notes/2026-06-14-integration-capstone.md`.
 
 ## Knowledge Base (this session) — what + where
 Goal: versioned SOPs + growing guides workers READ and ACKNOWLEDGE — by
@@ -206,20 +245,33 @@ PostgreSQL 16 + `postgresql-16-postgis-3`; cluster `16/main`.
   OFBiz, …) with attribution in **`THIRD_PARTY_NOTICES.md`** (CREATED this
   session — append a credited entry on each new port).
 
-## Next (MVP core — expected build prompts)
-Locations/Fields on the map · ~~Farm Journal~~ ✓ · ~~Inventory/traceability~~ ✓
-(ledger + lots + genealogy + low-stock done; a richer InvenTree-style stock
-list UI is still open) · ~~Ag Tasks~~ ✓ (farm tasks on the IC Task module) ·
-~~Knowledge Base~~ ✓ (SOPs + growing guides on the Policy machinery) · Weather
-feed · Onboarding + simple-mode + PWA field entry · Certification module (the
-gated GRC surface, returns later) · Plantings/crops (the PLANTING TaskLink
-target + harvest provenance).
+## Next (MVP feature-complete — what remains)
+The MVP loop is done: ~~Farm Journal~~ ✓ · ~~Inventory/traceability~~ ✓ ·
+~~Ag Tasks~~ ✓ · ~~Knowledge Base~~ ✓ · ~~Onboarding + simple-mode + dual-persona
+integration~~ ✓. **The #1 next step is INTEGRATION/MERGE** — collapse the 7-branch
+stack into `main` and decide WP-2-vs-Phase-0 gating (see Open follow-ups).
+Remaining feature ideas: Weather feed · richer InvenTree-style stock list UI ·
+PWA field-entry polish · Plantings/crops (the reserved `PLANTING` TaskLink target
++ harvest provenance) · Certification module surfacing (the gated GRC surface for
+certified producers).
 
 ## Open follow-ups / deferrals
-- **Branch topology:** the ag work lives on a `feat/spray-map → … → feat/journal
-  → feat/inventory` stack (each PUSHED, none merged). `feat/phase0-platform` is a
-  PARALLEL module-gating cut off `main`. Integration/merge order + which gating
-  wins (WP-2 on the stack vs Phase-0) is an open decision; open PRs when ready.
+- **Branch topology (THE big one):** the ag work is a 7-branch stack —
+  `feat/journal → inventory → farm-tasks → knowledge-base → integration` (plus
+  the earlier spray-map / module-gating / parcel-drawing / offline branches),
+  each PUSHED, NONE merged to `main`. `feat/phase0-platform` is a PARALLEL,
+  richer module-gating cut off `main`. **Integration/merge order + which gating
+  wins (the WP-2 gating on this stack vs Phase-0's plan∧tenant resolution) is the
+  #1 open decision.** Open PRs + collapse to `main` when ready.
+- **Demo seed needs Redis-free usecases:** `seed-demo.ts` uses direct prisma for
+  the task + journal entry because `createTask`'s BullMQ assignment-notification
+  enqueue hangs without Redis. If the seed should exercise those usecases, run a
+  local Redis (docker-compose) or add an enqueue kill-switch env.
+- **Ag dashboard is hardcoded cards, gated by modules** (not a tenant-level
+  react-grid-layout widget system). For a pure-ag (simple-mode) tenant the
+  existing GRC cards below the ag strip render empty — a follow-up should hide
+  the GRC grid when CERTIFICATION/RISK modules are off. The configurable RGL
+  widget system lives at the ORG level (enterprise portfolio).
 - **Harvest form has no parcel picker** — there is no tenant-wide `/parcels`
   endpoint (parcels are nested under `locations/[id]/parcels`). The `harvest`
   payload's `parcelId` (which drives DERIVATION genealogy) is therefore not set
