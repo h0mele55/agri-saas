@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { listFindings, createFinding } from '@/app-layer/usecases/finding';
 import { withValidatedBody } from '@/lib/validation/route';
 import { CreateFindingSchema } from '@/lib/schemas';
@@ -11,6 +12,8 @@ import { recordListPageRowCount } from '@/lib/observability/list-page-metrics';
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     // PR-5 — backfill cap.
     const findings = await listFindings(ctx, { take: LIST_BACKFILL_CAP + 1 });
     const result = applyBackfillCap(findings);
@@ -27,6 +30,8 @@ export const GET = withApiErrorHandling(async (req: NextRequest, { params: param
 export const POST = withApiErrorHandling(withValidatedBody(CreateFindingSchema, async (req, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const finding = await createFinding(ctx, body);
     return jsonResponse(finding, { status: 201 });
 }));

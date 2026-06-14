@@ -6,6 +6,8 @@ import { forbidden } from '@/lib/errors/types';
 import { runInTenantContext } from '@/lib/db-context';
 import { ModuleKey } from '@prisma/client';
 import { ALL_MODULES, resolveEnabledModules, coerceModuleKeys } from '@/lib/modules';
+import { getTenantPlan } from '@/lib/entitlements-server';
+import { planAllowsModule, planModules } from '@/lib/entitlements';
 
 /**
  * WP-2 — per-tenant module gating. `assertModuleEnabled` is the gate
@@ -67,8 +69,36 @@ export async function isModuleEnabled(ctx: RequestContext, key: ModuleKey): Prom
  * `getTenantCtx` in any route belonging to a gated module. The key is
  * echoed only in the (non-sensitive) error code `module_disabled:<key>`.
  */
+/**
+ * Modules AVAILABLE to the tenant = (plan allows) ∩ (tenant enabled).
+ * The plan half resolves via `@/lib/entitlements`; a `null` plan
+ * (billing unconfigured / self-hosted) allows every module, so the
+ * tenant flag is the only gate in that mode.
+ */
+export async function getAvailableModules(ctx: RequestContext): Promise<ModuleKey[]> {
+    const [plan, enabled] = await Promise.all([
+        getTenantPlan(ctx.tenantId),
+        getEnabledModules(ctx),
+    ]);
+    const allowed = new Set(planModules(plan));
+    return enabled.filter((k) => allowed.has(k));
+}
+
+export async function isModuleAvailable(ctx: RequestContext, key: ModuleKey): Promise<boolean> {
+    const plan = await getTenantPlan(ctx.tenantId);
+    if (!planAllowsModule(plan, key)) return false;
+    return isModuleEnabled(ctx, key);
+}
+
+/**
+ * Throw a generic 403 if `key` is not AVAILABLE (plan-allowed ∧
+ * tenant-enabled). Call after `getTenantCtx` in any API route belonging
+ * to a gated module. The key is echoed only in the (non-sensitive)
+ * error code `module_disabled:<key>`. The page twin is
+ * `requireModule()` (redirect) in `@/lib/security/require-module`.
+ */
 export async function assertModuleEnabled(ctx: RequestContext, key: ModuleKey): Promise<void> {
-    if (!(await isModuleEnabled(ctx, key))) {
+    if (!(await isModuleAvailable(ctx, key))) {
         throw forbidden(`module_disabled: ${key}`);
     }
 }

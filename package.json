@@ -25,6 +25,7 @@
     "db:backfill-org-widgets": "tsx scripts/backfill-org-dashboard-widgets.ts",
     "framework:import": "tsx scripts/framework-import.ts",
     "import:units": "tsx scripts/import-units.ts",
+    "seed:farm": "tsx scripts/seed-demo-farm.ts",
     "test": "jest",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test tests/e2e/a11y.spec.ts",

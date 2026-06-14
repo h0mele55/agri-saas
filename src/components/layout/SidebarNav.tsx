@@ -56,10 +56,18 @@ interface NavSectionDef {
 
 // ─── Navigation configuration ───
 
+/** Fail-closed nav visibility: an item with an explicit `visible` flag
+ *  shows only when strictly true; an item with no flag is always shown. */
+function navItemVisible(item: { visible?: boolean }): boolean {
+    return item.visible === undefined ? true : item.visible === true;
+}
+
 export function useNavSections(): NavSectionDef[] {
     const tenantHref = useTenantHref();
     const perms = usePermissions();
     const tenant = useTenantContext();
+    // WP-2 — the GRC surface is gated behind CERTIFICATION (ag-first default).
+    const certAvailable = (tenant.availableModules ?? []).includes('CERTIFICATION');
     // Live badge — fetched lazily; undefined when count is 0 or load fails.
     const calendarBadge = useCalendarBadge(tenant.tenantSlug);
 
@@ -94,9 +102,9 @@ export function useNavSections(): NavSectionDef[] {
                 { href: tenantHref('/assets'), label: 'Asset', icon: Building2 },
                 { href: tenantHref('/locations'), label: 'Location', icon: MapPin },
                 { href: tenantHref('/inventory'), label: 'Inventory', icon: Boxes },
-                { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle },
-                { href: tenantHref('/controls'), label: 'Control', icon: ShieldCheck },
-            ],
+                { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle, visible: certAvailable },
+                { href: tenantHref('/controls'), label: 'Control', icon: ShieldCheck, visible: certAvailable },
+            ].filter(navItemVisible),
         },
         {
             title: 'Comply',
@@ -105,7 +113,7 @@ export function useNavSections(): NavSectionDef[] {
                 // "Comply" because audits are a daily-cadence
                 // workflow (Plan / Schedule / Review / Docs), not
                 // ongoing governance configuration.
-                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck },
+                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck, visible: certAvailable },
                 { href: tenantHref('/tasks'), label: 'Plan', icon: ClipboardList },
                 {
                     href: tenantHref('/calendar'),
@@ -115,7 +123,7 @@ export function useNavSections(): NavSectionDef[] {
                 },
                 { href: tenantHref('/tests'), label: 'Review', icon: FlaskConical },
                 { href: tenantHref('/evidence'), label: 'Docs', icon: Paperclip },
-            ],
+            ].filter(navItemVisible),
         },
         {
             title: 'Manage',
@@ -125,14 +133,14 @@ export function useNavSections(): NavSectionDef[] {
                 // the Audits page header (R13-PR9) and via the command
                 // palette (⌘K → "Frameworks").
                 // R13-PR16 — Audit moved up to Comply (see above).
-                { href: tenantHref('/policies'), label: 'Policy', icon: FileText },
-                { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck },
+                { href: tenantHref('/policies'), label: 'Policy', icon: FileText, visible: certAvailable },
+                { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck, visible: certAvailable },
                 // R25-PR-A — Processes canvas. Visual mapping of
                 // business + IT processes with controls placed on
                 // the connections between steps. Sits under Manage
                 // alongside Policy + Vendor — same governance-tool
                 // tier.
-                { href: tenantHref('/processes'), label: 'Process', icon: Workflow },
+                { href: tenantHref('/processes'), label: 'Process', icon: Workflow, visible: certAvailable },
                 { href: tenantHref('/reports'), label: 'Report', icon: BarChart3, visible: perms.reports.view },
             ].filter(item => {
                 // DEFENSE-IN-DEPTH (Layer 2 of 2):

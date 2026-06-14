@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { listRisks, listRisksPaginated, createRisk, listRisksWithDeleted } from '@/app-layer/usecases/risk';
 import { withValidatedBody } from '@/lib/validation/route';
 import { CreateRiskSchema } from '@/lib/schemas';
@@ -25,6 +26,8 @@ const RiskQuerySchema = z.object({
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const sp = Object.fromEntries(req.nextUrl.searchParams.entries());
     const query = RiskQuerySchema.parse(sp);
 
@@ -78,6 +81,8 @@ export const GET = withApiErrorHandling(async (req: NextRequest, { params: param
 export const POST = withApiErrorHandling(withValidatedBody(CreateRiskSchema, async (req, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const risk = await createRisk(ctx, body);
     return jsonResponse(risk, { status: 201 });
 }));

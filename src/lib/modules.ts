@@ -49,11 +49,21 @@ export const MODULE_DESCRIPTIONS: Record<ModuleKey, string> = {
 };
 
 /**
+ * Ag-first default for a tenant with NO settings row: every module
+ * EXCEPT CERTIFICATION. Phase-0 makes the agriculture surface the
+ * chassis; the compliance/GRC surface stays gated off until a tenant
+ * opts in (flips CERTIFICATION on). A saved row is used verbatim.
+ */
+export const DEFAULT_MODULES: readonly ModuleKey[] = ALL_MODULES.filter(
+    (m) => m !== 'CERTIFICATION',
+);
+
+/**
  * Resolve a tenant's enabled modules from its settings row.
- * `null` row (the common case) → all modules enabled.
+ * `null` row (a fresh tenant) → the ag-first {@link DEFAULT_MODULES}.
  */
 export function resolveEnabledModules(row: { enabledModules: ModuleKey[] } | null | undefined): ModuleKey[] {
-    if (!row) return [...ALL_MODULES];
+    if (!row) return [...DEFAULT_MODULES];
     return row.enabledModules;
 }
 

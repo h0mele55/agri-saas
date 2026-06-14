@@ -3,7 +3,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import { auth } from '@/auth';
 import { getTenantServerContext } from '@/lib/server/tenant-context.server';
 import { TenantProvider } from '@/lib/tenant-context-provider';
-import { getTenantPlan } from '@/lib/entitlements-server';
+import { getTenantPlan, getAvailableModulesForTenant } from '@/lib/entitlements-server';
 
 /**
  * This layout depends on auth cookies and database queries — it can never be statically generated.
@@ -53,6 +53,7 @@ export default async function TenantLayout({
     }
 
     const plan = await getTenantPlan(serverCtx.tenant.id) ?? undefined;
+    const availableModules = await getAvailableModulesForTenant(serverCtx.tenant.id);
 
     return (
         <TenantProvider value={{
@@ -62,6 +63,7 @@ export default async function TenantLayout({
             currencySymbol: serverCtx.tenant.currencySymbol,
             role: serverCtx.role,
             plan,
+            availableModules,
             permissions: serverCtx.permissions,
             appPermissions: serverCtx.appPermissions,
         }}>

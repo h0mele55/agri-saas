@@ -1,5 +1,7 @@
 import prisma from '@/lib/prisma';
-import { hasFeature, getRequiredPlan, FEATURE_LABELS, type FeatureKey } from './entitlements';
+import { hasFeature, getRequiredPlan, FEATURE_LABELS, planModules, type FeatureKey } from './entitlements';
+import { resolveEnabledModules } from './modules';
+import type { ModuleKey } from '@prisma/client';
 import type { BillingPlan } from '@prisma/client';
 
 /**
@@ -77,4 +79,22 @@ export async function listBillingEvents(tenantId: string, limit = 20) {
             createdAt: true,
         },
     });
+}
+
+/**
+ * WP-2 — modules AVAILABLE to a tenant for server-rendered surfaces
+ * (the nav). available = (plan allows) ∩ (tenant enabled). Mirrors the
+ * RLS-aware `getAvailableModules(ctx)` usecase but keyed by tenantId for
+ * use in the tenant layout, where only the tenant id + plan are at hand.
+ */
+export async function getAvailableModulesForTenant(tenantId: string): Promise<ModuleKey[]> {
+    const [plan, row] = await Promise.all([
+        getTenantPlan(tenantId),
+        prisma.tenantModuleSettings.findUnique({
+            where: { tenantId },
+            select: { enabledModules: true },
+        }),
+    ]);
+    const allowed = new Set(planModules(plan));
+    return resolveEnabledModules(row).filter((k) => allowed.has(k));
 }

@@ -14,6 +14,8 @@ export interface TenantContextValue {
     currencySymbol?: string;
     role: Role;
     plan?: string;
+    /** WP-2 — modules available to this tenant (plan ∧ enabled); gates GRC nav. */
+    availableModules?: string[];
     permissions: {
         canRead: boolean;
         canWrite: boolean;

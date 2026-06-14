@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { withApiErrorHandling } from '@/lib/errors/api';
 import { withValidatedBody } from '@/lib/validation/route';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { CreatePolicySchema } from '@/lib/schemas';
 import * as policyUsecases from '@/app-layer/usecases/policy';
 import { z } from 'zod';
@@ -24,6 +25,8 @@ const PolicyQuerySchema = z.object({
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
   const params = await paramsPromise;
   const ctx = await getTenantCtx(params, req);
+  // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+  await assertModuleEnabled(ctx, 'CERTIFICATION');
   const sp = Object.fromEntries(req.nextUrl.searchParams.entries());
   const query = PolicyQuerySchema.parse(sp);
 
@@ -74,6 +77,8 @@ export const POST = withApiErrorHandling(
   withValidatedBody(CreatePolicySchema, async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
 
     let policy;
     if (body.templateId) {

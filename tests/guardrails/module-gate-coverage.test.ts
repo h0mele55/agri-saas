@@ -36,9 +36,51 @@ const MODULE_GATED_ROUTES: ReadonlyArray<{
     module: string;
 }> = [
     {
-        // Certification / compliance domain — the frameworks list is the
-        // canonical entry point, gated as the demonstration site for WP-2.
+        file: 'src/app/api/t/[tenantSlug]/controls/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/clauses/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/coverage/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
         file: 'src/app/api/t/[tenantSlug]/frameworks/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/mapping/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/policies/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/audits/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/findings/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/risks/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/vendors/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/access-reviews/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/processes/route.ts',
         module: 'CERTIFICATION',
     },
     // Future module-gated routes add themselves here.
@@ -140,8 +182,12 @@ describe('module-gate coverage guardrail — regression proof', () => {
 
         // Simulate a PR that strips both the import and the call.
         const importMatch = realSrc.match(IMPORT_RE);
+        // Strip ALL gate calls (entry routes may export several handlers,
+        // each with its own assertModuleEnabled) so the mutated source
+        // models a fully gate-removed route.
+        const callReGlobal = new RegExp(callReFor(entry.module).source, 'g');
         const mutated = (importMatch ? realSrc.replace(importMatch[0], '') : realSrc).replace(
-            callReFor(entry.module),
+            callReGlobal,
             '/* gate-removed */',
         );
 

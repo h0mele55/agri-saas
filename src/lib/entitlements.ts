@@ -81,3 +81,39 @@ export function getAvailableFeatures(plan: BillingPlan | string): FeatureKey[] {
     return (Object.keys(FEATURE_MIN_PLAN) as FeatureKey[]).filter(f => hasFeature(plan, f));
 }
 
+
+// ─── Module ↔ Plan (WP-2 / Phase-0 module gating) ───────────────────
+//
+// A module is *available* to a tenant when (the plan allows it) AND (the
+// tenant has it enabled — `TenantModuleSettings`, resolved server-side).
+// This file owns the PLAN half. When billing is unconfigured (self-hosted
+// / dev → plan `null`) every module is plan-allowed, so the tenant flag is
+// the only gate. The market-segmentation intent: smallholders ("simple
+// mode") get the ag core; the heavier GRC + analytics surfaces are
+// higher-tier.
+import type { ModuleKey } from '@prisma/client';
+
+const MODULE_MIN_PLAN: Record<ModuleKey, BillingPlan> = {
+    JOURNAL: 'FREE',
+    INVENTORY: 'FREE',
+    PLANNING: 'TRIAL',
+    CERTIFICATION: 'PRO',
+    RISK: 'TRIAL',
+    VENDORS: 'PRO',
+    AUTOMATION: 'PRO',
+    PROCESSES: 'PRO',
+    AI: 'ENTERPRISE',
+};
+
+/** Does `plan` permit `key`? `null` plan (billing unconfigured) → yes. */
+export function planAllowsModule(plan: BillingPlan | string | null, key: ModuleKey): boolean {
+    if (plan == null) return true;
+    const current = PLAN_LEVEL[plan as BillingPlan] ?? 0;
+    const required = PLAN_LEVEL[MODULE_MIN_PLAN[key]] ?? 0;
+    return current >= required;
+}
+
+/** All modules `plan` permits. `null` plan → every module. */
+export function planModules(plan: BillingPlan | string | null): ModuleKey[] {
+    return (Object.keys(MODULE_MIN_PLAN) as ModuleKey[]).filter((k) => planAllowsModule(plan, k));
+}
