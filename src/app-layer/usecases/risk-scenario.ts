@@ -16,7 +16,7 @@ import { runInTenantContext } from '@/lib/db-context';
 import { Prisma } from '@prisma/client';
 import { notFound, badRequest } from '@/lib/errors/types';
 import { assertCanRead, assertCanWrite } from '../policies/common';
-import { computeTEF, computeVulnerability, computeLEF, computePLM, computeFairALE, resolveALE, type FairDistributions } from './fair-calculator';
+import { computeTEF, computeVulnerability, computePLM, computeFairALE, resolveALE, type FairDistributions } from './fair-calculator';
 import { simulatePortfolio, type SimRisk, type SimulationResult } from './monte-carlo';
 
 /** FAIR fields an override may patch. */

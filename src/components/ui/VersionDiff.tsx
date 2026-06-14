@@ -68,7 +68,7 @@ export interface VersionDiffProps {
  * that loses paragraph boundaries; emit one paragraph per line.
  */
 export function htmlToLines(html: string): string {
-    return html
+    const decoded = html
         // Structural breaks → newlines (before entity decode, so literal
         // <br>/</p> tags become line boundaries).
         .replace(/<\s*br\s*\/?>/gi, '\n')
@@ -82,12 +82,18 @@ export function htmlToLines(html: string): string {
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        .replace(/&amp;/g, '&')
-        // Strip tag-shaped sequences (`<` + letter or `/`), including an
-        // unterminated one — so a decoded `<script` can never survive,
-        // while a literal `<` in text (e.g. "5 < 10") is preserved.
-        .replace(/<\/?[a-zA-Z][^>]*>?/g, '')
-        .trim();
+        .replace(/&amp;/g, '&');
+    // Strip tag-shaped sequences (`<` + letter or `/`), including an
+    // unterminated one, REPEATEDLY until the string is stable: a single
+    // pass can be defeated by nesting (`<scr<script>ipt>`), so loop to a
+    // fixpoint. A literal `<` in text (e.g. "5 < 10") is left untouched.
+    let text = decoded;
+    let prev: string;
+    do {
+        prev = text;
+        text = text.replace(/<\/?[a-zA-Z][^>]*>?/g, '');
+    } while (text !== prev);
+    return text.trim();
 }
 
 function asPlainText(v: VersionDiffOption | undefined): string {
