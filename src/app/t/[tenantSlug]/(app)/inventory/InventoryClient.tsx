@@ -8,7 +8,7 @@ import { ListPageShell } from '@/components/layout/ListPageShell';
 import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Heading } from '@/components/ui/typography';
+import { Eyebrow, Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -451,7 +451,7 @@ function TraceGroup({
 }) {
     return (
         <section className="space-y-tight">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-content-muted">{title}</h4>
+            <Eyebrow>{title}</Eyebrow>
             {nodes.length === 0 ? (
                 <p className="text-sm text-content-subtle">None.</p>
             ) : (

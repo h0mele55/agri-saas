@@ -32,6 +32,14 @@ const CSP_ALLOWLIST = new Set([
     // before `dangerouslySetInnerHTML`. Both calls funnel through the
     // same allowlist; widening it requires a security review.
     'app/t/[tenantSlug]/(app)/journal/[id]/page.tsx',
+    // Knowledge Base article detail renders the published version body
+    // (the Policy detail's twin). Same defence-in-depth: the body is
+    // sanitised server-side on write (`sanitizeRichTextHtml` at the
+    // knowledge usecase boundary) AND client-side on render via
+    // `sanitizeRichTextHtml(...)` before `dangerouslySetInnerHTML`. Both
+    // calls funnel through the same DOMPurify allowlist; widening it
+    // requires a security review.
+    'app/t/[tenantSlug]/(app)/knowledge/[id]/page.tsx',
     // 2026-05-14 — CSP `strict-dynamic` webpack chunk loader bridge.
     // The root layout renders an inline <script nonce={nonce}> that
     // sets `__webpack_nonce__` so webpack stamps the same nonce on

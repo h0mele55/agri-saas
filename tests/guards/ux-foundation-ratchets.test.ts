@@ -122,9 +122,16 @@ describe('Epic 64 — window.confirm() ceiling', () => {
     // silently drop a typed entry (title, TipTap notes, quantity rows).
     // Same sync-close rationale as the sites above.
     //
+    // Knowledge Base (2026-06-14) bumped 19 → 20 for the
+    // `NewArticleModal` create surface. It carries the SAME
+    // unsaved-changes discard guard as `NewPolicyModal` (its twin) —
+    // a synchronous `window.confirm` on close so a mis-click can't
+    // silently drop a typed draft (title, category, summary, TipTap
+    // content). Same sync-close rationale as the sites above.
+    //
     // To LOWER this number: migrate one or more remaining sites and
     // bump the constant down. Don't lower without a real migration.
-    const CONFIRM_CALL_CEILING = 19;
+    const CONFIRM_CALL_CEILING = 20;
 
     it(`has at most ${CONFIRM_CALL_CEILING} native-confirm call sites under the tenant app`, () => {
         const offenders: string[] = [];
