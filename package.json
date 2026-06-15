@@ -121,7 +121,7 @@
     "@xmldom/xmldom": "^0.9.10",
     "@xyflow/react": "^12.11.0",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^5.78.0",
+    "bullmq": "^5.78.1",
     "canvas-confetti": "^1.9.4",
     "chrono-node": "^2.9.0",
     "class-variance-authority": "^0.7.1",
