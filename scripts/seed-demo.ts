@@ -39,6 +39,14 @@ import { loadAndValidateCatalogFile } from '../prisma/catalog-loader';
 import { applyCatalogFile } from '../prisma/catalog-applier';
 import { importUnits } from './import-units';
 import { importKnowledge } from './import-knowledge';
+import { importCropVarieties } from './import-crop-varieties';
+import {
+    generateSuccessions,
+    mergeTiming,
+    mergeSpacing,
+    type CropTiming,
+    type CropSpacing,
+} from '@/lib/planning/succession';
 import * as path from 'path';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' }) });
@@ -205,8 +213,135 @@ async function seedFarm(spec: FarmSpec, pwd: string) {
         console.warn(`  ⚠️  ${spec.slug}: knowledge seed skipped:`, e instanceof Error ? e.message : e);
     }
 
+    // Crop-planning catalog + a demo season/plan with generated plantings
+    // (PLANNING module). Redis-free path — see `seedDemoPlanning`.
+    if (spec.modules.includes('PLANNING')) {
+        try {
+            await seedDemoPlanning(tenant.id, locationId);
+        } catch (e) {
+            console.warn(`  ⚠️  ${spec.slug}: planning seed skipped:`, e instanceof Error ? e.message : e);
+        }
+    }
+
     console.log(`✅ ${spec.name} (${spec.slug}) — modules: [${spec.modules.join(', ')}], plan: ${spec.plan}, owner: ${spec.ownerEmail}`);
     return { tenant, owner };
+}
+
+/**
+ * Seed the crop-planning catalog (CC0 varieties) + one demo Season +
+ * CropPlan, then populate its Plantings via the PURE succession engine
+ * written DIRECTLY with prisma.
+ *
+ * Why direct prisma + the pure engine, not the `generatePlantings`
+ * usecase: the usecase fans out field tasks via `createTask`, which
+ * enqueues a BullMQ assignment notification — that hangs without Redis.
+ * The seed matches the existing Redis-free convention (journal entry +
+ * farm task are created directly with prisma above for the same reason).
+ * The plantings themselves are the engine's deterministic output, so the
+ * seed value is identical to what the usecase would persist; the
+ * auto-generated tasks are simply omitted in the seed.
+ *
+ * Idempotent: skips if the demo plan already exists.
+ */
+async function seedDemoPlanning(tenantId: string, locationId: string | null) {
+    // 1 — CC0 catalog (idempotent on natural keys).
+    await importCropVarieties(prisma, { tenantId });
+
+    // 2 — a demo Season (idempotent on (tenantId, key)).
+    const seasonKey = 'demo-season';
+    let season = await prisma.season.findFirst({
+        where: { tenantId, key: seasonKey },
+        select: { id: true },
+    });
+    if (!season) {
+        const year = new Date().getUTCFullYear();
+        season = await prisma.season.create({
+            data: {
+                tenantId,
+                key: seasonKey,
+                name: `${year} Main Season`,
+                year,
+                startDate: new Date(Date.UTC(year, 2, 1)),
+                endDate: new Date(Date.UTC(year, 9, 31)),
+                status: 'ACTIVE',
+            },
+            select: { id: true },
+        });
+    }
+
+    // 3 — a demo CropPlan on the lettuce variety (idempotent).
+    const lettuce = await prisma.cropVariety.findFirst({
+        where: { tenantId, key: 'lettuce-leaf' },
+    });
+    if (!lettuce) return; // catalog import must have been skipped
+
+    const planName = 'Summer lettuce successions';
+    const existingPlan = await prisma.cropPlan.findFirst({
+        where: { tenantId, seasonId: season.id, name: planName },
+        select: { id: true },
+    });
+    if (existingPlan) return;
+
+    const firstSow = new Date(Date.UTC(new Date().getUTCFullYear(), 3, 1));
+    const plan = await prisma.cropPlan.create({
+        data: {
+            tenantId,
+            seasonId: season.id,
+            cropTypeId: lettuce.cropTypeId,
+            cropVarietyId: lettuce.id,
+            locationId: locationId ?? null,
+            name: planName,
+            method: lettuce.defaultMethod ?? 'TRANSPLANT',
+            firstSowDate: firstSow,
+            successions: 4,
+            intervalDays: 14,
+            plantsPerSuccession: 60,
+            status: 'ACTIVE',
+        },
+        select: { id: true, method: true, cropVarietyId: true, locationId: true },
+    });
+
+    // 4 — run the PURE engine + createMany the plantings directly.
+    const varietyTiming: Partial<CropTiming> = {
+        method: lettuce.defaultMethod ?? undefined,
+        daysToTransplant: lettuce.daysToTransplant,
+        daysToMaturity: lettuce.daysToMaturity ?? undefined,
+        harvestWindowDays: lettuce.harvestWindowDays,
+    };
+    const varietySpacing: Partial<CropSpacing> = {
+        inRowSpacingCm: lettuce.inRowSpacingCm ? Number(lettuce.inRowSpacingCm.toString()) : null,
+        betweenRowSpacingCm: lettuce.betweenRowSpacingCm ? Number(lettuce.betweenRowSpacingCm.toString()) : null,
+        seedsPerGram: lettuce.seedsPerGram ? Number(lettuce.seedsPerGram.toString()) : null,
+        germinationRate: lettuce.germinationRate ? Number(lettuce.germinationRate.toString()) : null,
+        seedsPerCell: lettuce.seedsPerCell,
+    };
+    const timing = mergeTiming(null, varietyTiming);
+    timing.method = plan.method;
+    const spacing = mergeSpacing(null, varietySpacing);
+    const computed = generateSuccessions(
+        { firstSowDate: firstSow, successions: 4, intervalDays: 14 },
+        timing,
+        { plantsPerSuccession: 60, bedLengthM: null, rowsPerBed: null, areaM2: null },
+        spacing,
+    );
+    await prisma.planting.createMany({
+        data: computed.map((c) => ({
+            tenantId,
+            cropPlanId: plan.id,
+            cropVarietyId: plan.cropVarietyId,
+            locationId: plan.locationId,
+            successionNumber: c.successionNumber,
+            method: timing.method,
+            sowDate: c.sowDate,
+            transplantDate: c.transplantDate,
+            harvestStartDate: c.harvestStartDate,
+            harvestEndDate: c.harvestEndDate,
+            seedQuantityGrams: c.seedQuantityGrams,
+            plantCount: c.plantCount,
+            areaM2: c.areaM2,
+            status: 'PLANNED' as const,
+        })),
+    });
 }
 
 /**

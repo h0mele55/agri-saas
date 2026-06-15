@@ -63,6 +63,8 @@ model LogEntry {
   locations       LogLocation[]
   equipment       LogEquipment[]
   files           LogEntryFile[]
+  /// Plan-vs-actual links — this entry realises a planting milestone.
+  plantings       LogPlanting[]
   /// Lot-genealogy edges recorded by a HARVEST entry (provenance link).
   lotLinks        LotLink[]
 

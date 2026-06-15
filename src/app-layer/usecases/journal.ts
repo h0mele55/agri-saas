@@ -80,6 +80,14 @@ interface CreateLogEntryData {
     costAmount?: number | null;
     costCurrency?: string | null;
     harvest?: HarvestPayload | null;
+    /**
+     * Crop-planning plan-vs-actual links — the planting(s) + lifecycle
+     * stage this entry realises (a sow / transplant / harvest record).
+     * Each becomes a LogPlanting row (PLANNING module). The entry's
+     * occurredAt is the actual date; `stage` names the planned date it
+     * realises. Ignored when empty.
+     */
+    plantingLinks?: { plantingId: string; stage: 'SOW' | 'TRANSPLANT' | 'HARVEST' }[];
 }
 
 interface UpdateLogEntryData {
@@ -170,10 +178,26 @@ export async function createLogEntry(ctx: RequestContext, data: CreateLogEntryDa
         })),
         locationIds: data.locationIds,
         equipmentIds: data.equipmentIds,
+        plantingLinks: data.plantingLinks,
     };
 
     return runInTenantContext(ctx, async (db) => {
         await assertLinksValid(db, ctx, data.locationIds, data.equipmentIds);
+        // Crop-planning actuals — validate every linked planting belongs
+        // to the tenant before the LogPlanting rows are written (no
+        // orphan link on a foreign/bad id).
+        if (data.plantingLinks && data.plantingLinks.length) {
+            const ids = data.plantingLinks.map((p) => p.plantingId);
+            const found = await db.planting.findMany({
+                where: { id: { in: ids }, tenantId: ctx.tenantId, deletedAt: null },
+                select: { id: true },
+            });
+            const validIds = new Set(found.map((p) => p.id));
+            const missing = ids.filter((id) => !validIds.has(id));
+            if (missing.length) {
+                throw badRequest('INVALID_PLANTING', `Planting not found or belongs to a different tenant: ${missing[0]}`);
+            }
+        }
 
         const entry = await JournalRepository.createLogEntry(db, ctx, input);
 

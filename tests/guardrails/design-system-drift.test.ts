@@ -290,7 +290,16 @@ describe('New page token discipline', () => {
         //     AG_SCHEME framework catalog surface. Token-clean (semantic
         //     tokens + EntityListPage/DataTable/Modal/FormField/Input/
         //     ProgressBar); new surfaces, not yet promoted to MIGRATED_PAGES.
-        expect(unmigrated.length).toBeLessThanOrEqual(120);
+        //   - 125 (+5, 2026-06-15): crop planning integration —
+        //     planning/page.tsx + planning/CropPlansClient.tsx +
+        //     planning/[cropPlanId]/page.tsx + planning/seasons/page.tsx +
+        //     planning/seasons/SeasonsClient.tsx, the succession-planning
+        //     surface (crop plans list + detail board + seasons).
+        //     Token-clean (semantic tokens + EntityListPage/
+        //     EntityDetailLayout/DataTable/GanttTimeline/Modal/FormField/
+        //     Combobox/DatePicker/StatusBadge); new surfaces, not yet
+        //     promoted to MIGRATED_PAGES.
+        expect(unmigrated.length).toBeLessThanOrEqual(125);
     });
 
     it('migrated page count is at least 4', () => {

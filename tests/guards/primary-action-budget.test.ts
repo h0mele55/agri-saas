@@ -99,6 +99,11 @@ const PRIMARY_BUDGET: Record<string, number> = {
     // Farm-tasks list — two separate primary regions: the page "Task"
     // header CTA + the create-modal "Create task" confirm.
     "src/app/t/[tenantSlug]/(app)/farm-tasks/FarmTasksClient.tsx": 2,
+    // Seasons list (Crop Planning, 2026-06-15) — two separate primary
+    // regions in one file: the page "Season" header CTA + the inline
+    // new-season modal's "Create season" confirm. (The crop-plans list
+    // keeps a 1-budget — its create modal is a separate file.)
+    "src/app/t/[tenantSlug]/(app)/planning/seasons/SeasonsClient.tsx": 2,
     // 3-primary tier — page CTA + inline form + 1 contextual region
     "src/app/t/[tenantSlug]/(app)/tests/runs/[runId]/page.tsx": 3,
     // 3 page-level primaries + 1 for the close-resolution Modal's

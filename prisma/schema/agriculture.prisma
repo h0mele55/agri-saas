@@ -120,6 +120,8 @@ model Location {
   parcels       Parcel[]
   inventoryLots InventoryLot[]
   logLocations  LogLocation[]
+  cropPlans     CropPlan[]
+  plantings     Planting[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, key])
@@ -150,6 +152,7 @@ model Parcel {
   tenant         Tenant            @relation(fields: [tenantId], references: [id])
   location       Location          @relation(fields: [locationId, tenantId], references: [id, tenantId], onDelete: Cascade)
   operationLines OperationParcel[]
+  plantings      Planting[]
 
   @@unique([id, tenantId])
   @@index([tenantId, locationId])
