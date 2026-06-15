@@ -66,7 +66,8 @@ import type { ComboboxOption } from "./index";
 export const COMBOBOX_VIRTUALIZE_THRESHOLD = 50;
 
 /**
- * Approximate row height used by react-window's FixedSizeList. Must
+ * Approximate row height passed to `<VirtualizedList>` (react-window
+ * v2's `List` under the hood). Must
  * match the rendered option's actual height — option rows render with
  * `py-2 px-3 text-sm` which is ~36px under the platform tokens. Bump
  * when consumers pass a description (which wraps the row to two

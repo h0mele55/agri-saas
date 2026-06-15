@@ -9,6 +9,17 @@
  * threshold logic) and falls back to the standard `<Table>`
  * otherwise.
  *
+ * Built on react-window v2's single `List` component (the v1
+ * `FixedSizeList` / `VariableSizeList` split is gone). The sticky
+ * header is injected via the `List`'s `children` slot (rendered inside
+ * the same scroll container as the rows), replacing v1's
+ * `outerElementType`. Per-render row data flows through `rowProps`,
+ * replacing v1's `itemData`. The `List` self-measures its parent via a
+ * ResizeObserver and fills the height defined by its style, so
+ * `react-virtualized-auto-sizer` is no longer needed — an explicit
+ * `height` prop (or `defaultHeight` for the auto-fill / SSR path) is
+ * all that's required.
+ *
  * Why a sibling component instead of in-place virtualization:
  *   - The standard `<Table>` uses real `<table>` / `<thead>` /
  *     `<tbody>` with sticky-header logic that's tightly coupled to
@@ -45,8 +56,7 @@ import {
     type Row,
     type Table as TableType,
 } from "@tanstack/react-table";
-import { FixedSizeList } from "react-window";
-import { AutoSizer } from "react-virtualized-auto-sizer";
+import { List, type RowComponentProps } from "react-window";
 
 import { SortOrder } from "../icons";
 import { Tooltip } from "../tooltip";
@@ -59,8 +69,9 @@ export interface VirtualTableProps<T> {
     table: TableType<T>;
     /**
      * Explicit body height in pixels. When omitted the component
-     * fills its parent via AutoSizer — the parent MUST have a
-     * determinate height (e.g. ListPageShell.Body's flex chain).
+     * fills its parent and react-window v2's `List` self-measures via
+     * a ResizeObserver — the parent MUST have a determinate height
+     * (e.g. ListPageShell.Body's flex chain).
      */
     height?: number;
     /**
@@ -164,6 +175,11 @@ function buildGridTemplate<T>(table: TableType<T>): string {
         .join(" ");
 }
 
+/**
+ * Per-render row data. In react-window v2 this object is passed to the
+ * `List`'s `rowProps` prop and spread onto each row component alongside
+ * `index` + `style` (replacing v1's `itemData` + `data` prop).
+ */
 interface RowItemData<T> {
     rows: ReadonlyArray<Row<T>>;
     gridTemplate: string;
@@ -178,13 +194,14 @@ interface RowItemData<T> {
 function VirtualRow<T>({
     index,
     style,
-    data,
-}: {
-    index: number;
-    style: React.CSSProperties;
-    data: RowItemData<T>;
-}) {
-    const { rows, gridTemplate, onRowClick, onRowAuxClick, selectionEnabled, columnsAfterSelect, firstContentColumnId } = data;
+    rows,
+    gridTemplate,
+    onRowClick,
+    onRowAuxClick,
+    selectionEnabled,
+    columnsAfterSelect,
+    firstContentColumnId,
+}: RowComponentProps<RowItemData<T>>) {
     const row = rows[index];
     if (!row) return null;
 
@@ -343,9 +360,11 @@ export function VirtualTable<T>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     const gridTemplate = React.useMemo(() => buildGridTemplate(table), [visibleColumnsKey, table]);
 
-    // Stable `itemData` keeps react-window from re-rendering rows when
-    // the row click handler is the same reference between renders.
-    const itemData = React.useMemo<RowItemData<T>>(
+    // `rowProps` carries per-render row data to every VirtualRow,
+    // replacing v1's `itemData`. Memoising it keeps react-window from
+    // re-rendering rows when the click handlers are referentially
+    // stable between renders.
+    const rowProps = React.useMemo<RowItemData<T>>(
         () => ({
             rows,
             gridTemplate,
@@ -358,102 +377,46 @@ export function VirtualTable<T>({
         [rows, gridTemplate, onRowClick, onRowAuxClick, selectionEnabled, columnsAfterSelect, firstContentColumnId],
     );
 
-    // OuterElement must keep a stable reference across renders;
-    // react-window remounts its scroll container whenever
-    // outerElementType changes, which would reset scroll position
-    // every time props update. We build it once with useMemo([])
-    // and pipe latest header state through a ref so the header
-    // re-renders without recreating the outer component itself.
-    const headerStateRef = React.useRef({
-        table,
-        gridTemplate,
-        sortableColumns,
-        sortBy,
-        sortOrder,
-        onSortChange,
-        columnsAfterSelect,
-        ariaLabel,
+    // Sticky header rendered inside the List's `children` slot, which
+    // v2 mounts inside the same scroll container as the rows — so
+    // `position: sticky; top: 0` pins it to the top of the scroll
+    // viewport, exactly as v1's `outerElementType` header did.
+    const header = (
+        <VirtualTableHeader
+            table={table}
+            gridTemplate={gridTemplate}
+            sortableColumns={sortableColumns}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSortChange={onSortChange}
+            columnsAfterSelect={columnsAfterSelect}
+        />
+    );
+
+    // The List root IS the scroll container in v2; the region role +
+    // tabIndex + aria-label + focus ring (v1 carried on the
+    // `outerElementType` wrapper) move directly onto it.
+    const scrollContainerClassName = cn(
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-default)]/40",
         scrollWrapperClassName,
-    });
-    // "ref-as-mailbox" — the OuterElement below is React.useMemo'd to satisfy
-    // react-window's stable-component contract; reading header state through this
-    // ref keeps the outer wrapper from needing to re-memoise on every render.
-    // eslint-disable-next-line react-hooks/refs
-    headerStateRef.current = {
-        table,
-        gridTemplate,
-        sortableColumns,
-        sortBy,
-        sortOrder,
-        onSortChange,
-        columnsAfterSelect,
-        ariaLabel,
-        scrollWrapperClassName,
-    };
+    );
 
-    // The OuterElement closure captures `headerStateRef`, which the
-    // refs rule flags as "passing a ref to a function may read its
-    // value during render". The capture is intentional — the
-    // virtualizer mounts this forwardRef inside an effect-driven path,
-    // not in the outer component's render. Disable the entire useMemo
-    // so the closure's ref read doesn't fire either.
-    /* eslint-disable react-hooks/refs */
-    const OuterElement = React.useMemo(() => {
-        const Component = React.forwardRef<
-            HTMLDivElement,
-            React.HTMLAttributes<HTMLDivElement>
-        >(function VirtualTableOuter({ children, className, ...rest }, ref) {
-            const state = headerStateRef.current;
-            return (
-                <div
-                    ref={ref}
-                    {...rest}
-                    role="region"
-                    aria-label={state.ariaLabel}
-                    tabIndex={0}
-                    className={cn(
-                        className,
-                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-default)]/40",
-                        state.scrollWrapperClassName,
-                    )}
-                >
-                    <VirtualTableHeader
-                        table={state.table}
-                        gridTemplate={state.gridTemplate}
-                        sortableColumns={state.sortableColumns}
-                        sortBy={state.sortBy}
-                        sortOrder={state.sortOrder}
-                        onSortChange={state.onSortChange}
-                        columnsAfterSelect={state.columnsAfterSelect}
-                    />
-                    {children}
-                </div>
-            );
-        });
-        return Component;
-        // Empty deps — OuterElement is intentionally stable for the
-        // life of the VirtualTable instance. State flows through the
-        // ref above which is updated on every render.
-
-    }, []);
-    /* eslint-enable react-hooks/refs */
-
-    const renderInner = (h: number, w: number | string) => (
-        <FixedSizeList
-            height={h}
-            width={w}
-            itemCount={rows.length}
-            itemSize={rowHeight}
+    const renderList = (h: number | undefined) => (
+        <List<RowItemData<T>>
+            role="region"
+            aria-label={ariaLabel}
+            tabIndex={0}
+            className={scrollContainerClassName}
+            rowComponent={VirtualRow}
+            rowCount={rows.length}
+            rowHeight={rowHeight}
+            rowProps={rowProps}
             overscanCount={overscanCount}
-            outerElementType={OuterElement}
-            itemData={itemData}
+            defaultHeight={h}
+            style={{ height: "100%" }}
         >
-            {VirtualRow as React.ComponentType<{
-                index: number;
-                style: React.CSSProperties;
-                data: RowItemData<T>;
-            }>}
-        </FixedSizeList>
+            {header}
+        </List>
     );
 
     if (typeof height === "number") {
@@ -467,11 +430,15 @@ export function VirtualTable<T>({
                 )}
                 style={{ height }}
             >
-                {renderInner(height, "100%")}
+                {renderList(height)}
             </div>
         );
     }
 
+    // Auto-fill path — no explicit height. The List self-measures its
+    // parent via ResizeObserver and fills `height: 100%`. The parent
+    // MUST be sized (the ListPageShell.Body flex chain provides this).
+    // `react-virtualized-auto-sizer` is no longer needed.
     return (
         <div
             data-virtual-table=""
@@ -483,19 +450,7 @@ export function VirtualTable<T>({
             )}
             style={{ minHeight: 0 }}
         >
-            {/*
-                react-virtualized-auto-sizer v2.x — `renderProp`
-                replaces function-as-children. Same callback
-                shape; width/height arrive as `number | undefined`
-                during the initial pre-measure render, hence the
-                falsy guard.
-            */}
-            <AutoSizer
-                renderProp={({ height: h, width: w }) => {
-                    if (!h || !w) return null;
-                    return renderInner(h, w);
-                }}
-            />
+            {renderList(undefined)}
         </div>
     );
 }

@@ -238,10 +238,12 @@ export interface DataTableProps<T> {
 
   /**
    * Explicit body height (px) when virtualization is on. When
-   * omitted, the body fills its parent via AutoSizer — which is the
-   * production default (use inside `<ListPageShell.Body>` or any
-   * sized flex parent). Set this only when AutoSizer can't reach a
-   * sized ancestor (e.g. test harnesses, or ad-hoc layouts).
+   * omitted, the body fills its parent and react-window v2's `List`
+   * self-measures via a ResizeObserver — which is the production
+   * default (use inside `<ListPageShell.Body>` or any sized flex
+   * parent). Set this only when the List can't reach a sized ancestor
+   * (e.g. test harnesses, or ad-hoc layouts); it is forwarded as
+   * react-window's `defaultHeight`.
    */
   virtualHeight?: number;
 }
