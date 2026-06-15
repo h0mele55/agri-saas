@@ -18,12 +18,14 @@
 
 const findUniqueMock = jest.fn();
 const findManyMock = jest.fn();
+const settingsFindUniqueMock = jest.fn();
 
 jest.mock('@/lib/prisma', () => ({
     __esModule: true,
     default: {
         billingAccount: { findUnique: (...a: unknown[]) => findUniqueMock(...a) },
         billingEvent: { findMany: (...a: unknown[]) => findManyMock(...a) },
+        tenantModuleSettings: { findUnique: (...a: unknown[]) => settingsFindUniqueMock(...a) },
     },
 }));
 
@@ -32,12 +34,14 @@ import {
     getTenantPlan,
     requireFeature,
     listBillingEvents,
+    getAvailableModulesForTenant,
 } from '@/lib/entitlements-server';
 import { FEATURES } from '@/lib/entitlements';
 
 beforeEach(() => {
     findUniqueMock.mockReset();
     findManyMock.mockReset();
+    settingsFindUniqueMock.mockReset();
 });
 
 describe('getTenantPlan', () => {
@@ -124,6 +128,31 @@ describe('EntitlementError', () => {
         expect(err.message).toBe('nope');
         expect(err.code).toBe('PLAN_REQUIRED');
         expect(err.status).toBe(403);
+    });
+});
+
+describe('getAvailableModulesForTenant', () => {
+    it('intersects the plan ceiling with the tenant toggle (FREE + all-enabled)', async () => {
+        findUniqueMock.mockResolvedValueOnce({ plan: 'FREE' });
+        settingsFindUniqueMock.mockResolvedValueOnce(null); // no row → all tenant-enabled
+        expect((await getAvailableModulesForTenant('t1')).sort()).toEqual(
+            ['INVENTORY', 'JOURNAL', 'PLANNING'],
+        );
+    });
+
+    it('null plan (self-hosted) defers to the tenant list verbatim', async () => {
+        findUniqueMock.mockResolvedValueOnce(null); // no billing account → plan null
+        settingsFindUniqueMock.mockResolvedValueOnce({ enabledModules: ['JOURNAL', 'CERTIFICATION'] });
+        expect((await getAvailableModulesForTenant('t1')).sort()).toEqual(
+            ['CERTIFICATION', 'JOURNAL'],
+        );
+    });
+
+    it('drops a tenant-enabled module the plan does not reach (PRO keeps AI off)', async () => {
+        findUniqueMock.mockResolvedValueOnce({ plan: 'PRO' });
+        settingsFindUniqueMock.mockResolvedValueOnce({ enabledModules: ['JOURNAL', 'AI'] });
+        // AI requires ENTERPRISE → filtered out even though the tenant enabled it.
+        expect(await getAvailableModulesForTenant('t1')).toEqual(['JOURNAL']);
     });
 });
 

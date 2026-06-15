@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
-import { hasFeature, getRequiredPlan, FEATURE_LABELS, type FeatureKey } from './entitlements';
-import type { BillingPlan } from '@prisma/client';
+import { hasFeature, getRequiredPlan, FEATURE_LABELS, planModules, type FeatureKey } from './entitlements';
+import { resolveEnabledModules } from '@/lib/modules';
+import type { BillingPlan, ModuleKey } from '@prisma/client';
 
 /**
  * Typed error thrown when a tenant's plan doesn't include a requested
@@ -40,6 +41,26 @@ export async function getTenantPlan(tenantId: string): Promise<BillingPlan | nul
         select: { plan: true },
     });
     return billingAccount?.plan ?? null;
+}
+
+/**
+ * The modules AVAILABLE to a tenant for nav resolution =
+ * (plan allows) ∩ (tenant enabled). Resolved server-side in the tenant
+ * layout and threaded to the client via TenantProvider so the sidebar
+ * can hide unavailable surfaces. One DB read for the settings row + the
+ * plan lookup; a `null` plan (self-hosted) lets the tenant toggle be the
+ * only gate.
+ */
+export async function getAvailableModulesForTenant(tenantId: string): Promise<ModuleKey[]> {
+    const [plan, row] = await Promise.all([
+        getTenantPlan(tenantId),
+        prisma.tenantModuleSettings.findUnique({
+            where: { tenantId },
+            select: { enabledModules: true },
+        }),
+    ]);
+    const allowed = new Set(planModules(plan));
+    return resolveEnabledModules(row).filter((k) => allowed.has(k));
 }
 
 /**

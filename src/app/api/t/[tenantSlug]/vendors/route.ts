@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { listVendors, listVendorsPaginated, createVendor } from '@/app-layer/usecases/vendor';
 import { withValidatedBody } from '@/lib/validation/route';
 import { CreateVendorSchema } from '@/lib/schemas';
@@ -23,6 +24,8 @@ const VendorQuerySchema = z.object({
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const sp = Object.fromEntries(req.nextUrl.searchParams.entries());
     const query = VendorQuerySchema.parse(sp);
 
@@ -68,6 +71,8 @@ export const GET = withApiErrorHandling(async (req: NextRequest, { params: param
 export const POST = withApiErrorHandling(withValidatedBody(CreateVendorSchema, async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const vendor = await createVendor(ctx, body);
     return jsonResponse(vendor, { status: 201 });
 }));

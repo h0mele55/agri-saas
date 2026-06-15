@@ -13,6 +13,8 @@
  * | ADVANCED_VENDOR_MGMT     | ✗    | ✗     | ✓   | ✓          |
  * | CUSTOM_INTEGRATIONS      | ✗    | ✗     | ✗   | ✓          |
  */
+import type { ModuleKey } from '@prisma/client';
+
 /** Billing plan enum — mirrors Prisma BillingPlan but defined locally to avoid generated-client import issues. */
 type BillingPlan = 'FREE' | 'TRIAL' | 'PRO' | 'ENTERPRISE';
 
@@ -79,5 +81,48 @@ export function getRequiredPlan(feature: FeatureKey): BillingPlan {
  */
 export function getAvailableFeatures(plan: BillingPlan | string): FeatureKey[] {
     return (Object.keys(FEATURE_MIN_PLAN) as FeatureKey[]).filter(f => hasFeature(plan, f));
+}
+
+// ─── Module → minimum plan (the plan dimension of module gating) ───
+//
+// Module availability is `(plan allows) ∧ (tenant enabled)`. This half is
+// the PLAN ceiling: the minimum billing tier that unlocks each module.
+// The tenant-enabled half lives in TenantModuleSettings (src/lib/modules.ts).
+//
+// Tiering follows the two personas: the agriculture CORE (journal /
+// inventory / crop planning) is FREE so a startup farmer on "simple mode"
+// gets the full working surface; the enterprise GRC + automation modules
+// sit behind PRO; AI behind ENTERPRISE. A `null` plan (self-hosted /
+// billing-unconfigured) allows EVERYTHING — so on-prem + dev + the GRC
+// test tenants are unaffected, and the tenant toggle is the only gate.
+
+const MODULE_MIN_PLAN: Record<ModuleKey, BillingPlan> = {
+    JOURNAL: 'FREE',
+    INVENTORY: 'FREE',
+    PLANNING: 'FREE',
+    CERTIFICATION: 'PRO',
+    RISK: 'PRO',
+    VENDORS: 'PRO',
+    AUTOMATION: 'PRO',
+    PROCESSES: 'PRO',
+    AI: 'ENTERPRISE',
+};
+
+/** True when `plan` is high enough to unlock `key`. `null` plan ⇒ all. */
+export function planAllowsModule(plan: BillingPlan | string | null, key: ModuleKey): boolean {
+    if (plan == null) return true;
+    const current = PLAN_LEVEL[plan as BillingPlan] ?? 0;
+    const required = PLAN_LEVEL[MODULE_MIN_PLAN[key]] ?? 0;
+    return current >= required;
+}
+
+/** Every module the plan unlocks (the plan ceiling, pre-tenant-toggle). */
+export function planModules(plan: BillingPlan | string | null): ModuleKey[] {
+    return (Object.keys(MODULE_MIN_PLAN) as ModuleKey[]).filter((k) => planAllowsModule(plan, k));
+}
+
+/** The minimum plan that unlocks a module (UI upgrade-CTA hint). */
+export function getModuleMinPlan(key: ModuleKey): BillingPlan {
+    return MODULE_MIN_PLAN[key];
 }
 
