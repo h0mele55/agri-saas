@@ -10,7 +10,18 @@
  * list/get + authorization.
  */
 
-const mockDb = {} as any;
+// The mock db carries the model methods `attachAutoEvidenceFromLogEntry`
+// (the INPUT_APPLICATION auto-evidence hook in createLogEntry) touches.
+// `logEntry.findFirst` defaults to null so the hook short-circuits to a
+// no-op — these tests assert the repository-call + audit shape, not the
+// auto-evidence path (which has its own suite in auto-evidence.test.ts).
+const mockDb = {
+    logEntry: { findFirst: jest.fn().mockResolvedValue(null) },
+    frameworkRequirement: { findMany: jest.fn().mockResolvedValue([]) },
+    controlRequirementLink: { findMany: jest.fn().mockResolvedValue([]) },
+    evidence: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+    controlEvidenceLink: { create: jest.fn() },
+} as any;
 
 jest.mock('@/lib/db-context', () => ({
     runInTenantContext: jest.fn(async (_ctx: any, fn: (db: any) => any) => fn(mockDb)),
@@ -72,6 +83,11 @@ beforeEach(() => {
     jest.clearAllMocks();
     (JournalRepository.validLocationIds as jest.Mock).mockResolvedValue(new Set());
     (JournalRepository.validEquipmentIds as jest.Mock).mockResolvedValue(new Set());
+    // Re-arm the auto-evidence no-op (clearAllMocks wiped the default).
+    mockDb.logEntry.findFirst.mockResolvedValue(null);
+    mockDb.frameworkRequirement.findMany.mockResolvedValue([]);
+    mockDb.controlRequirementLink.findMany.mockResolvedValue([]);
+    mockDb.evidence.findMany.mockResolvedValue([]);
 });
 
 // ─── create ─────────────────────────────────────────────────────────

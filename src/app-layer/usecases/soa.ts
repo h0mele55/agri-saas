@@ -50,6 +50,11 @@ function worstStatus(statuses: string[]): string | null {
 
 export interface SoAOptions {
     framework?: string;       // default ISO27001_2022
+    /** Explicit framework/scheme key. Alias for `framework`, added so the
+     *  per-scheme applicability export can pin the AG_SCHEME key without
+     *  going through the installed-framework auto-detection. Takes
+     *  precedence over `framework` when both are set. */
+    frameworkKey?: string;
     includeEvidence?: boolean;
     includeTasks?: boolean;
     includeTests?: boolean;
@@ -95,7 +100,7 @@ export async function resolveInstalledFrameworkKey(
 export async function getSoA(ctx: RequestContext, options: SoAOptions = {}): Promise<SoAReportDTO> {
     assertCanRead(ctx);
     const frameworkKey =
-        options.framework || (await resolveInstalledFrameworkKey(ctx));
+        options.frameworkKey || options.framework || (await resolveInstalledFrameworkKey(ctx));
 
     // 1. Load framework + requirements
     const fw = await runInTenantContext(ctx, (db) =>

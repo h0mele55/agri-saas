@@ -33,8 +33,13 @@ import { createLot } from '@/app-layer/usecases/inventory';
 import { hashForLookup } from '@/lib/security/encryption';
 import { SIMPLE_MODE_MODULES, ALL_MODULES } from '@/lib/modules';
 import type { ModuleKey } from '@prisma/client';
+import { runInTenantContext } from '@/lib/db-context';
+import { attachAutoEvidenceFromLogEntry } from '@/app-layer/usecases/auto-evidence';
+import { loadAndValidateCatalogFile } from '../prisma/catalog-loader';
+import { applyCatalogFile } from '../prisma/catalog-applier';
 import { importUnits } from './import-units';
 import { importKnowledge } from './import-knowledge';
+import * as path from 'path';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' }) });
 
@@ -204,6 +209,96 @@ async function seedFarm(spec: FarmSpec, pwd: string) {
     return { tenant, owner };
 }
 
+/**
+ * Replicate `installPack`'s tenant-scoped writes for a scheme pack:
+ * create one Control per linked ControlTemplate + its
+ * ControlRequirementLink rows, so the tenant has Controls mapped to the
+ * scheme's requirements (which is what auto-evidence + readiness key on).
+ * Direct prisma to avoid the createTask/BullMQ enqueue path; idempotent
+ * (skips a control whose code already exists). RLS-safe enough for a seed:
+ * every write carries the explicit tenantId.
+ */
+async function installSchemePackForDemo(tenantId: string, userId: string, packKey: string) {
+    const pack = await prisma.frameworkPack.findUnique({
+        where: { key: packKey },
+        include: {
+            templateLinks: { include: { template: { include: { requirementLinks: true } } } },
+        },
+    });
+    if (!pack) {
+        console.warn(`  ⚠️  pack ${packKey} not found — scheme catalog import may have failed`);
+        return;
+    }
+
+    let controlsCreated = 0;
+    let mappingsCreated = 0;
+    for (const link of pack.templateLinks) {
+        const tmpl = link.template;
+        let control = await prisma.control.findFirst({ where: { tenantId, code: tmpl.code } });
+        if (!control) {
+            control = await prisma.control.create({
+                data: {
+                    tenantId,
+                    code: tmpl.code,
+                    name: tmpl.title,
+                    description: tmpl.description,
+                    category: tmpl.category,
+                    frequency: tmpl.defaultFrequency,
+                    status: 'NOT_STARTED',
+                    createdByUserId: userId,
+                },
+            });
+            controlsCreated++;
+        }
+        for (const rl of tmpl.requirementLinks) {
+            await prisma.controlRequirementLink.upsert({
+                where: { controlId_requirementId: { controlId: control.id, requirementId: rl.requirementId } },
+                create: { tenantId, controlId: control.id, requirementId: rl.requirementId },
+                update: {},
+            });
+            mappingsCreated++;
+        }
+    }
+    console.log(`✅ Installed ${packKey}: ${controlsCreated} controls, ${mappingsCreated} requirement mappings`);
+}
+
+/**
+ * Create one INPUT_APPLICATION spray LogEntry on the tenant and run the
+ * auto-evidence attach so the demo shows farm-record → scheme-evidence.
+ * The attach runs inside `runInTenantContext` (it needs a tenant-bound db
+ * handle). Idempotent: skips when an auto-evidence row already exists for
+ * the tenant (category AUTO_FARM_RECORD).
+ */
+async function seedSprayAutoEvidence(tenantId: string, tenantSlug: string, userId: string) {
+    const already = await prisma.evidence.findFirst({
+        where: { tenantId, category: 'AUTO_FARM_RECORD' },
+        select: { id: true },
+    });
+    if (already) {
+        console.log('✅ Auto-evidence already present — skipping spray demo');
+        return;
+    }
+
+    const entry = await prisma.logEntry.create({
+        data: {
+            tenantId,
+            type: 'INPUT_APPLICATION',
+            status: 'DONE',
+            occurredAt: new Date(),
+            title: 'Applied fungicide to North Field block A',
+            notes: '<p>Demo spray record — backs the plant-protection control points.</p>',
+            createdByUserId: userId,
+        },
+        select: { id: true },
+    });
+
+    const ctx: RequestContext = { ...ownerCtx(tenantId, userId), tenantSlug };
+    const { created } = await runInTenantContext(ctx, (db) =>
+        attachAutoEvidenceFromLogEntry(db, ctx, entry.id),
+    );
+    console.log(`✅ Spray record ${entry.id} → ${created} auto-evidence row(s) attached (status SUBMITTED, pending review)`);
+}
+
 async function main() {
     console.log('🌱 Seeding the two-persona demo dataset…\n');
     const pwd = await bcrypt.hash(process.env.SEED_PASSWORD || 'password123', 10);
@@ -238,46 +333,52 @@ async function main() {
         { slug: 'bigfarm-south', name: 'BigFarm — South Estate', ownerEmail: 'south@bigfarm.demo', ownerName: 'Sven South', cropProduct: 'Barley (grain)' },
         { slug: 'bigfarm-east', name: 'BigFarm — East Estate', ownerEmail: 'east@bigfarm.demo', ownerName: 'Elena East', cropProduct: 'Oilseed Rape' },
     ];
+    const seededChildren: Record<string, { tenant: { id: string; slug: string }; owner: { id: string } }> = {};
     for (const farm of childFarms) {
-        await seedFarm(
+        const res = await seedFarm(
             { ...farm, modules: ALL_MODULES, plan: 'ENTERPRISE', organizationId: org.id },
             pwd,
         );
+        seededChildren[farm.slug] = { tenant: { id: res.tenant.id, slug: res.tenant.slug }, owner: { id: res.owner.id } };
     }
 
-    // ── Demo certification scheme (global AG_SCHEME framework) ──
-    // A certification scheme is a GLOBAL Framework (no tenantId) with
-    // kind = 'AG_SCHEME'; its requirements are ordinary
-    // FrameworkRequirement rows. The enterprise farms (ENTERPRISE plan +
-    // ALL_MODULES) can map practices to it. Direct prisma writes (not the
-    // usecases) to avoid the BullMQ/Redis enqueue hang in dev. Idempotent
-    // via upsert on the unique `key`. Concept-only requirement text — no
-    // proprietary scheme wording (LICENSE hygiene).
-    const SCHEME_KEY = 'ORGANIC-DEMO';
-    const scheme = await prisma.framework.upsert({
-        where: { key: SCHEME_KEY },
-        update: {},
-        create: {
-            key: SCHEME_KEY,
-            name: 'Organic Certification (demo)',
-            description: 'Illustrative organic-production scheme for the demo — concept content only.',
-            kind: 'AG_SCHEME',
-        },
-    });
-    const schemeRequirements = [
-        { code: 'OC-1', title: 'No prohibited synthetic inputs applied within the conversion window', sortOrder: 0 },
-        { code: 'OC-2', title: 'Input applications recorded with date, product, rate, and location', sortOrder: 1 },
-        { code: 'OC-3', title: 'Buffer zones maintained between organic and conventional parcels', sortOrder: 2 },
-        { code: 'OC-4', title: 'Harvest lots traceable to the field of origin', sortOrder: 3 },
-    ];
-    for (const r of schemeRequirements) {
-        await prisma.frameworkRequirement.upsert({
-            where: { frameworkId_code: { frameworkId: scheme.id, code: r.code } },
-            update: {},
-            create: { frameworkId: scheme.id, code: r.code, title: r.title, sortOrder: r.sortOrder },
-        });
+    // ── Certification schemes (global AG_SCHEME frameworks) ──
+    // Import the two concept-only scheme catalogs (GlobalG.A.P. IFA + EU
+    // Organic) through the SAME loader + applier the `schemes:import` CLI
+    // uses, so the demo shows real, mappable schemes. Idempotent (the
+    // applier upserts on `key`). Concept-only / paraphrased text — no
+    // proprietary scheme wording (LICENSE hygiene; each file is marked
+    // illustrative).
+    const CATALOG_DIR = path.resolve(__dirname, '..', 'prisma', 'catalogs');
+    const schemeCatalogs = ['globalgap-ifa-demo.yaml', 'eu-organic-2018-848-demo.yaml'];
+    for (const fileName of schemeCatalogs) {
+        try {
+            const file = loadAndValidateCatalogFile(path.join(CATALOG_DIR, fileName));
+            const result = await applyCatalogFile(prisma, file, path.join(CATALOG_DIR, fileName));
+            console.log(
+                `✅ Certification scheme: ${result.framework.key} (${result.requirements.upserted} requirements, ${result.templates.created} new templates)`,
+            );
+        } catch (e) {
+            console.warn(`  ⚠️  scheme catalog ${fileName} skipped:`, e instanceof Error ? e.message : e);
+        }
     }
-    console.log(`✅ Certification scheme: ${scheme.name} (${SCHEME_KEY}) with ${schemeRequirements.length} requirements`);
+
+    // ── Install the GlobalG.A.P. pack into one enterprise farm + show the
+    //    spray → auto-evidence chain end-to-end. Direct prisma (Redis-free):
+    //    replicate installPack's control + ControlRequirementLink writes so
+    //    Controls mapped to the plant-protection requirements exist, then
+    //    create one INPUT_APPLICATION spray record and let
+    //    attachAutoEvidenceFromLogEntry mint the SUBMITTED scheme evidence.
+    const GG_PACK_KEY = 'GLOBALGAP-IFA-DEMO-BASE';
+    const north = seededChildren['bigfarm-north'];
+    if (north) {
+        try {
+            await installSchemePackForDemo(north.tenant.id, north.owner.id, GG_PACK_KEY);
+            await seedSprayAutoEvidence(north.tenant.id, north.tenant.slug, north.owner.id);
+        } catch (e) {
+            console.warn('  ⚠️  GlobalG.A.P. demo (pack + auto-evidence) skipped:', e instanceof Error ? e.message : e);
+        }
+    }
 
     // Org admin who sees the whole portfolio.
     const orgAdmin = await upsertOwner('admin@bigfarm.demo', 'Olivia OrgAdmin', pwd);
