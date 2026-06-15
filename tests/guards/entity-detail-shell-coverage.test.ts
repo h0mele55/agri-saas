@@ -59,6 +59,8 @@ const ADOPTED_PAGES: ReadonlyArray<Adopter> = [
   { page: "src/app/t/[tenantSlug]/(app)/journal/[id]/page.tsx", entity: "Journal entry" },
   // Knowledge Base — versioned article detail (the Policy detail's twin).
   { page: "src/app/t/[tenantSlug]/(app)/knowledge/[id]/page.tsx", entity: "Knowledge article" },
+  // Crop Planning — crop-plan detail with the succession board.
+  { page: "src/app/t/[tenantSlug]/(app)/planning/[cropPlanId]/page.tsx", entity: "Crop plan" },
 ];
 
 /**

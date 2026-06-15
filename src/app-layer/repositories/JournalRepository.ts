@@ -43,6 +43,14 @@ export interface CreateLogEntryInput {
     locationIds?: string[];
     /** Equipment ids used in the entry. */
     equipmentIds?: string[];
+    /**
+     * Crop-planning plan-vs-actual links — the planting + lifecycle
+     * stage this entry realises. Mirrors `locationIds` → LogLocation:
+     * each becomes a LogPlanting row, so a sow/transplant/harvest
+     * journal entry records the ACTUAL date against the planned
+     * Planting.
+     */
+    plantingLinks?: { plantingId: string; stage: 'SOW' | 'TRANSPLANT' | 'HARVEST' }[];
 }
 
 export interface UpdateLogEntryInput {
@@ -283,6 +291,17 @@ export class JournalRepository {
                               create: input.equipmentIds.map((equipmentId) => ({
                                   tenantId: ctx.tenantId,
                                   equipmentId,
+                              })),
+                          },
+                      }
+                    : {}),
+                ...(input.plantingLinks && input.plantingLinks.length
+                    ? {
+                          plantings: {
+                              create: input.plantingLinks.map((p) => ({
+                                  tenantId: ctx.tenantId,
+                                  plantingId: p.plantingId,
+                                  stage: p.stage,
                               })),
                           },
                       }

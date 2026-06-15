@@ -180,7 +180,18 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // (confirm-surface convention). Both are balanced by the modal's two
 // secondary buttons (Cancel + add-Requirement), so the secondary:primary
 // ratio is preserved. Measured = 143; ceiling at 143 (no headroom slot).
-const MAX_PRIMARY_COUNT = 143;
+//
+// Crop Planning (2026-06-15) bumped 143 → 148 for the five earned
+// primaries on the succession-planning surface: the crop-plans list
+// "Plan" header trigger + the new-crop-plan modal's "Create plan"
+// submit + the crop-plan detail "Generate" CTA (re-run the engine —
+// the distinct primary action of the detail surface) + the seasons
+// list "Season" header trigger + the new-season modal's "Create
+// season" submit. Each is the single primary of a distinct surface
+// (two list creates, two modal confirms, one detail action). The
+// modal confirms are balanced by their Cancel secondaries, so the
+// ratio direction is preserved. Measured = 148; ceiling at 148.
+const MAX_PRIMARY_COUNT = 148;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

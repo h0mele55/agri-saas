@@ -121,6 +121,10 @@ const EXEMPTIONS: Record<string, string> = {
     // sub-table. Detail page (EntityDetailLayout).
     'tasks/[taskId]/page.tsx':
         'detail page — DataTable is the inner links sub-table (R11-PR8)',
+    // Crop-plan detail page mounts DataTable for the succession board
+    // (plan-vs-actual rows beside the Gantt). Detail page sub-table.
+    'planning/[cropPlanId]/PlantingBoard.tsx':
+        'detail page sub-table — plantings of one crop plan (succession board)',
 
     // Browse-and-install template picker — multi-section browser,
     // not a list page in the perf-complaint sense.

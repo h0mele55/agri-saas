@@ -594,6 +594,19 @@ const LIST_MODELS_TENANT_INDEX_SUFFICIENT: Record<string, string> = {
         'join table — fetched by tenantId plus a leading-indexed FK; Layers A/B cover its query shapes; no curated composite index needed.',
     VendorRelationship:
         'fetched per vendor via a leading-indexed FK; Layers A/B cover its query shapes; no curated composite index needed today.',
+    // ─── Crop Planning (succession planning + plan-vs-actual) ───
+    Season:
+        'listSeasons filters by tenantId + deletedAt, orders by startDate DESC — covered by @@index([tenantId, startDate]); bounded take:500.',
+    CropType:
+        'listCropTypes filters by tenantId + deletedAt, orders by name ASC — covered by @@index([tenantId, name]); bounded take:500.',
+    CropVariety:
+        'listCropVarieties filters by tenantId + deletedAt (+ optional cropTypeId), orders by name ASC — covered by @@index([tenantId, cropTypeId]) + @@index([tenantId, name]); bounded take:500.',
+    CropPlan:
+        'listCropPlans filters by tenantId + deletedAt (+ optional seasonId / status), orders by createdAt DESC — each filter leading-indexed by @@index([tenantId, seasonId]) / @@index([tenantId, status]); bounded take:500.',
+    Planting:
+        'listPlantings + getCropPlanProgress filter by tenantId + deletedAt (+ optional cropPlanId / status), order by successionNumber ASC — covered by @@index([tenantId, cropPlanId]) / @@index([tenantId, status]); generatePlantings re-reads PLANNED rows by [tenantId, cropPlanId, status]; bounded take:500.',
+    LogPlanting:
+        'getCropPlanProgress reads actuals by tenantId + plantingId IN [...] in one batched query — covered by @@index([tenantId, plantingId]); bounded take:500.',
 };
 
 // ─────────────────────────────────────────────────────────────────────

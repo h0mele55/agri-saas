@@ -1,0 +1,238 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
+import { Button } from '@/components/ui/button';
+import { Plus } from '@/components/ui/icons/nucleo';
+import { createColumns } from '@/components/ui/table';
+import {
+    FilterProvider,
+    useFilterContext,
+    useFilters,
+} from '@/components/ui/filter';
+import { EntityListPage } from '@/components/layout/EntityListPage';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableTitleCell } from '@/components/ui/table-title-cell';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { toApiSearchParams } from '@/lib/filters/url-sync';
+import { buildCropPlanFilters, CROP_PLAN_FILTER_KEYS, CROP_PLAN_STATUS_LABELS } from './filter-defs';
+import { NewCropPlanModal } from './NewCropPlanModal';
+
+/** List-row shape returned by GET /planning/crop-plans. */
+interface CropPlanRow {
+    id: string;
+    name: string;
+    status: string;
+    successions: number;
+    intervalDays: number;
+    season?: { id: string; name: string } | null;
+    cropType?: { id: string; name: string } | null;
+    variety?: { id: string; name: string } | null;
+    _count?: { plantings?: number };
+}
+
+interface CatalogOption {
+    id: string;
+    name: string;
+    cropType?: { id: string; name: string } | null;
+    defaultMethod?: string | null;
+}
+
+interface CropPlansClientProps {
+    initialPlans: CropPlanRow[];
+    seasons: CatalogOption[];
+    cropTypes: CatalogOption[];
+    varieties: CatalogOption[];
+    tenantSlug: string;
+    permissions: { canWrite: boolean };
+}
+
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral',
+    ACTIVE: 'info',
+    COMPLETED: 'success',
+    CANCELLED: 'warning',
+};
+
+export function CropPlansClient(props: CropPlansClientProps) {
+    const filterCtx = useFilterContext([], CROP_PLAN_FILTER_KEYS, {});
+    return (
+        <FilterProvider value={filterCtx}>
+            <CropPlansPageInner {...props} />
+        </FilterProvider>
+    );
+}
+
+function CropPlansPageInner({
+    initialPlans,
+    seasons,
+    cropTypes,
+    varieties,
+    tenantSlug,
+    permissions,
+}: CropPlansClientProps) {
+    const tenantHref = (path: string) => `/t/${tenantSlug}${path}`;
+    const router = useRouter();
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+    const filterCtx = useFilters();
+    const { state, search, hasActive } = filterCtx;
+    const fetchParams = useMemo(() => toApiSearchParams(state, { search }), [state, search]);
+
+    const noFilters = !hasActive && !search;
+    const plansKey = useMemo(() => {
+        const qs = fetchParams.toString();
+        return qs ? `/planning/crop-plans?${qs}` : '/planning/crop-plans';
+    }, [fetchParams]);
+
+    const plansQuery = useTenantSWR<CropPlanRow[]>(plansKey, {
+        fallbackData: noFilters ? initialPlans : undefined,
+    });
+    const plans = plansQuery.data ?? [];
+    const loading = plansQuery.isLoading && !plansQuery.data;
+
+    const liveFilters = useMemo(() => buildCropPlanFilters(), []);
+
+    const columns = useMemo(
+        () =>
+            createColumns<CropPlanRow>([
+                {
+                    accessorKey: 'name',
+                    header: 'Plan',
+                    cell: ({ row, getValue }) => (
+                        <TableTitleCell
+                            href={tenantHref(`/planning/${row.original.id}`)}
+                            id={`crop-plan-link-${row.original.id}`}
+                        >
+                            {getValue() as string}
+                        </TableTitleCell>
+                    ),
+                },
+                {
+                    id: 'season',
+                    header: 'Season',
+                    accessorFn: (p) => p.season?.name ?? '—',
+                    cell: ({ getValue }) => (
+                        <span className="text-xs text-content-muted">{getValue() as string}</span>
+                    ),
+                },
+                {
+                    id: 'crop',
+                    header: 'Crop',
+                    accessorFn: (p) => p.variety?.name ?? p.cropType?.name ?? '—',
+                    cell: ({ getValue }) => (
+                        <span className="text-xs text-content-default">{getValue() as string}</span>
+                    ),
+                },
+                {
+                    id: 'successions',
+                    header: 'Successions',
+                    accessorFn: (p) => p.successions,
+                    cell: ({ row }) => (
+                        <span className="text-xs text-content-muted tabular-nums">
+                            {row.original.successions}
+                            {row.original.intervalDays > 0 ? ` · ${row.original.intervalDays}d` : ''}
+                        </span>
+                    ),
+                },
+                {
+                    id: 'plantings',
+                    header: 'Plantings',
+                    accessorFn: (p) => p._count?.plantings ?? 0,
+                    cell: ({ getValue }) => (
+                        <span className="text-xs text-content-muted tabular-nums">{getValue() as number}</span>
+                    ),
+                },
+                {
+                    accessorKey: 'status',
+                    header: 'Status',
+                    cell: ({ row }) => {
+                        const s = row.original.status;
+                        return (
+                            <StatusBadge variant={STATUS_BADGE[s] ?? 'neutral'} size="sm">
+                                {(CROP_PLAN_STATUS_LABELS as Record<string, string>)[s] ?? s}
+                            </StatusBadge>
+                        );
+                    },
+                },
+            ]),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tenantSlug],
+    );
+
+    return (
+        <EntityListPage<CropPlanRow>
+            className="animate-fadeIn gap-section"
+            header={{
+                breadcrumbs: [
+                    { label: 'Dashboard', href: tenantHref('/dashboard') },
+                    { label: 'Planting' },
+                ],
+                title: 'Crop Planning',
+                description: 'Season succession plans — the schedule behind every sowing, transplant, and harvest.',
+                actions: permissions.canWrite ? (
+                    <Button
+                        variant="primary"
+                        icon={<Plus className="-ml-0.5 -mr-2.5" />}
+                        onClick={() => setIsCreateOpen(true)}
+                        id="new-crop-plan-btn"
+                    >
+                        Plan
+                    </Button>
+                ) : null,
+            }}
+            filters={{
+                defs: liveFilters,
+                searchId: 'crop-plans-search',
+                searchPlaceholder: 'Search plans…',
+            }}
+            table={{
+                data: plans,
+                columns,
+                loading,
+                getRowId: (p) => p.id,
+                onRowClick: (row) => router.push(tenantHref(`/planning/${row.original.id}`)),
+                emptyState: hasActive ? (
+                    <EmptyState
+                        size="sm"
+                        variant="no-results"
+                        title="No plans match your filters"
+                        description="Try widening your search or clearing one of the active filters."
+                        secondaryAction={{ label: 'Clear filters', onClick: () => filterCtx.clearAll() }}
+                    />
+                ) : (
+                    <EmptyState
+                        size="sm"
+                        variant="no-records"
+                        title="No crop plans yet"
+                        description="Define a season succession plan — the engine expands it into dated plantings and field tasks."
+                        primaryAction={
+                            permissions.canWrite
+                                ? { label: 'Add plan', onClick: () => setIsCreateOpen(true) }
+                                : undefined
+                        }
+                    />
+                ),
+                resourceName: (p) => (p ? 'plans' : 'plan'),
+                'data-testid': 'crop-plans-table',
+                className: 'hover:bg-bg-muted',
+            }}
+        >
+            {permissions.canWrite && (
+                <NewCropPlanModal
+                    open={isCreateOpen}
+                    setOpen={setIsCreateOpen}
+                    tenantSlug={tenantSlug}
+                    seasons={seasons}
+                    cropTypes={cropTypes}
+                    varieties={varieties}
+                    onSaved={(plan) => {
+                        void plansQuery.mutate();
+                        router.push(tenantHref(`/planning/${plan.id}`));
+                    }}
+                />
+            )}
+        </EntityListPage>
+    );
+}

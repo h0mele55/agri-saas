@@ -416,3 +416,65 @@ auto-flowing in as evidence, inspection-pack assembly + applicability-statement 
   SoA CSV) also deferred.
 - **One spray → one evidence row** (distinct-control dedup): the CB.7 templates
   map to a single control, so a spray attaches 1 evidence, not 3. Expected.
+
+---
+
+## Phase 9 — Crop planning: succession engine + auto-generated field work (feat/crop-planning)
+
+Succession planning that auto-generates field Tasks and computes seed demand.
+
+- **Pure succession engine** `src/lib/planning/succession.ts` — CLEAN-ROOM
+  reimplementation of Qrop/CropPlanning math (GPL → concepts only, no code).
+  `generateSuccessions(config, timing, alloc, spacing)` → evenly-spaced sowings
+  (firstSow + i×interval), transplant-vs-direct-sow date offsets, bed/area plant
+  counts, germination-overage seed grams. Plus `mergeTiming`/`mergeSpacing`
+  (variety overrides crop, field-by-field), `addUtcDays` (UTC-exact, no TZ drift).
+  No DB/IO — 24 unit tests. The USECASE maps Prisma↔engine; the engine never
+  imports Prisma.
+- **Schema** `prisma/schema/planning.prisma` — 6 tenant-scoped models: CropType,
+  CropVariety (the agronomic numbers + `sourceUrn`), Season, CropPlan (the
+  succession CONFIG), Planting (engine output, PLANNED dates), LogPlanting
+  (plan-vs-actual join, mirrors LogLocation). All `@@unique([id, tenantId])` +
+  composite child FKs `[xId, tenantId]→[id, tenantId]` + soft-delete trio. RLS
+  trio applied via a DO-loop in the migration; the migrate-dev drift (44 lines)
+  was hand-stripped. CropType/CropVariety are TENANT-SCOPED catalogs (like Item),
+  NOT global — each tenant curates + seeds its own from OpenFarm CC0.
+- **generatePlantings(ctx, cropPlanId)** — the integration: load plan+variety
+  (validates daysToMaturity), build engine inputs (timing/spacing come from the
+  VARIETY; plan.method overrides), `generateSuccessions`, then (tx) `deleteMany`
+  only `status:'PLANNED'` plantings (SOWN+ survive — idempotent regenerate) +
+  `createMany`. THEN outside the tx, auto-generate SOW/TRANSPLANT(conditional)/
+  HARVEST field Tasks via `createTask`+`addTaskLink('PLANTING')`. Task idempotency
+  is BATCHED (one taskLink.findMany → `${plantingId}:${stage}` Set) — no
+  read-in-loop. Tasks run outside the db tx because createTask opens its own
+  context + enqueues BullMQ.
+- **Plan-vs-actual** `getCropPlanProgress` — planted dates beside actuals from
+  LogPlanting→LogEntry.occurredAt grouped by stage, resolved in ONE findMany.
+  `createLogEntry` gained `plantingLinks` (→ LogPlanting rows, mirroring
+  locationIds→LogLocation) so a journal entry records the real sow/harvest.
+- **UI** `/planning` route group (PLANNING-gated, simple-mode/FREE — NOT
+  cert-gated): crop-plans EntityListPage + detail EntityDetailLayout with a
+  PlantingBoard (GanttTimeline + plan-vs-actual DataTable) + seasons. Nav
+  "Planting" in Govern (reused CalendarIcon — no new lucide).
+- **Seed** OpenFarm CC0 (`scripts/import-crop-varieties.ts`, `npm run
+  varieties:import`) — 12 crops, generic public-domain horticultural norms,
+  `sourceUrn:'openfarm:cc0'`. seed-demo uses the engine directly with prisma
+  (Redis-free; createTask enqueue is skipped in seed).
+
+### Remaining gaps (Phase 9)
+- **CropType carries no agronomic defaults** — timing/spacing live ONLY on
+  CropVariety, so `mergeTiming(null, variety)` is really variety-only. If
+  crop-level fallbacks are wanted (a CropType default for varieties that omit a
+  number), add the fields to CropType + pass them as the `crop` arg.
+- **No bed/Bed model** — allocation is via plan fields (bedLengthM/rowsPerBed/
+  targetAreaM2), not a first-class Bed/BedAssignment entity. Spatial siting is a
+  loose Location/Parcel FK on CropPlan/Planting, not a packed-bed scheduler.
+- **Seed omits the auto-tasks** (createTask enqueues BullMQ → hangs without
+  Redis). The demo plantings exist but their SOW/HARVEST tasks don't; run
+  `generatePlantings` via the API/usecase with Redis up to get the tasks.
+- **PlantingBoard reuses GanttTimeline** by casting a planting lifecycle to a
+  task-shaped CalendarEvent — a dedicated planting-timeline tone would be
+  cleaner. Plan-vs-actual variance (days early/late) is shown as a check, not a
+  computed delta.
+- **No seed-demand roll-up** — seedQuantityGrams is per-planting; a season-level
+  "total seed to order per variety" report is the obvious next step.

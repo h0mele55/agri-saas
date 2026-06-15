@@ -102,6 +102,37 @@ const MODULE_GATED_ROUTES: ReadonlyArray<{
         file: 'src/app/api/t/[tenantSlug]/processes/route.ts',
         module: 'CERTIFICATION',
     },
+    // Crop-planning domain — gated behind PLANNING. A tenant with the
+    // PLANNING module toggled off gets a 403 here, the API twin of the
+    // `/planning` route-group `requireModule` redirect.
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/seasons/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/crop-types/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/crop-varieties/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/crop-plans/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/crop-plans/[cropPlanId]/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/crop-plans/[cropPlanId]/generate/route.ts',
+        module: 'PLANNING',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/planning/plantings/route.ts',
+        module: 'PLANNING',
+    },
     // Future module-gated routes add themselves here.
 ];
 

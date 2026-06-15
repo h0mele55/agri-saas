@@ -1,0 +1,271 @@
+'use client';
+
+/**
+ * PlantingBoard — the succession board on the crop-plan Plantings tab.
+ *
+ * Two views of the same plan-vs-actual payload
+ * (`GET /planning/crop-plans/:id?include=progress`):
+ *
+ *   1. A <GanttTimeline> — one bar per succession from sow → harvest
+ *      end. Reuses the shared timeline primitive (a planting's
+ *      lifecycle reads as task-like work, so each row maps to a
+ *      `task`-category CalendarEvent).
+ *   2. A <DataTable> — succession #, planned + actual sow / transplant
+ *      / harvest dates, seed grams, plant count, status. The actual
+ *      column shows the journal-recorded date where a LogPlanting
+ *      exists, so the farmer sees plan vs reality at a glance.
+ */
+
+import { useMemo } from 'react';
+import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
+import { createColumns, DataTable } from '@/components/ui/table';
+import { GanttTimeline } from '@/components/ui/GanttTimeline';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { InlineEmptyState } from '@/components/ui/inline-empty-state';
+import { SkeletonCard } from '@/components/ui/skeleton';
+import { Heading } from '@/components/ui/typography';
+import { Tooltip } from '@/components/ui/tooltip';
+import { CircleCheck } from '@/components/ui/icons/nucleo';
+import { formatDate } from '@/lib/format-date';
+import { cardVariants } from '@/components/ui/card';
+import { cn } from '@/lib/cn';
+import type { CalendarEvent } from '@/app-layer/schemas/calendar.schemas';
+
+interface PlantingProgressRow {
+    plantingId: string;
+    successionNumber: number;
+    method: string;
+    status: string;
+    planned: {
+        sowDate: string | null;
+        transplantDate: string | null;
+        harvestStartDate: string | null;
+        harvestEndDate: string | null;
+    };
+    actual: {
+        SOW: string | null;
+        TRANSPLANT: string | null;
+        HARVEST: string | null;
+    };
+}
+
+interface PlantingDetail {
+    id: string;
+    seedQuantityGrams: number | string | null;
+    plantCount: number | null;
+}
+
+interface ProgressPayload {
+    plan: { id: string; name: string };
+    progress: PlantingProgressRow[];
+}
+
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    PLANNED: 'neutral',
+    SOWN: 'info',
+    TRANSPLANTED: 'info',
+    HARVESTING: 'warning',
+    HARVESTED: 'success',
+    TERMINATED: 'neutral',
+};
+
+/** A planned date beside its actual realisation (or an em-dash). */
+function PlannedActual({ planned, actual }: { planned: string | null; actual: string | null }) {
+    if (!planned && !actual) return <span className="text-content-subtle">—</span>;
+    return (
+        <span className="flex flex-col leading-tight">
+            <span className="text-xs text-content-default">{planned ? formatDate(planned) : '—'}</span>
+            {actual ? (
+                <Tooltip content="Actual date recorded from the journal">
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-content-success">
+                        <CircleCheck className="h-2.5 w-2.5" aria-hidden />
+                        {formatDate(actual)}
+                    </span>
+                </Tooltip>
+            ) : null}
+        </span>
+    );
+}
+
+export function PlantingBoard({
+    tenantSlug,
+    cropPlanId,
+}: {
+    tenantSlug: string;
+    cropPlanId: string;
+}) {
+    // Plan-vs-actual progress + the planting rows (for seed/plant-count).
+    const progressSWR = useTenantSWR<ProgressPayload>(
+        `/planning/crop-plans/${cropPlanId}?include=progress`,
+    );
+    const plantingsSWR = useTenantSWR<PlantingDetail[]>(
+        `/planning/plantings?cropPlanId=${cropPlanId}`,
+    );
+
+    const progress = useMemo(() => progressSWR.data?.progress ?? [], [progressSWR.data]);
+    const plantingById = useMemo(() => {
+        const map = new Map<string, PlantingDetail>();
+        for (const p of plantingsSWR.data ?? []) map.set(p.id, p);
+        return map;
+    }, [plantingsSWR.data]);
+
+    // ── Gantt range + events ──
+    const { from, to, events } = useMemo(() => {
+        const dates: number[] = [];
+        for (const row of progress) {
+            for (const d of [row.planned.sowDate, row.planned.harvestEndDate]) {
+                if (d) dates.push(new Date(d).getTime());
+            }
+        }
+        const now = Date.now();
+        const min = dates.length ? Math.min(...dates) : now;
+        const max = dates.length ? Math.max(...dates) : now + 30 * 86_400_000;
+        // Pad the range a little so end bars aren't flush to the edge.
+        const pad = 3 * 86_400_000;
+        const events: CalendarEvent[] = progress
+            .filter((r) => r.planned.sowDate && r.planned.harvestEndDate)
+            .map((r) => ({
+                id: `planting:${r.plantingId}`,
+                // A planting's lifecycle is task-like work — map onto the
+                // shared CalendarEvent's `task` category so the Gantt's
+                // tone bundle applies. `href` stays on this plan's page.
+                type: 'task-due',
+                category: 'task',
+                title: `#${r.successionNumber}`,
+                date: r.planned.sowDate!,
+                end: r.planned.harvestEndDate!,
+                status: r.actual.HARVEST ? 'done' : 'scheduled',
+                entityType: 'TASK',
+                entityId: r.plantingId,
+                href: `/t/${tenantSlug}/planning/${cropPlanId}`,
+                detail: `Succession ${r.successionNumber}`,
+            }));
+        return { from: new Date(min - pad), to: new Date(max + pad), events };
+    }, [progress, tenantSlug, cropPlanId]);
+
+    const columns = useMemo(
+        () =>
+            createColumns<PlantingProgressRow>([
+                {
+                    id: 'succession',
+                    header: '#',
+                    accessorFn: (r) => r.successionNumber,
+                    cell: ({ row }) => (
+                        <span className="text-xs font-medium text-content-emphasis tabular-nums">
+                            {row.original.successionNumber}
+                        </span>
+                    ),
+                },
+                {
+                    id: 'sow',
+                    header: 'Sow',
+                    accessorFn: (r) => r.planned.sowDate ?? '',
+                    cell: ({ row }) => (
+                        <PlannedActual planned={row.original.planned.sowDate} actual={row.original.actual.SOW} />
+                    ),
+                    meta: { disableTruncate: true },
+                },
+                {
+                    id: 'transplant',
+                    header: 'Transplant',
+                    accessorFn: (r) => r.planned.transplantDate ?? '',
+                    cell: ({ row }) => (
+                        <PlannedActual
+                            planned={row.original.planned.transplantDate}
+                            actual={row.original.actual.TRANSPLANT}
+                        />
+                    ),
+                    meta: { disableTruncate: true },
+                },
+                {
+                    id: 'harvest',
+                    header: 'Harvest',
+                    accessorFn: (r) => r.planned.harvestStartDate ?? '',
+                    cell: ({ row }) => (
+                        <PlannedActual
+                            planned={row.original.planned.harvestStartDate}
+                            actual={row.original.actual.HARVEST}
+                        />
+                    ),
+                    meta: { disableTruncate: true },
+                },
+                {
+                    id: 'seed',
+                    header: 'Seed (g)',
+                    accessorFn: (r) => plantingById.get(r.plantingId)?.seedQuantityGrams ?? '',
+                    cell: ({ row }) => {
+                        const g = plantingById.get(row.original.plantingId)?.seedQuantityGrams;
+                        return (
+                            <span className="text-xs text-content-muted tabular-nums">
+                                {g != null ? Number(g).toLocaleString() : '—'}
+                            </span>
+                        );
+                    },
+                },
+                {
+                    id: 'plants',
+                    header: 'Plants',
+                    accessorFn: (r) => plantingById.get(r.plantingId)?.plantCount ?? '',
+                    cell: ({ row }) => {
+                        const n = plantingById.get(row.original.plantingId)?.plantCount;
+                        return (
+                            <span className="text-xs text-content-muted tabular-nums">
+                                {n != null ? n.toLocaleString() : '—'}
+                            </span>
+                        );
+                    },
+                },
+                {
+                    accessorKey: 'status',
+                    header: 'Status',
+                    cell: ({ row }) => (
+                        <StatusBadge variant={STATUS_BADGE[row.original.status] ?? 'neutral'} size="sm">
+                            {row.original.status}
+                        </StatusBadge>
+                    ),
+                },
+            ]),
+        [plantingById],
+    );
+
+    if (progressSWR.isLoading && !progressSWR.data) {
+        return <SkeletonCard lines={5} />;
+    }
+    if (progressSWR.error) {
+        return (
+            <InlineEmptyState
+                title="Couldn't load plantings"
+                description="Something went wrong fetching this plan's plantings. Reload the page to try again."
+            />
+        );
+    }
+    if (progress.length === 0) {
+        return (
+            <InlineEmptyState
+                title="No plantings yet"
+                description="Generate this plan's plantings to populate the succession board with dated sow / transplant / harvest rows."
+            />
+        );
+    }
+
+    return (
+        <div className="space-y-section" data-testid="planting-board">
+            {/* Succession timeline */}
+            <div className={cn(cardVariants({ density: 'compact' }), 'space-y-default')}>
+                <Heading level={3}>Succession timeline</Heading>
+                <GanttTimeline from={from} to={to} events={events} data-testid="planting-gantt" />
+            </div>
+
+            {/* Plan-vs-actual table */}
+            <div className={cn(cardVariants({ density: 'none' }), 'overflow-hidden')} id="planting-table">
+                <DataTable
+                    data={progress}
+                    columns={columns}
+                    getRowId={(r) => r.plantingId}
+                    selectionEnabled={false}
+                    virtualize={false}
+                />
+            </div>
+        </div>
+    );
+}

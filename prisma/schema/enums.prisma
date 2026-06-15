@@ -1074,6 +1074,45 @@ enum LogEntryStatus {
   DONE
 }
 
+// ─── Crop planning domain (planning.prisma) ──────────────────────────
+
+enum SeasonStatus {
+  PLANNING
+  ACTIVE
+  CLOSED
+}
+
+enum CropPlanStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+/// Whether a planting is sown in place or started and transplanted out —
+/// drives the succession-engine date math (transplant offset vs none).
+enum PlantingMethod {
+  DIRECT_SOW
+  TRANSPLANT
+}
+
+enum PlantingStatus {
+  PLANNED
+  SOWN
+  TRANSPLANTED
+  HARVESTING
+  HARVESTED
+  TERMINATED
+}
+
+/// Which planned milestone a journal LogEntry realises (LogPlanting) and
+/// which auto-generated field task a planting needs.
+enum PlantingStage {
+  SOW
+  TRANSPLANT
+  HARVEST
+}
+
 /// Lot genealogy edge kind (OFBiz lot-genealogy concept, reimplemented).
 /// DERIVATION: the child lot was produced using the parent — a harvest
 /// lot derived from the seed/fertiliser/pesticide lots consumed on its

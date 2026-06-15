@@ -1,0 +1,338 @@
+'use client';
+
+/**
+ * NewCropPlanModal — create a crop plan, then (optionally) generate its
+ * plantings + field tasks in the same flow.
+ *
+ * The form captures the succession CONFIG the engine expands: season +
+ * crop type + variety, planting method, first sow date, succession
+ * count + interval, and a per-succession allocation (explicit plant
+ * count). On submit it POSTs the plan; if "Generate plantings now" is
+ * checked it then POSTs to the plan's /generate endpoint so the board
+ * is populated immediately.
+ */
+
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useTenantApiUrl } from '@/lib/tenant-context-provider';
+import { apiPost } from '@/lib/api-client';
+import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
+import { FormField } from '@/components/ui/form-field';
+import { Input } from '@/components/ui/input';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+
+interface SeasonOption {
+    id: string;
+    name: string;
+}
+interface CropTypeOption {
+    id: string;
+    name: string;
+}
+interface VarietyOption {
+    id: string;
+    name: string;
+    cropType?: { id: string; name: string } | null;
+    defaultMethod?: string | null;
+}
+
+export interface NewCropPlanModalProps {
+    open: boolean;
+    setOpen: Dispatch<SetStateAction<boolean>>;
+    tenantSlug: string;
+    seasons: SeasonOption[];
+    cropTypes: CropTypeOption[];
+    varieties: VarietyOption[];
+    onSaved?: (plan: { id: string }) => void;
+}
+
+const METHOD_OPTIONS: ComboboxOption[] = [
+    { value: 'DIRECT_SOW', label: 'Direct sow' },
+    { value: 'TRANSPLANT', label: 'Transplant' },
+];
+
+export function NewCropPlanModal({
+    open,
+    setOpen,
+    seasons,
+    cropTypes,
+    varieties,
+    onSaved,
+}: NewCropPlanModalProps) {
+    const buildUrl = useTenantApiUrl();
+
+    const [name, setName] = useState('');
+    const [seasonId, setSeasonId] = useState('');
+    const [cropTypeId, setCropTypeId] = useState('');
+    const [cropVarietyId, setCropVarietyId] = useState('');
+    const [method, setMethod] = useState('DIRECT_SOW');
+    const [firstSowDate, setFirstSowDate] = useState<Date | null>(new Date());
+    const [successions, setSuccessions] = useState('1');
+    const [intervalDays, setIntervalDays] = useState('0');
+    const [plantsPerSuccession, setPlantsPerSuccession] = useState('');
+    const [generateNow, setGenerateNow] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional form re-seed on open. */
+    useEffect(() => {
+        if (!open) return;
+        setName('');
+        setSeasonId(seasons[0]?.id ?? '');
+        setCropTypeId('');
+        setCropVarietyId('');
+        setMethod('DIRECT_SOW');
+        setFirstSowDate(new Date());
+        setSuccessions('1');
+        setIntervalDays('0');
+        setPlantsPerSuccession('');
+        setGenerateNow(true);
+        setError(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    const seasonOptions: ComboboxOption[] = useMemo(
+        () => seasons.map((s) => ({ value: s.id, label: s.name })),
+        [seasons],
+    );
+    const cropTypeOptions: ComboboxOption[] = useMemo(
+        () => cropTypes.map((c) => ({ value: c.id, label: c.name })),
+        [cropTypes],
+    );
+    // Varieties narrow to the chosen crop type once one is picked.
+    const varietyOptions: ComboboxOption[] = useMemo(() => {
+        const filtered = cropTypeId
+            ? varieties.filter((v) => v.cropType?.id === cropTypeId)
+            : varieties;
+        return filtered.map((v) => ({ value: v.id, label: v.name }));
+    }, [varieties, cropTypeId]);
+
+    // Picking a variety auto-fills the crop type + default method when
+    // they aren't set yet (the variety is the more specific choice).
+    const onVarietyChange = (id: string) => {
+        setCropVarietyId(id);
+        const v = varieties.find((x) => x.id === id);
+        if (v) {
+            if (v.cropType?.id) setCropTypeId(v.cropType.id);
+            if (v.defaultMethod) setMethod(v.defaultMethod);
+        }
+    };
+
+    const canSubmit =
+        name.trim().length > 0 &&
+        seasonId &&
+        cropTypeId &&
+        firstSowDate &&
+        !submitting;
+
+    const submit = async () => {
+        if (!canSubmit || !firstSowDate) return;
+        setSubmitting(true);
+        setError(null);
+        try {
+            const plan = await apiPost<{ id: string }>(buildUrl('/planning/crop-plans'), {
+                name: name.trim(),
+                seasonId,
+                cropTypeId,
+                cropVarietyId: cropVarietyId || null,
+                method,
+                firstSowDate: firstSowDate.toISOString(),
+                successions: Number(successions) || 1,
+                intervalDays: Number(intervalDays) || 0,
+                plantsPerSuccession:
+                    plantsPerSuccession.trim() === '' ? null : Number(plantsPerSuccession),
+            });
+            if (generateNow) {
+                // Best-effort — a plan with no maturity-bearing variety
+                // can't generate; surface that but keep the created plan.
+                try {
+                    await apiPost(buildUrl(`/planning/crop-plans/${plan.id}/generate`), {});
+                } catch (genErr) {
+                    setError(
+                        genErr instanceof Error
+                            ? `Plan created, but plantings could not be generated: ${genErr.message}`
+                            : 'Plan created, but plantings could not be generated.',
+                    );
+                    setOpen(false);
+                    onSaved?.(plan);
+                    return;
+                }
+            }
+            setOpen(false);
+            onSaved?.(plan);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create crop plan');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const heading = 'New crop plan';
+    const description = 'Define the succession schedule — the engine expands it into plantings.';
+
+    return (
+        <Modal
+            showModal={open}
+            setShowModal={setOpen}
+            size="lg"
+            title={heading}
+            description={description}
+            preventDefaultClose={submitting}
+        >
+            <Modal.Header title={heading} description={description} />
+            <Modal.Form
+                id="crop-plan-form"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    void submit();
+                }}
+            >
+                <Modal.Body>
+                    {error && (
+                        <div
+                            className="mb-4 rounded-lg border border-border-error bg-bg-error px-3 py-2 text-sm text-content-error"
+                            id="crop-plan-error"
+                            role="alert"
+                        >
+                            {error}
+                        </div>
+                    )}
+                    <fieldset disabled={submitting} className="m-0 p-0 border-0 space-y-default">
+                        <FormField label="Plan name" required>
+                            <Input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="e.g. Summer lettuce successions"
+                                id="crop-plan-name"
+                            />
+                        </FormField>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-default">
+                            <FormField label="Season" required>
+                                <Combobox
+                                    options={seasonOptions}
+                                    selected={seasonOptions.find((o) => o.value === seasonId) ?? null}
+                                    setSelected={(o) => setSeasonId(o?.value ?? '')}
+                                    placeholder={seasonOptions.length ? 'Select season' : 'No seasons yet'}
+                                    aria-label="Season"
+                                    matchTriggerWidth
+                                />
+                            </FormField>
+                            <FormField label="Crop type" required>
+                                <Combobox
+                                    options={cropTypeOptions}
+                                    selected={cropTypeOptions.find((o) => o.value === cropTypeId) ?? null}
+                                    setSelected={(o) => {
+                                        setCropTypeId(o?.value ?? '');
+                                        // Clear a variety that no longer matches.
+                                        setCropVarietyId('');
+                                    }}
+                                    placeholder={cropTypeOptions.length ? 'Select crop' : 'No crops yet'}
+                                    aria-label="Crop type"
+                                    matchTriggerWidth
+                                />
+                            </FormField>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-default">
+                            <FormField label="Variety" hint="Carries the days-to-maturity + spacing the engine reads.">
+                                <Combobox
+                                    options={varietyOptions}
+                                    selected={varietyOptions.find((o) => o.value === cropVarietyId) ?? null}
+                                    setSelected={(o) => onVarietyChange(o?.value ?? '')}
+                                    placeholder={varietyOptions.length ? 'Select variety' : 'No varieties yet'}
+                                    aria-label="Variety"
+                                    matchTriggerWidth
+                                />
+                            </FormField>
+                            <FormField label="Method">
+                                <Combobox
+                                    options={METHOD_OPTIONS}
+                                    selected={METHOD_OPTIONS.find((o) => o.value === method) ?? null}
+                                    setSelected={(o) => setMethod(o?.value ?? 'DIRECT_SOW')}
+                                    aria-label="Planting method"
+                                    matchTriggerWidth
+                                />
+                            </FormField>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-default">
+                            <FormField label="First sow date" required>
+                                <DatePicker
+                                    value={firstSowDate}
+                                    onChange={(d) => setFirstSowDate(d)}
+                                    placeholder="Select date"
+                                />
+                            </FormField>
+                            <FormField label="Successions" hint="How many sowings.">
+                                <Input
+                                    inputMode="numeric"
+                                    value={successions}
+                                    onChange={(e) => setSuccessions(e.target.value.replace(/[^0-9]/g, ''))}
+                                    placeholder="1"
+                                    id="crop-plan-successions"
+                                />
+                            </FormField>
+                            <FormField label="Interval (days)" hint="Days between sowings.">
+                                <Input
+                                    inputMode="numeric"
+                                    value={intervalDays}
+                                    onChange={(e) => setIntervalDays(e.target.value.replace(/[^0-9]/g, ''))}
+                                    placeholder="0"
+                                    id="crop-plan-interval"
+                                />
+                            </FormField>
+                        </div>
+
+                        <FormField
+                            label="Plants per succession"
+                            hint="Optional — drives plant count + seed quantity. Leave blank to derive from bed/area later."
+                        >
+                            <Input
+                                inputMode="numeric"
+                                value={plantsPerSuccession}
+                                onChange={(e) => setPlantsPerSuccession(e.target.value.replace(/[^0-9]/g, ''))}
+                                placeholder="e.g. 60"
+                                id="crop-plan-plants"
+                            />
+                        </FormField>
+
+                        <label className="flex items-center gap-tight text-sm text-content-default">
+                            <input
+                                type="checkbox"
+                                checked={generateNow}
+                                onChange={(e) => setGenerateNow(e.target.checked)}
+                                id="crop-plan-generate-now"
+                            />
+                            Generate plantings + field tasks now
+                        </label>
+                    </fieldset>
+                </Modal.Body>
+                <Modal.Actions>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        onClick={() => setOpen(false)}
+                        disabled={submitting}
+                        id="crop-plan-cancel"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="primary"
+                        size="sm"
+                        disabled={!canSubmit}
+                        loading={submitting}
+                        id="crop-plan-submit"
+                    >
+                        Create plan
+                    </Button>
+                </Modal.Actions>
+            </Modal.Form>
+        </Modal>
+    );
+}
