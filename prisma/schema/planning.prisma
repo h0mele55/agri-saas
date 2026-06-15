@@ -198,6 +198,7 @@ model Planting {
   location     Location?     @relation(fields: [locationId, tenantId], references: [id, tenantId])
   parcel       Parcel?       @relation(fields: [parcelId, tenantId], references: [id, tenantId])
   logPlantings LogPlanting[]
+  agroSignals  AgroSignal[]
 
   @@unique([id, tenantId])
   @@index([tenantId, cropPlanId])

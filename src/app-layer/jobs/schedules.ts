@@ -104,6 +104,12 @@ export const SCHEDULED_JOBS: ScheduleDefinition[] = [
         defaultPayload: {},
     },
     {
+        name: 'weather-pull',
+        pattern: '0 6 * * *',     // daily at 06:00 UTC
+        description: 'Pull daily weather (Open-Meteo) for every farm location, then evaluate spray-window + disease-risk agro-signals',
+        defaultPayload: {},
+    },
+    {
         name: 'schedule-trigger-sweep',
         pattern: '0 7 * * *',     // daily at 07:00 UTC
         description: 'Fire SCHEDULE automation rules whose target entity is N days from its due date',

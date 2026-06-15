@@ -122,6 +122,9 @@ model Location {
   logLocations  LogLocation[]
   cropPlans     CropPlan[]
   plantings     Planting[]
+  weatherObservations WeatherObservation[]
+  dataStreams         DataStream[]
+  agroSignals         AgroSignal[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, key])

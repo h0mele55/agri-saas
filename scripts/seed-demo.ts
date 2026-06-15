@@ -513,6 +513,12 @@ async function main() {
         } catch (e) {
             console.warn('  ⚠️  GlobalG.A.P. demo (pack + auto-evidence) skipped:', e instanceof Error ? e.message : e);
         }
+        // Agro-intel demo data (weather obs + data stream) on North Estate.
+        try {
+            await seedAgroIntel(north.tenant.id);
+        } catch (e) {
+            console.warn('  ⚠️  Agro-intel demo seed skipped:', e instanceof Error ? e.message : e);
+        }
     }
 
     // Org admin who sees the whole portfolio.
@@ -537,6 +543,110 @@ async function main() {
     console.log('   Startup farmer : farmer@greenacres.demo  → /t/green-acres   (simple mode)');
     console.log('   Enterprise org : admin@bigfarm.demo       → /org/bigfarm-co  (portfolio)');
     console.log('   (password set via SEED_PASSWORD; default "password123")');
+}
+
+/**
+ * Agro-intel demo data (direct prisma, Redis-free, idempotent).
+ *
+ * Seeds, for one bigfarm location:
+ *   • ~10 days of WeatherObservation — a deliberately WARM-WET run so the
+ *     disease-risk evaluator escalates to HIGH (≥3 consecutive conducive
+ *     days) AND today's spray window reads UNSUITABLE (rain wash-off).
+ *     This makes both signal classes demonstrable when the weather-pull
+ *     job (or a manual evaluateLocationSignals) runs.
+ *   • One DataStream (a leaf-wetness sensor) + a couple of readings.
+ *   • A boundsJson on the location so the weather-pull job can derive a
+ *     centroid and pull real Open-Meteo data on the next daily run.
+ *
+ * Idempotent: WeatherObservation upserts on (tenantId, locationId,
+ * obsDate); the DataStream upserts on (tenantId, key); readings are
+ * skipped when the stream already has rows.
+ */
+async function seedAgroIntel(tenantId: string): Promise<void> {
+    const loc = await prisma.location.findFirst({
+        where: { tenantId, name: 'Home Field' },
+        select: { id: true, boundsJson: true },
+    });
+    if (!loc) return;
+
+    // Give the field a bounding box (≈ a parcel in England) so the
+    // weather-pull job can derive a centroid even before parcels exist.
+    if (!loc.boundsJson) {
+        await prisma.location.update({
+            where: { id: loc.id },
+            data: { boundsJson: [-1.21, 52.19, -1.19, 52.21] }, // [w, s, e, n]
+        });
+    }
+
+    // 10 days ending today — warm + wet so disease pressure is HIGH and
+    // today's spray window is UNSUITABLE (precip ≥ 2 mm wash-off limit).
+    const today = new Date();
+    for (let back = 9; back >= 0; back--) {
+        const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - back));
+        const isToday = back === 0;
+        const tempMaxC = 24;
+        const tempMinC = 14;
+        const tempMeanC = 19; // within disease band [10,30]
+        const humidityMean = 93; // ≥ 90 ⇒ leaf-wetness proxy
+        const precipMm = isToday ? 6 : 3; // ≥ 2 ⇒ spray UNSUITABLE today
+        const windMaxKmh = 8;
+        await prisma.weatherObservation.upsert({
+            where: { tenantId_locationId_obsDate: { tenantId, locationId: loc.id, obsDate: d } },
+            update: { source: 'seed-demo', tempMaxC, tempMinC, tempMeanC, precipMm, windMaxKmh, humidityMean },
+            create: {
+                tenantId,
+                locationId: loc.id,
+                obsDate: d,
+                source: 'seed-demo',
+                tempMaxC,
+                tempMinC,
+                tempMeanC,
+                precipMm,
+                windMaxKmh,
+                humidityMean,
+            },
+        });
+    }
+
+    // A leaf-wetness sensor stream + a couple of readings.
+    const stream = await prisma.dataStream.upsert({
+        where: { tenantId_key: { tenantId, key: 'leaf-wetness-1' } },
+        update: {},
+        create: {
+            tenantId,
+            locationId: loc.id,
+            key: 'leaf-wetness-1',
+            name: 'Home Field — leaf wetness',
+            kind: 'LEAF_WETNESS',
+            unit: 'minutes',
+            status: 'ACTIVE',
+        },
+        select: { id: true },
+    });
+    const existingReadings = await prisma.dataStreamReading.count({
+        where: { tenantId, dataStreamId: stream.id },
+    });
+    if (existingReadings === 0) {
+        await prisma.dataStreamReading.createMany({
+            data: [
+                {
+                    tenantId,
+                    dataStreamId: stream.id,
+                    recordedAt: new Date(today.getTime() - 2 * 3600_000),
+                    value: 420,
+                    unit: 'minutes',
+                },
+                {
+                    tenantId,
+                    dataStreamId: stream.id,
+                    recordedAt: new Date(today.getTime() - 1 * 3600_000),
+                    value: 510,
+                    unit: 'minutes',
+                },
+            ],
+        });
+    }
+    console.log('✅ Agro-intel: 10d warm-wet weather + leaf-wetness stream seeded (disease + spray signals demonstrable)');
 }
 
 main()

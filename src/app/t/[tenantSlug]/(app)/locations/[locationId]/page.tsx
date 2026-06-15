@@ -56,10 +56,17 @@ export default function LocationDetailPage() {
     const [pendingGeometry, setPendingGeometry] = useState<Polygon | null>(null);
     const [newParcelName, setNewParcelName] = useState('');
     const [saving, setSaving] = useState(false);
+    const [showNdvi, setShowNdvi] = useState(false);
 
     const locQ = useTenantSWR<LocationDetail>(`/locations/${locationId}`);
     const parcelsQ = useTenantSWR<ParcelsResp>(`/locations/${locationId}/parcels`);
     const opsQ = useTenantSWR<OperationItem[]>(tab === 'operations' ? `/locations/${locationId}/operations` : null);
+    // NDVI tile source (Agro-intel) — fetched only when the Map tab is open.
+    const ndviQ = useTenantSWR<{ configured: boolean; tileUrl: string }>(
+        tab === 'map' ? '/agro/ndvi-config' : null,
+    );
+    const ndviConfigured = ndviQ.data?.configured ?? false;
+    const ndviTileUrl = ndviQ.data?.tileUrl ?? '';
 
     const loc = locQ.data;
     const parcels = useMemo(() => parcelsQ.data?.parcels ?? [], [parcelsQ.data]);
@@ -151,6 +158,22 @@ export default function LocationDetailPage() {
                                   ? 'Drag a vertex to reshape; changes save automatically.'
                                   : 'Click parcels to select them for a spray job.'}
                         </span>
+                        <div className="ml-auto flex items-center gap-compact">
+                            <Button
+                                variant={showNdvi && ndviConfigured ? 'primary' : 'secondary'}
+                                size="sm"
+                                onClick={() => setShowNdvi((v) => !v)}
+                                disabled={!ndviConfigured}
+                                aria-pressed={showNdvi && ndviConfigured}
+                            >
+                                NDVI
+                            </Button>
+                            {!ndviConfigured && (
+                                <span className="text-xs text-content-subtle">
+                                    Configure an NDVI tile source to enable the overlay.
+                                </span>
+                            )}
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 gap-section lg:grid-cols-[1fr_320px]">
                         <MapCanvas
@@ -161,6 +184,8 @@ export default function LocationDetailPage() {
                             mode={mapMode}
                             onCreateGeometry={(g) => setPendingGeometry(g)}
                             onUpdateGeometry={reshapeParcel}
+                            showNdvi={showNdvi && ndviConfigured}
+                            ndviTileUrl={ndviTileUrl}
                         />
                         {mapMode === 'select' ? (
                             <div className="rounded-lg border border-border-subtle p-4">

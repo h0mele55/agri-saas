@@ -133,6 +133,11 @@ const MODULE_GATED_ROUTES: ReadonlyArray<{
         file: 'src/app/api/t/[tenantSlug]/planning/plantings/route.ts',
         module: 'PLANNING',
     },
+    {
+        // Agro-intel — per-planting Growing Degree Days accumulator.
+        file: 'src/app/api/t/[tenantSlug]/planning/plantings/[plantingId]/gdd/route.ts',
+        module: 'PLANNING',
+    },
     // Future module-gated routes add themselves here.
 ];
 

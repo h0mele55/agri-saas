@@ -516,6 +516,20 @@ executorRegistry.register('low-stock-monitor', async (payload) => {
     return result;
 });
 
+// ── weather-pull (Agro-intel) ────────────────────────────────────────
+
+executorRegistry.register('weather-pull', async (payload) => {
+    const startedAt = new Date().toISOString();
+    const startMs = performance.now();
+    const { runWeatherPull } = await import('./weather-pull');
+    const r = await runWeatherPull({ tenantId: payload.tenantId });
+    return makeResult(
+        'weather-pull', startedAt, startMs,
+        r.scanned, r.created, 0,
+        { tenants: r.tenants, scanned: r.scanned, created: r.created, signals: r.signals },
+    );
+});
+
 // ── deadline-monitor ─────────────────────────────────────────────────
 
 executorRegistry.register('deadline-monitor', async (payload) => {

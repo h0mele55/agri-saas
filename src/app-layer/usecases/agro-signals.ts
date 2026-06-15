@@ -1,0 +1,292 @@
+/**
+ * Agro-signals — turn a location's recent weather into actionable
+ * signals (spray-window warnings + disease-risk escalations).
+ *
+ * Consumes the PURE evaluators in `src/lib/agro/rules.ts`
+ * (`evaluateSprayWindow` / `evaluateDiseaseRisk`) over the
+ * WeatherObservation rows the daily `weather-pull` job persisted, and:
+ *
+ *   • SPRAY_WINDOW — when today's window is UNSUITABLE, claim an
+ *     AgroSignal(kind=SPRAY_WINDOW, signalDate=today). If the claim
+ *     CREATED a new row, fire a spray-warning notification to the
+ *     location owner (fallback: the job's admin ctx user).
+ *
+ *   • DISEASE_RISK — when the recent run reaches HIGH, claim an
+ *     AgroSignal(kind=DISEASE_RISK, signalDate=today). If the claim
+ *     CREATED a new row, raise a Risk in the GRC register
+ *     (`createRisk`, category 'Agronomic'), back-link it on the signal,
+ *     and notify.
+ *
+ * Idempotency: the AgroSignal `@@unique([tenantId, locationId, kind,
+ * signalDate])` is the key. We claim via
+ * `createMany({ skipDuplicates: true })` and read `count` — count===1
+ * means the row is NEW (fire side effects), count===0 means a prior run
+ * today already handled it (no-op). This is a claim-then-act pattern,
+ * NOT an upsert-that-overwrites, precisely because we must KNOW whether
+ * the row is new before firing the Risk + notification.
+ *
+ * `createRisk` opens its OWN transaction, so the Risk is created
+ * OUTSIDE the signal-claim transaction and the back-link + disease
+ * notification land in a short follow-up transaction.
+ *
+ * @module usecases/agro-signals
+ */
+import type { RequestContext } from '../types';
+import { assertCanWrite } from '../policies/common';
+import { runInTenantContext, type PrismaTx } from '@/lib/db-context';
+import { logEvent } from '../events/audit';
+import { createRisk } from './risk';
+import { createAgroSignalNotification } from '../notifications/agro';
+import {
+    evaluateSprayWindow,
+    evaluateDiseaseRisk,
+    type SprayWeather,
+    type DiseaseDay,
+} from '@/lib/agro/rules';
+import { logger } from '@/lib/observability/logger';
+
+/** Disease level → (likelihood, impact) on the 1–5 GRC matrix. */
+const DISEASE_RISK_MATRIX = { likelihood: 4, impact: 4 } as const;
+
+/** Lookback window (days) for the disease-pressure streak. */
+const DISEASE_LOOKBACK_DAYS = 10;
+
+export interface EvaluateLocationSignalsResult {
+    created: number;
+    spray: { fired: boolean; status: string | null };
+    disease: { fired: boolean; level: string | null; riskId: string | null };
+}
+
+/** Decimal | number | null → number | null. Prisma Decimals stringify. */
+function num(v: unknown): number | null {
+    if (v == null) return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+}
+
+/** UTC calendar-day Date (midnight) — matches `@db.Date` storage. */
+function todayUtcDate(now: Date): Date {
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+interface ObsRow {
+    obsDate: Date;
+    tempMaxC: unknown;
+    tempMinC: unknown;
+    tempMeanC: unknown;
+    precipMm: unknown;
+    windMaxKmh: unknown;
+    humidityMean: unknown;
+}
+
+/**
+ * Evaluate spray-window + disease-risk signals for one location.
+ *
+ * Callable standalone (opens its own `runInTenantContext`) — the daily
+ * job calls it once per location after persisting that location's
+ * weather. Returns the count of NEW signals created this run.
+ */
+export async function evaluateLocationSignals(
+    ctx: RequestContext,
+    locationId: string,
+    now: Date = new Date(),
+): Promise<EvaluateLocationSignalsResult> {
+    assertCanWrite(ctx);
+
+    const signalDate = todayUtcDate(now);
+    const result: EvaluateLocationSignalsResult = {
+        created: 0,
+        spray: { fired: false, status: null },
+        disease: { fired: false, level: null, riskId: null },
+    };
+
+    // ── Phase 1 — load weather, evaluate, claim signals (one tx). ──
+    const phase1 = await runInTenantContext(ctx, async (db) => {
+        const location = await db.location.findFirst({
+            where: { id: locationId, tenantId: ctx.tenantId, deletedAt: null },
+            select: { id: true, name: true, ownerUserId: true },
+        });
+        if (!location) return null;
+
+        const since = new Date(now.getTime() - DISEASE_LOOKBACK_DAYS * 86_400_000);
+        const obs = (await db.weatherObservation.findMany({
+            where: { tenantId: ctx.tenantId, locationId, obsDate: { gte: since } },
+            orderBy: { obsDate: 'asc' },
+            take: 64,
+            select: {
+                obsDate: true,
+                tempMaxC: true,
+                tempMinC: true,
+                tempMeanC: true,
+                precipMm: true,
+                windMaxKmh: true,
+                humidityMean: true,
+            },
+        })) as ObsRow[];
+
+        if (obs.length === 0) return { location, sprayNew: false, diseaseNew: false, sprayStatus: null, diseaseLevel: null, diseaseReasons: '' };
+
+        // Today's observation (or the most recent we have) for the spray window.
+        const todayKey = signalDate.toISOString().slice(0, 10);
+        const todays =
+            obs.find((o) => o.obsDate.toISOString().slice(0, 10) === todayKey) ??
+            obs[obs.length - 1];
+
+        const sprayInput: SprayWeather = {
+            windMaxKmh: num(todays.windMaxKmh),
+            precipMm: num(todays.precipMm),
+            tempMeanC: num(todays.tempMeanC),
+        };
+        const spray = evaluateSprayWindow(sprayInput);
+
+        const diseaseDays: DiseaseDay[] = obs.map((o) => ({
+            date: o.obsDate.toISOString().slice(0, 10),
+            precipMm: num(o.precipMm),
+            humidityMean: num(o.humidityMean),
+            tempMeanC: num(o.tempMeanC),
+        }));
+        const disease = evaluateDiseaseRisk(diseaseDays);
+
+        // ── Claim SPRAY_WINDOW signal when UNSUITABLE ──
+        let sprayNew = false;
+        if (spray.status === 'UNSUITABLE') {
+            const claim = await db.agroSignal.createMany({
+                data: [
+                    {
+                        tenantId: ctx.tenantId,
+                        locationId,
+                        kind: 'SPRAY_WINDOW',
+                        level: spray.status,
+                        signalDate,
+                        notified: false,
+                        detailsJson: { reasons: spray.reasons },
+                    },
+                ],
+                skipDuplicates: true,
+            });
+            sprayNew = claim.count > 0;
+        }
+
+        // ── Claim DISEASE_RISK signal when HIGH ──
+        let diseaseNew = false;
+        if (disease.level === 'HIGH') {
+            const claim = await db.agroSignal.createMany({
+                data: [
+                    {
+                        tenantId: ctx.tenantId,
+                        locationId,
+                        kind: 'DISEASE_RISK',
+                        level: disease.level,
+                        signalDate,
+                        notified: false,
+                        detailsJson: {
+                            reasons: disease.reasons,
+                            maxConsecutive: disease.maxConsecutive,
+                            conduciveDays: disease.conduciveDays,
+                        },
+                    },
+                ],
+                skipDuplicates: true,
+            });
+            diseaseNew = claim.count > 0;
+        }
+
+        // ── Spray notification + audit, inside this tx (no own-tx call). ──
+        if (sprayNew) {
+            const recipient = location.ownerUserId ?? ctx.userId;
+            await createAgroSignalNotification(db, 'SPRAY_WINDOW_WARNING', {
+                tenantId: ctx.tenantId,
+                recipientUserId: recipient,
+                locationId,
+                locationLabel: location.name,
+                tenantSlug: ctx.tenantSlug ?? '',
+                detail: spray.reasons[0] ?? null,
+            }, now);
+            await db.agroSignal.updateMany({
+                where: { tenantId: ctx.tenantId, locationId, kind: 'SPRAY_WINDOW', signalDate },
+                data: { notified: true },
+            });
+            await logEvent(db, ctx, {
+                action: 'AGRO_SPRAY_WINDOW_WARNING',
+                entityType: 'AgroSignal',
+                entityId: locationId,
+                details: `Spray window UNSUITABLE at ${location.name}`,
+                detailsJson: {
+                    category: 'status_change',
+                    summary: 'Spray window unsuitable',
+                    locationId,
+                    status: spray.status,
+                },
+            });
+        }
+
+        return {
+            location,
+            sprayNew,
+            diseaseNew,
+            sprayStatus: spray.status,
+            diseaseLevel: disease.level,
+            diseaseReasons: disease.reasons.join('; '),
+        };
+    });
+
+    if (!phase1) return result;
+    result.spray.status = phase1.sprayStatus;
+    result.disease.level = phase1.diseaseLevel;
+    if (phase1.sprayNew) {
+        result.created += 1;
+        result.spray.fired = true;
+    }
+
+    // ── Phase 2 — raise the Risk for a NEW disease signal. ──
+    // `createRisk` opens its own transaction, so this runs OUTSIDE the
+    // claim tx; the back-link + disease notification land in a short
+    // follow-up tx.
+    if (phase1.diseaseNew) {
+        result.created += 1;
+        result.disease.fired = true;
+        try {
+            const risk = await createRisk(ctx, {
+                title: `Disease pressure — ${phase1.location.name}`,
+                description: phase1.diseaseReasons || 'Sustained warm-wet conditions favour foliar disease.',
+                category: 'Agronomic',
+                likelihood: DISEASE_RISK_MATRIX.likelihood,
+                impact: DISEASE_RISK_MATRIX.impact,
+                // TreatmentDecision enum: TREAT | TRANSFER | TOLERATE | AVOID.
+                // Weather-driven disease pressure is actively managed → TREAT.
+                treatment: 'TREAT',
+                treatmentNotes:
+                    'Auto-raised from weather-derived disease pressure. Review fungicide/spray programme and field scouting.',
+            });
+            result.disease.riskId = risk.id;
+
+            await runInTenantContext(ctx, async (db: PrismaTx) => {
+                await db.agroSignal.updateMany({
+                    where: { tenantId: ctx.tenantId, locationId, kind: 'DISEASE_RISK', signalDate },
+                    data: { riskId: risk.id, notified: true },
+                });
+                const recipient = phase1.location.ownerUserId ?? ctx.userId;
+                await createAgroSignalNotification(db, 'DISEASE_RISK_RAISED', {
+                    tenantId: ctx.tenantId,
+                    recipientUserId: recipient,
+                    locationId,
+                    locationLabel: phase1.location.name,
+                    tenantSlug: ctx.tenantSlug ?? '',
+                    detail: phase1.diseaseReasons || null,
+                }, now);
+            });
+        } catch (err) {
+            // The signal row is already committed (idempotency holds); a
+            // Risk/notification failure is logged, not fatal — the next
+            // run won't re-fire because the signal already exists.
+            logger.warn('agro-signals: disease Risk raise failed', {
+                component: 'agro-signals',
+                tenantId: ctx.tenantId,
+                locationId,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
+    return result;
+}
