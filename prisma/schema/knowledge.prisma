@@ -1,0 +1,105 @@
+// ═══════════════════════════════════════════════════════════════════
+//  KNOWLEDGE BASE — versioned SOPs + growing guides
+// ═══════════════════════════════════════════════════════════════════
+//
+//  Repurposes IC's Policy machinery: KnowledgeArticle /
+//  KnowledgeArticleVersion / KnowledgeAcknowledgement mirror Policy /
+//  PolicyVersion / PolicyAcknowledgement, with a simpler
+//  DRAFT→PUBLISHED→ARCHIVED lifecycle (no IN_REVIEW/APPROVED approval
+//  workflow) and TipTap HTML content (sanitised on write). Workers READ
+//  a published version and ACKNOWLEDGE it (tracked per version+user).
+//
+//  Deviation from the Policy mirror: all three tables carry `tenantId`
+//  for the canonical direct-RLS trio (Policy's acknowledgement table is
+//  ownership-chained). Consistent with the rest of the ag stack.
+//
+//  Back-relations added elsewhere (Prisma needs both sides):
+//    • auth.prisma  Tenant: knowledgeArticles / knowledgeArticleVersions /
+//                           knowledgeAcknowledgements
+//    • auth.prisma  User:   KnowledgeArticleOwner / KnowledgeVersionCreator /
+//                           knowledgeAcknowledgements
+// ═══════════════════════════════════════════════════════════════════
+
+/// A knowledge-base article — a versioned SOP or growing guide. The
+/// published content is whatever `currentVersion` points at; DRAFT edits
+/// live on the latest version until publish flips status + currentVersionId.
+model KnowledgeArticle {
+  id               String                 @id @default(cuid())
+  tenantId         String
+  /// Unique per tenant — used in readable URLs + as the seed upsert key.
+  slug             String
+  title            String
+  summary          String?
+  /// Free-text category for browse/filter (e.g. "Spraying", "Harvest").
+  category         String?
+  status           KnowledgeArticleStatus @default(DRAFT)
+  currentVersionId String?                @unique
+  ownerUserId      String?
+  language         String?                @default("en")
+  /// Provenance for seeded content (e.g. "OpenFarm" for CC0 growing guides).
+  source           String?
+  /// Lifecycle counter (mirrors Policy.lifecycleVersion): 1 = initial,
+  /// incremented on each publish.
+  lifecycleVersion Int                    @default(1)
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  deletedAt        DateTime?
+  deletedByUserId  String?
+  retentionUntil   DateTime?
+
+  tenant         Tenant                    @relation(fields: [tenantId], references: [id])
+  owner          User?                     @relation("KnowledgeArticleOwner", fields: [ownerUserId], references: [id])
+  currentVersion KnowledgeArticleVersion?  @relation("KnowledgeCurrentVersion", fields: [currentVersionId], references: [id])
+  versions       KnowledgeArticleVersion[] @relation("KnowledgeArticleVersions")
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, slug])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, updatedAt])
+}
+
+/// One immutable content snapshot of an article. New edits create a new
+/// version (versionNumber++); publish points the article's currentVersion
+/// at the chosen version. Acknowledgements attach to a specific version.
+model KnowledgeArticleVersion {
+  id            String               @id @default(cuid())
+  tenantId      String
+  articleId     String
+  versionNumber Int
+  contentType   KnowledgeContentType @default(HTML)
+  contentText   String?
+  changeSummary String?
+  createdById   String
+  createdAt     DateTime             @default(now())
+
+  tenant           Tenant                     @relation(fields: [tenantId], references: [id])
+  article          KnowledgeArticle           @relation("KnowledgeArticleVersions", fields: [articleId], references: [id], onDelete: Cascade)
+  currentOfArticle KnowledgeArticle?          @relation("KnowledgeCurrentVersion")
+  createdBy        User                       @relation("KnowledgeVersionCreator", fields: [createdById], references: [id])
+  acknowledgements KnowledgeAcknowledgement[]
+
+  @@unique([id, tenantId])
+  @@unique([articleId, versionNumber])
+  @@index([tenantId])
+  @@index([tenantId, articleId])
+}
+
+/// A worker's acknowledgement of a specific published article version
+/// (read-receipt). One per (version, user) — re-acknowledging is a no-op.
+model KnowledgeAcknowledgement {
+  id               String   @id @default(cuid())
+  tenantId         String
+  articleVersionId String
+  userId           String
+  acknowledgedAt   DateTime @default(now())
+
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id])
+  articleVersion KnowledgeArticleVersion @relation(fields: [articleVersionId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  user           User                    @relation(fields: [userId], references: [id])
+
+  @@unique([articleVersionId, userId])
+  @@index([tenantId, articleVersionId])
+  @@index([tenantId, userId])
+}

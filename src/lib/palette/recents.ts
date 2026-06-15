@@ -125,6 +125,7 @@ const VALID_TYPES: ReadonlySet<SearchHitType> = new Set([
     'policy',
     'evidence',
     'framework',
+    'knowledge',
 ]);
 
 const VALID_ICONS: ReadonlySet<SearchHit['iconKey']> = new Set([

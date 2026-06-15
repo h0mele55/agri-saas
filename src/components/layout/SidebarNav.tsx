@@ -133,6 +133,12 @@ export function useNavSections(): NavSectionDef[] {
                 // palette (⌘K → "Frameworks").
                 // R13-PR16 — Audit moved up to Comply (see above).
                 { href: tenantHref('/policies'), label: 'Policy', icon: FileText },
+                // Knowledge Base — versioned SOPs / guides / reference
+                // articles (the Policy feature's twin). Sits under Manage
+                // alongside Policy. Reuses the already-imported FileText
+                // glyph (document/article affordance) — no new lucide
+                // import (the sidebar's icon contract is LucideIcon).
+                { href: tenantHref('/knowledge'), label: 'Knowledge', icon: FileText },
                 { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck },
                 // R25-PR-A — Processes canvas. Visual mapping of
                 // business + IT processes with controls placed on

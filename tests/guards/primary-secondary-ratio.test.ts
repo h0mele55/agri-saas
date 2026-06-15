@@ -167,7 +167,14 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // its surface. Mirrors the Field Journal / Locations bump (+2: list
 // create + modal confirm). Measured = 136; ceiling at 136 (no headroom
 // slot).
-const MAX_PRIMARY_COUNT = 136;
+// Knowledge Base: +5 primaries — the knowledge list "Article" header CTA
+// + the create-modal confirm ("Create article") + the article detail's
+// Acknowledge / Publish-version / Save-version CTAs. Each is the single
+// primary of a distinct surface (list create, modal confirm, the
+// readership-receipt moment, the publish moment, the editor confirm).
+// Mirrors the Policy feature's primary set (the Knowledge feature is its
+// twin). Measured = 141; ceiling at 141 (no headroom slot).
+const MAX_PRIMARY_COUNT = 141;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

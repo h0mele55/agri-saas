@@ -44,7 +44,8 @@ export type SearchHitType =
     | 'framework'
     | 'asset'
     | 'task'
-    | 'test';
+    | 'test'
+    | 'knowledge';
 
 // ─── Hit shape ─────────────────────────────────────────────────────────
 
@@ -106,6 +107,9 @@ export const SEARCH_TYPE_DEFAULTS: Record<
     asset: { iconKey: 'package', category: 'Assets' },
     task: { iconKey: 'check-square', category: 'Tasks' },
     test: { iconKey: 'flask', category: 'Tests' },
+    // Knowledge Base articles — reuses the document glyph (the palette
+    // group heading carries its own BookOpen icon).
+    knowledge: { iconKey: 'file-text', category: 'Knowledge' },
 };
 
 // ─── Top-level payload ─────────────────────────────────────────────────

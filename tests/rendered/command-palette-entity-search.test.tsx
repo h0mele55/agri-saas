@@ -96,6 +96,7 @@ function searchResponse(
                 asset: hits.filter((h) => h.type === 'asset').length,
                 task: hits.filter((h) => h.type === 'task').length,
                 test: hits.filter((h) => h.type === 'test').length,
+                knowledge: hits.filter((h) => h.type === 'knowledge').length,
             },
             truncated: false,
             perTypeLimit: 10,

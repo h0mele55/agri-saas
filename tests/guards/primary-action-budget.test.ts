@@ -89,6 +89,16 @@ const PRIMARY_BUDGET: Record<string, number> = {
     "src/app/t/[tenantSlug]/(app)/policies/[policyId]/page.tsx": 4,
     "src/app/t/[tenantSlug]/(app)/admin/vendor-templates/[templateId]/VendorTemplateBuilderClient.tsx": 4,
 
+    // Knowledge Base article detail (the Policy detail's twin) — three
+    // genuinely separate primary regions: the Acknowledge readership
+    // receipt (summary card), the per-version Publish CTA (Versions
+    // tab), and the Save-version editor confirm (Editor tab). The tabs
+    // are mutually exclusive at runtime; the static scanner counts all
+    // three.
+    "src/app/t/[tenantSlug]/(app)/knowledge/[id]/page.tsx": 3,
+    // Farm-tasks list — two separate primary regions: the page "Task"
+    // header CTA + the create-modal "Create task" confirm.
+    "src/app/t/[tenantSlug]/(app)/farm-tasks/FarmTasksClient.tsx": 2,
     // 3-primary tier — page CTA + inline form + 1 contextual region
     "src/app/t/[tenantSlug]/(app)/tests/runs/[runId]/page.tsx": 3,
     // 3 page-level primaries + 1 for the close-resolution Modal's

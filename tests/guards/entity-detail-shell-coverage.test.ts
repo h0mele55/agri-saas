@@ -57,6 +57,8 @@ const ADOPTED_PAGES: ReadonlyArray<Adopter> = [
   { page: "src/app/t/[tenantSlug]/(app)/locations/[locationId]/page.tsx", entity: "Location" },
   // Field Journal.
   { page: "src/app/t/[tenantSlug]/(app)/journal/[id]/page.tsx", entity: "Journal entry" },
+  // Knowledge Base — versioned article detail (the Policy detail's twin).
+  { page: "src/app/t/[tenantSlug]/(app)/knowledge/[id]/page.tsx", entity: "Knowledge article" },
 ];
 
 /**

@@ -264,6 +264,9 @@ const FK_INDEX_EXEMPT: Record<string, string> = {
     // serve the only access paths. FileRecord has no [id, tenantId]
     // barrier so this is a simple FK.
     'LogEntryFile.fileRecordId': R_CHILD_VIA_PARENT,
+    // ─── Knowledge Base (mirrors Policy actor FKs) ───
+    'KnowledgeArticle.ownerUserId': R_ACTOR,
+    'KnowledgeArticleVersion.createdById': R_ACTOR,
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -406,6 +409,13 @@ const LIST_MODELS_TENANT_INDEX_SUFFICIENT: Record<string, string> = {
         'listLogEntries filters by tenantId (+ optional type / status / occurredAt range), searches title/notes, orders by occurredAt DESC — covered by @@index([tenantId, type, occurredAt]) + @@index([tenantId, status, occurredAt]); the paginated path is cursor-bounded and the flat path is take:200-bounded.',
     Equipment:
         'listEquipment filters by tenantId ordered by createdAt DESC (take:200, the farm-task equipment picker); validEquipmentIds does id-set link-validation. @@index([tenantId, name]) / @@index([tenantId, category]) cover the register; the small per-tenant equipment set keeps the createdAt sort a bounded scan.',
+    // ─── Knowledge Base (mirrors Policy) ───
+    KnowledgeArticle:
+        'list filters by tenantId (+ optional status / category), searches title/summary, orders updatedAt DESC — covered by @@index([tenantId, status]) / @@index([tenantId, category]) / @@index([tenantId, updatedAt]); listCategories is a distinct tenantId scan; the unified search matches title/summary (take:dbLimit, mirrors policy search). All take-bounded.',
+    KnowledgeArticleVersion:
+        'listByArticle filters by tenantId + articleId ordered by versionNumber DESC — covered by @@index([tenantId, articleId]); take:100-bounded.',
+    KnowledgeAcknowledgement:
+        'listAcknowledgements filters by tenantId + articleVersionId ordered by acknowledgedAt DESC — covered by @@index([tenantId, articleVersionId]); take:500-bounded.',
     // EI-3 — SCIM Groups listed/looked-up by tenantId (+ unique externalId);
     // covered by @@index([tenantId]) + @@unique([tenantId, externalId]); bounded take:200.
     ScimGroup:

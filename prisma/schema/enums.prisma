@@ -384,6 +384,21 @@ enum PolicyApprovalStatus {
   REJECTED
 }
 
+/// Knowledge Base — mirrors PolicyStatus with a simpler lifecycle (no
+/// IN_REVIEW/APPROVED approval gate): authors draft, publish, then archive.
+enum KnowledgeArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+/// Knowledge article content representation. HTML is the TipTap default;
+/// MARKDOWN supports plain-text imports (e.g. CC0 growing guides).
+enum KnowledgeContentType {
+  HTML
+  MARKDOWN
+}
+
 enum ApprovalDecision {
   APPROVED
   REJECTED

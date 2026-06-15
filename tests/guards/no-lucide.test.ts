@@ -64,6 +64,11 @@ const LEGACY_LUCIDE_USERS = new Set<string>([
     // filter-defs file has no Nucleo option until the filter platform
     // migrates. Same precedent as every other *filter-defs.ts entry here.
     'src/app/t/[tenantSlug]/(app)/journal/filter-defs.ts',
+    // Knowledge Base filter defs. `FilterDefInput.icon` is typed
+    // `LucideIcon` (the whole filter system is lucide-based), so a new
+    // filter-defs file has no Nucleo option until the filter platform
+    // migrates. Same precedent as every other *filter-defs.ts entry here.
+    'src/app/t/[tenantSlug]/(app)/knowledge/filter-defs.ts',
     'src/app/t/[tenantSlug]/(app)/tests/filter-defs.ts',
     // Automation Epic 1 — Rules-tab filter defs. `FilterDefInput.icon` is
     // typed `LucideIcon` (the entire filter system is lucide-based), so a

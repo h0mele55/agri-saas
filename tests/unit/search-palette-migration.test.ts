@@ -158,6 +158,8 @@ describe('Search route + usecase — structural shape', () => {
         expect(usecase).toMatch(/db\.policy\.findMany/);
         expect(usecase).toMatch(/db\.evidence\.findMany/);
         expect(usecase).toMatch(/prisma\.framework\.findMany/);
+        // Knowledge Base articles are searchable too.
+        expect(usecase).toMatch(/db\.knowledgeArticle\.findMany/);
     });
 
     it('contract carries one mixed-entity result type, not a union', () => {

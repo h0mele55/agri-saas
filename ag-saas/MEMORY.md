@@ -1,11 +1,12 @@
 # ag-saas — MEMORY (latest status)
 
 **Repo:** `agri-saas` (the product), built ON the inflect-compliance (IC) chassis.
-**Updated:** end of Farm Tasks build.
-**Active branch:** `feat/farm-tasks` (pushed; **not yet merged to main**),
-branched from `feat/inventory`. The feat/journal→feat/inventory→feat/farm-tasks
-line carries the full ag stack: Feature-1 (spray map), WP-2 module gating, the
-inventory ledger (#13), the Field Journal, lot traceability, and now farm tasks.
+**Updated:** end of Knowledge Base build.
+**Active branch:** `feat/knowledge-base` (pushed; **not yet merged to main**),
+branched from `feat/farm-tasks`. The
+feat/journal→inventory→farm-tasks→knowledge-base line carries the full ag stack:
+Feature-1 (spray map), WP-2 module gating, the inventory ledger (#13), the Field
+Journal, lot traceability, farm tasks, and now the Knowledge Base.
 (`feat/phase0-platform` is a SEPARATE, richer module-gating cut off `main` — see
 Open follow-ups.)
 
@@ -36,7 +37,45 @@ The compliance domain is **repurposed + module-gated** (NOT deleted).
   separate/richer than the WP-2 gating on the feat/journal line).
 - **Field Journal** (`feat/journal`, PUSHED, not merged).
 - **Inventory traceability** (`feat/inventory`, PUSHED, not merged).
-- **Farm Tasks** (THIS session, `feat/farm-tasks`, PUSHED, not merged).
+- **Farm Tasks** (`feat/farm-tasks`, PUSHED, not merged).
+- **Knowledge Base** (THIS session, `feat/knowledge-base`, PUSHED, not merged).
+
+## Knowledge Base (this session) — what + where
+Goal: versioned SOPs + growing guides workers READ and ACKNOWLEDGE — by
+**repurposing IC's Policy machinery**. Commits `4ddce966` (backend) + `bf302f86`
+(UI). `KnowledgeArticle` / `KnowledgeArticleVersion` / `KnowledgeAcknowledgement`
+mirror `Policy` / `PolicyVersion` / `PolicyAcknowledgement`; the usecases mirror
+`createPolicy` / `createPolicyVersion` / `publishPolicy` / `attestPolicy`.
+
+- Schema (migration `20260614211943`, hand-stripped): the 3 models, ALL carrying
+  `tenantId` → direct-RLS trio (Policy's ack table is ownership-chained).
+  `KnowledgeArticleStatus` (DRAFT/PUBLISHED/ARCHIVED) + `KnowledgeContentType`
+  (HTML/MARKDOWN).
+- `usecases/knowledge.ts` — simpler lifecycle than Policy (NO IN_REVIEW/APPROVED
+  gate, no SharePoint/templates/PDF): create (slug loop + v1), version
+  (auto-increment + PUBLISHED→DRAFT rollback), publish, archive, list/get +
+  listCategories, and acknowledge (idempotent on [version, user]) +
+  listAcknowledgements. Content sanitised on write (HTML→sanitizeRichTextHtml,
+  MARKDOWN→sanitizePlainText). Repos mirror Policy{,Version}Repository.
+- Search: a `knowledge` SearchHitType + `db.knowledgeArticle.findMany` branch +
+  hit builder + SEARCH_TYPE_DEFAULTS / rank / filter / recents / command-palette
+  (BookOpen heading) registrations. `search-palette-migration` guard updated.
+- Seed: `scripts/import-knowledge.ts` (`npm run import:knowledge`) — 6 CC0
+  OpenFarm-modelled growing guides as PUBLISHED articles, idempotent on
+  (tenantId, slug), `source="OpenFarm (CC0)"`.
+- UI: knowledge list (EntityListPage) + detail (EntityDetailLayout) mirroring the
+  Policy UI — version-content render via sanitizeRichTextHtml +
+  dangerouslySetInnerHTML, version history + admin Publish, TipTap new-version
+  editor, Acknowledge affordance (PUBLISHED-only), admin Archive; SidebarNav +=
+  Knowledge.
+
+**Verified:** tsc 0; knowledge integration (lifecycle + sanitize-on-write +
+search discovery) + rls-coverage (3 RLS tables) + schema-index/query-shape/
+audit-structured/module-gate/api-permission/async-params/contract-drift + 17
+design-system ratchets green (MAX_PRIMARY_COUNT 136→141, CONFIRM_CALL_CEILING
+19→20, both documented). Also fixed two PRE-EXISTING ratchet failures the sweep
+surfaced in earlier ag UI (inventory raw `<h4>`→`<Eyebrow>`; farm-tasks
+primary-action-budget entry).
 
 ## Farm Tasks (this session) — what + where
 Goal: assignable farm work tied to places/crops/equipment, with a calendar —
@@ -171,9 +210,10 @@ PostgreSQL 16 + `postgresql-16-postgis-3`; cluster `16/main`.
 Locations/Fields on the map · ~~Farm Journal~~ ✓ · ~~Inventory/traceability~~ ✓
 (ledger + lots + genealogy + low-stock done; a richer InvenTree-style stock
 list UI is still open) · ~~Ag Tasks~~ ✓ (farm tasks on the IC Task module) ·
-Weather feed · Onboarding + simple-mode + PWA field entry · Certification
-module (the gated GRC surface, returns later) · Plantings/crops (the PLANTING
-TaskLink target + harvest provenance).
+~~Knowledge Base~~ ✓ (SOPs + growing guides on the Policy machinery) · Weather
+feed · Onboarding + simple-mode + PWA field entry · Certification module (the
+gated GRC surface, returns later) · Plantings/crops (the PLANTING TaskLink
+target + harvest provenance).
 
 ## Open follow-ups / deferrals
 - **Branch topology:** the ag work lives on a `feat/spray-map → … → feat/journal
@@ -198,6 +238,16 @@ TaskLink target + harvest provenance).
   yet; wire it when plantings land.
 - **Equipment** still has no standalone CRUD UI (model + `GET /equipment` list +
   journal/farm-task link target only; the Assets-template page is a follow-up).
+- **Knowledge Base parity gaps:** no approval gate (publish is admin-direct, by
+  design — knowledge ≠ controlled compliance doc); no SharePoint sync /
+  templates / PDF export (Policy has these; out of scope). The seed embeds CC0
+  guides rather than calling the OpenFarm/Growstuff API at seed time.
+- **PROCESS LESSON (UI subagents):** the inventory + farm-tasks UI builds didn't
+  run `typography-eradication` / `heading-primitive-discipline` /
+  `primary-action-budget` in their ratchet sweeps, so a raw `<h4>` (inventory)
+  and a missing primary-budget entry (farm-tasks) slipped through and only
+  surfaced during the knowledge sweep (now fixed). **Future UI delegations must
+  run the FULL design-system ratchet set**, not just the obvious ones.
 - **Vocabulary pass deferred** (nav brand hardcoded; bg.json i18n parity).
 - Nav module resolution uses a raw prisma read (dev-superuser correct; prod
   `app_user` falls back to `DEFAULT_MODULES` — page/API gates stay RLS-correct).
