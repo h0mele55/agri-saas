@@ -60,6 +60,17 @@ const MODULE_GATED_ROUTES: ReadonlyArray<{
         module: 'CERTIFICATION',
     },
     {
+        // Scheme inspection-pack assembly (FRAMEWORK_COVERAGE + approved
+        // evidence → an audit pack frozen/shared via the existing flow).
+        file: 'src/app/api/t/[tenantSlug]/schemes/[schemeKey]/pack/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
+        // Per-scheme applicability-statement CSV (SoA pinned to the scheme).
+        file: 'src/app/api/t/[tenantSlug]/schemes/[schemeKey]/applicability.csv/route.ts',
+        module: 'CERTIFICATION',
+    },
+    {
         file: 'src/app/api/t/[tenantSlug]/mapping/route.ts',
         module: 'CERTIFICATION',
     },

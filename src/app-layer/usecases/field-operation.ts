@@ -8,6 +8,7 @@ import { WorkItemRepository, TaskLinkRepository } from '../repositories/WorkItem
 import { ParcelRepository } from '../repositories/ParcelRepository';
 import { TERMINAL_WORK_ITEM_STATUSES } from '../domain/work-item-status';
 import { recordInputApplication, type InputApplicationResult } from './inventory';
+import { attachAutoEvidenceFromLogEntry } from './auto-evidence';
 
 type OperationType = 'SPRAY' | 'FERTILIZE' | 'SEED' | 'OTHER';
 type ParcelStatus = 'PENDING' | 'DONE' | 'SKIPPED';
@@ -235,6 +236,16 @@ export async function markOperationParcel(
                 doseValue: line.doseValue,
                 doseUnitId: line.doseUnitId,
             });
+
+            // The spray record is itself the certification evidence for the
+            // plant-protection / input-record control points. Attach it to
+            // every scheme control the tenant has mapped — in the SAME
+            // transaction as the journal write, so they commit atomically.
+            // No-op when the tenant hasn't installed a scheme (no mapped
+            // controls) or when JOURNAL is off (no journalEntryId).
+            if (application?.journalEntryId) {
+                await attachAutoEvidenceFromLogEntry(db, ctx, application.journalEntryId);
+            }
         }
 
         // Auto-resolve the job when no PENDING lines remain.

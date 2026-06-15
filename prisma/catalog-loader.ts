@@ -108,6 +108,10 @@ const FRAMEWORK_KINDS = [
     'REGULATION',
     'INDUSTRY_STANDARD',
     'CUSTOM',
+    // Phase-7 — agriculture certification schemes (Organic, GlobalG.A.P., …)
+    // are global Frameworks with kind = AG_SCHEME. The scheme catalogs under
+    // prisma/catalogs/*-demo.yaml import through this same loader/applier.
+    'AG_SCHEME',
 ] as const;
 
 const CONTROL_FREQUENCIES = [

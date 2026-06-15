@@ -10,6 +10,7 @@ import {
 } from '../repositories/JournalRepository';
 import { FileRepository } from '../repositories/FileRepository';
 import { recordHarvestLot } from './inventory';
+import { attachAutoEvidenceFromLogEntry } from './auto-evidence';
 import { assertCanRead, assertCanWrite, assertCanAdmin } from '../policies/common';
 import { logEvent } from '../events/audit';
 import { notFound, badRequest } from '@/lib/errors/types';
@@ -210,6 +211,16 @@ export async function createLogEntry(ctx: RequestContext, data: CreateLogEntryDa
                 costAmount: data.harvest.costAmount ?? null,
                 costCurrency: data.harvest.costCurrency ?? null,
             });
+        }
+
+        // A directly-authored INPUT_APPLICATION record (spray/fertiliser) is
+        // itself the certification evidence for the plant-protection /
+        // input-record control points. Attach it to every scheme control the
+        // tenant has mapped — in the SAME transaction, so it's atomic with
+        // the journal write. No-op when no scheme is installed. Cheap type
+        // guard keeps the common (non-spray) create path untouched.
+        if (data.type === 'INPUT_APPLICATION') {
+            await attachAutoEvidenceFromLogEntry(db, ctx, entry.id);
         }
 
         return entry;

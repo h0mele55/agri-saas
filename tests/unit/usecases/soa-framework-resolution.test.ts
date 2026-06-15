@@ -11,7 +11,10 @@
  *   - only another pack     → that pack's key (the reported bug)
  */
 const tenantDb: any = {
-    framework: { findMany: jest.fn() },
+    framework: { findMany: jest.fn(), findFirst: jest.fn() },
+    frameworkRequirement: { findMany: jest.fn() },
+    controlRequirementLink: { findMany: jest.fn() },
+    tenant: { findUnique: jest.fn() },
 };
 
 jest.mock('@/lib/db-context', () => {
@@ -22,7 +25,7 @@ jest.mock('@/lib/db-context', () => {
     };
 });
 
-import { resolveInstalledFrameworkKey } from '@/app-layer/usecases/soa';
+import { resolveInstalledFrameworkKey, getSoA } from '@/app-layer/usecases/soa';
 import { makeRequestContext } from '../../helpers/make-context';
 
 const ctx = makeRequestContext('ADMIN');
@@ -62,6 +65,44 @@ describe('resolveInstalledFrameworkKey', () => {
                     controlLinks: { some: { tenantId: ctx.tenantId } },
                 },
             },
+        });
+    });
+});
+
+describe('getSoA — explicit frameworkKey option', () => {
+    beforeEach(() => {
+        tenantDb.framework.findMany.mockReset();
+        tenantDb.framework.findFirst.mockReset();
+        tenantDb.frameworkRequirement.findMany.mockReset();
+        tenantDb.controlRequirementLink.findMany.mockReset();
+        tenantDb.tenant.findUnique.mockReset();
+
+        tenantDb.framework.findFirst.mockResolvedValue({ id: 'fw-scheme', name: 'GlobalG.A.P. demo', version: '2024-demo' });
+        tenantDb.frameworkRequirement.findMany.mockResolvedValue([
+            { id: 'req-1', code: 'CB.7.6', title: 'Application records', sortOrder: 1, section: 'CB.7' },
+        ]);
+        tenantDb.controlRequirementLink.findMany.mockResolvedValue([]);
+        tenantDb.tenant.findUnique.mockResolvedValue({ slug: 'acme' });
+    });
+
+    it('pins the report to the explicit scheme key WITHOUT the installed-framework auto-detect', async () => {
+        const report = await getSoA(ctx, { frameworkKey: 'GLOBALGAP-IFA-DEMO' });
+
+        expect(report.framework).toBe('GLOBALGAP-IFA-DEMO');
+        // The framework lookup used the pinned key.
+        expect(tenantDb.framework.findFirst).toHaveBeenCalledWith({
+            where: { key: 'GLOBALGAP-IFA-DEMO' },
+        });
+        // Auto-detection (framework.findMany on the installed-link shape) is NOT used.
+        expect(tenantDb.framework.findMany).not.toHaveBeenCalled();
+        expect(report.entries).toHaveLength(1);
+        expect(report.entries[0].requirementCode).toBe('CB.7.6');
+    });
+
+    it('frameworkKey takes precedence over framework', async () => {
+        await getSoA(ctx, { frameworkKey: 'GLOBALGAP-IFA-DEMO', framework: 'ISO27001' });
+        expect(tenantDb.framework.findFirst).toHaveBeenCalledWith({
+            where: { key: 'GLOBALGAP-IFA-DEMO' },
         });
     });
 });

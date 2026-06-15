@@ -357,3 +357,62 @@ Turned the (now CERTIFICATION-gated) IC compliance domain back ON as ag
   authoring + readiness. The export (a certifier-ready PDF/CSV of records
   against requirements) is a follow-up; the readiness report export
   (`exportReadinessReport`) is the nearest existing primitive to reuse.
+
+---
+
+## Phase 8 — Certification real: seeded schemes + farm data as evidence (feat/certification-schemes)
+
+Made certification operational: scheme catalogs as data, farm journal records
+auto-flowing in as evidence, inspection-pack assembly + applicability-statement export.
+
+- **Scheme catalogs are concept-only YAML** under `prisma/catalogs/`
+  (`globalgap-ifa-demo.yaml`, `eu-organic-2018-848-demo.yaml`), `kind: AG_SCHEME`,
+  imported via `scripts/import-schemes.ts` (`npm run schemes:import`) reusing
+  `loadAndValidateCatalogFile` + `applyCatalogFile`. LICENSE: paraphrased generic
+  control points + illustrative analogue codes, explicitly marked "not the
+  official checklist / not verbatim article text". `catalog-loader.ts`'s zod
+  `FRAMEWORK_KINDS` enum needed `AG_SCHEME` added (predated Phase 7).
+- **Auto-evidence** (`src/app-layer/usecases/auto-evidence.ts`):
+  `attachAutoEvidenceFromLogEntry(db, ctx, logEntryId)` walks LogEntry →
+  `AUTO_EVIDENCE_RULES[type]` → scheme requirements → tenant Controls
+  (`ControlRequirementLink`) → mints one `Evidence` per control, back-referenced
+  via the new `Evidence.sourceLogEntryId` scalar FK (idempotency key). Status =
+  **SUBMITTED** (auto-collected, human-approved through the existing
+  `reviewEvidence` pipeline — nothing unreviewed inflates readiness). Runs
+  IN the caller's tenant tx at `db` level (NOT via `createEvidence`, which opens
+  its own `runInTenantContext` — Prisma tx can't nest). Hooked in
+  `field-operation.ts::markOperationParcel` (after `recordInputApplication`) +
+  `journal.ts::createLogEntry` (INPUT_APPLICATION). **Natural gate**: a tenant
+  without the scheme pack installed has no mapped control → silent no-op (no
+  module check needed). INPUT_APPLICATION → GlobalG.A.P. CB.7.1/7.6/7.9 +
+  EU-Organic EUO.2/3.
+- **Inspection pack** (`scheme-pack.ts::assembleSchemePack`): reuses
+  `createAuditPack`(needs an `auditCycleId`) + `addAuditPackItems`
+  (FRAMEWORK_COVERAGE + one EVIDENCE item per APPROVED scheme evidence);
+  freeze + share REUSE the existing `freezeAuditPack` + `generateShareLink`
+  (`AuditPackShare`/`tokenHash`) endpoints — no sharing rebuilt.
+- **Applicability statement = SoA**: `getSoA` gained a `frameworkKey?` option
+  (pins to a scheme, bypasses auto-detect); new
+  `/api/t/:slug/schemes/:schemeKey/applicability.csv` route reuses the extracted
+  `src/lib/reports/soa-csv.ts::buildSoACsv` (the existing `reports/soa/export.csv`
+  route was refactored onto it). PDF export deferred (CSV is the deliverable).
+- **Evidence↔control bridge**: auto-evidence mirrors `createEvidence`'s
+  `ControlEvidenceLink` creation (try/catch tolerates the dup-link race).
+
+### Remaining gaps (Phase 8)
+- **No tenant-private scheme controls without pack install** — auto-evidence
+  only fires once a tenant installs the scheme's pack (controls mapped to
+  requirements). A tenant on a scheme with zero installed controls collects no
+  evidence. Surface a "install scheme controls" affordance on the scheme page.
+- **Inspection pack needs an `auditCycleId`** — schemes ride the existing
+  AuditCycle concept; there's no scheme-native inspection-cycle model. The
+  assemble API takes a cycle id; a "start inspection" flow that creates the
+  cycle is a follow-up.
+- **No PDF applicability statement** — CSV only (reuse `reports/pdf` for PDF).
+- **Auto-evidence rules are a hardcoded code map** — moving INPUT_APPLICATION→
+  requirement-code mapping into the catalog (a `satisfiedBy` field on a
+  requirement/template) would let new schemes declare their own auto-evidence
+  without code. LiteFarm-style cert EXPORT (certifier-ready bundle beyond the
+  SoA CSV) also deferred.
+- **One spray → one evidence row** (distinct-control dedup): the CB.7 templates
+  map to a single control, so a spray attaches 1 evidence, not 3. Expected.

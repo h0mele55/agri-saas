@@ -1,0 +1,103 @@
+# Illustrative concept-only subset of the EU organic-production rules,
+# modelled as an AG_SCHEME Framework so the certification surface
+# (control↔requirement mapping, readiness scoring, coverage,
+# auto-evidence) works against it verbatim.
+#
+# LICENSE NOTE: Regulation (EU) 2018/848 is public EU law. The
+# requirement titles below are PARAPHRASED summaries authored for this
+# demo, NOT verbatim article text, and the codes (EUO.*) are
+# illustrative analogues rather than the regulation's own numbering.
+# This file is an illustrative teaching aid, not a compliance checklist.
+framework:
+  key: EU-ORGANIC-2018-848-DEMO
+  name: EU Organic (Reg. 2018/848) — illustrative demo
+  version: "2018-848-demo"
+  kind: AG_SCHEME
+  description: >-
+    Illustrative concept-only subset referencing EU Reg. 2018/848
+    (public EU law) — paraphrased, not verbatim. Demonstrates
+    practice-to-requirement mapping and auto-evidence from farm input
+    records for an organic-production scheme.
+
+requirements:
+  - code: EUO.1
+    title: A conversion period is completed before produce is sold as organic
+    summary: >-
+      The land observes the regulation's conversion period (referencing
+      EU Reg. 2018/848) before its output may be marketed as organic.
+    theme: Conversion
+    themeNumber: 1
+    section: EUO.1
+    sortOrder: 1
+  - code: EUO.2
+    title: Only inputs permitted for organic production are applied
+    summary: >-
+      Plant protection products, fertilisers, and other inputs are
+      restricted to those authorised for organic production under EU
+      Reg. 2018/848; prohibited synthetic inputs are not used.
+    theme: Permitted inputs
+    themeNumber: 2
+    section: EUO.2
+    sortOrder: 2
+  - code: EUO.3
+    title: Input and parcel records are maintained for every application
+    summary: >-
+      Records capture each input application by date, product, rate, and
+      parcel, and tie each parcel to its organic status, so applications
+      are auditable.
+    theme: Records
+    themeNumber: 3
+    section: EUO.3
+    sortOrder: 3
+  - code: EUO.4
+    title: Buffer zones and separation prevent contamination from conventional areas
+    summary: >-
+      Buffer zones and physical separation reduce the risk of contact
+      with prohibited substances or commingling with conventional
+      production.
+    theme: Separation
+    themeNumber: 4
+    section: EUO.4
+    sortOrder: 4
+  - code: EUO.5
+    title: Produce is traceable from parcel to sale
+    summary: >-
+      A traceability chain links harvested organic produce back to the
+      parcel of origin and forward to the point of sale.
+    theme: Traceability
+    themeNumber: 5
+    section: EUO.5
+    sortOrder: 5
+
+templates:
+  - code: EUO-DEMO.CONVERSION
+    title: Conversion-period management
+    category: Conversion
+    defaultFrequency: ANNUALLY
+    requirementCodes: [EUO.1]
+  - code: EUO-DEMO.INPUTS
+    title: Permitted-input control and application records
+    category: Permitted inputs
+    defaultFrequency: AD_HOC
+    requirementCodes: [EUO.2, EUO.3]
+  - code: EUO-DEMO.SEPARATION
+    title: Buffer zones and separation from conventional production
+    category: Separation
+    defaultFrequency: ANNUALLY
+    requirementCodes: [EUO.4]
+  - code: EUO-DEMO.TRACEABILITY
+    title: Parcel-to-sale traceability
+    category: Traceability
+    defaultFrequency: ANNUALLY
+    requirementCodes: [EUO.5]
+
+pack:
+  key: EU-ORGANIC-2018-848-DEMO-BASE
+  name: EU Organic (2018/848) demo starter pack
+  version: "2018-848-demo"
+  description: >-
+    Illustrative starter pack for the concept-only EU organic demo
+    scheme — installs controls for the conversion, permitted-input,
+    separation, and traceability control points above.
+  templateCodes:
+    [EUO-DEMO.CONVERSION, EUO-DEMO.INPUTS, EUO-DEMO.SEPARATION, EUO-DEMO.TRACEABILITY]
