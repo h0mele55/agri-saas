@@ -181,6 +181,9 @@ export const CACHE_KEYS = {
         home: () => '/dashboard' as const,
         executive: () => '/dashboard/executive' as const,
         trends: () => '/dashboard/trends' as const,
+        // Agriculture strip — recent journal + low-stock + my farm tasks,
+        // gated by the tenant's enabled modules. Read by <AgDashboardStrip>.
+        ag: () => '/dashboard/ag' as const,
     },
     coverage: {
         home: () => '/coverage' as const,

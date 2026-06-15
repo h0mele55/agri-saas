@@ -5,6 +5,7 @@ import { assertCanRead, assertCanWrite, assertCanAdmin } from '../policies/commo
 import { logEvent } from '../events/audit';
 import { notFound } from '@/lib/errors/types';
 import { runInTenantContext } from '@/lib/db-context';
+import { assertWithinLimit } from '@/lib/billing/entitlements';
 
 export interface CreateLocationInput {
     name: string;
@@ -63,6 +64,8 @@ export async function listLocationParcels(ctx: RequestContext, id: string) {
 
 export async function createLocation(ctx: RequestContext, data: CreateLocationInput) {
     assertCanWrite(ctx);
+    // Plan gate: a startup-farmer (FREE) tenant caps the number of farms/fields.
+    await assertWithinLimit(ctx, 'location');
     return runInTenantContext(ctx, async (db) => {
         const location = await LocationRepository.create(db, ctx, {
             name: data.name,
