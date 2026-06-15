@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useCallback } from 'react';
-import type { Role } from '@prisma/client';
+import type { Role, ModuleKey } from '@prisma/client';
 import type { PermissionSet } from '@/lib/permissions';
 
 // ─── Tenant context ───
@@ -14,6 +14,13 @@ export interface TenantContextValue {
     currencySymbol?: string;
     role: Role;
     plan?: string;
+    /**
+     * Modules AVAILABLE to the tenant (plan-allowed ∧ tenant-enabled),
+     * resolved server-side in the tenant layout. The sidebar hides nav
+     * items for unavailable modules. Absent on older providers ⇒ treat
+     * as "all available" (degrade gracefully).
+     */
+    availableModules?: ModuleKey[];
     permissions: {
         canRead: boolean;
         canWrite: boolean;

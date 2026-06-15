@@ -10,6 +10,7 @@
  */
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import {
     listAccessReviews,
     createAccessReview,
@@ -31,6 +32,8 @@ export const GET = withApiErrorHandling(
     ) => {
         const params = await paramsPromise;
         const ctx = await getTenantCtx(params, req);
+        // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+        await assertModuleEnabled(ctx, 'CERTIFICATION');
         const reviews = await listAccessReviews(ctx, {
             take: LIST_BACKFILL_CAP + 1,
         });
@@ -55,6 +58,8 @@ export const POST = withApiErrorHandling(
         ) => {
             const params = await paramsPromise;
             const ctx = await getTenantCtx(params, req);
+            // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+            await assertModuleEnabled(ctx, 'CERTIFICATION');
             const result = await createAccessReview(ctx, body);
             return jsonResponse(result, { status: 201 });
         },

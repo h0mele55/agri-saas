@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { listAudits, createAudit } from '@/app-layer/usecases/audit';
 import { withValidatedBody } from '@/lib/validation/route';
 import { CreateAuditSchema } from '@/lib/schemas';
@@ -11,6 +12,8 @@ import { recordListPageRowCount } from '@/lib/observability/list-page-metrics';
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     // PR-5 — backfill cap.
     const audits = await listAudits(ctx, { take: LIST_BACKFILL_CAP + 1 });
     const result = applyBackfillCap(audits);
@@ -27,6 +30,8 @@ export const GET = withApiErrorHandling(async (req: NextRequest, { params: param
 export const POST = withApiErrorHandling(withValidatedBody(CreateAuditSchema, async (req, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const audit = await createAudit(ctx, body);
     return jsonResponse(audit, { status: 201 });
 }));

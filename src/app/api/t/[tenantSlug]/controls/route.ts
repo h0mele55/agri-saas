@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getTenantCtx } from '@/app-layer/context';
+import { assertModuleEnabled } from '@/app-layer/usecases/modules';
 import { listControls, listControlsPaginated, createControl, listControlsWithDeleted } from '@/app-layer/usecases/control';
 import { withValidatedBody } from '@/lib/validation/route';
 import { CreateControlSchema } from '@/lib/schemas';
@@ -24,6 +25,8 @@ const ControlsQuerySchema = z.object({
 export const GET = withApiErrorHandling(async (req: NextRequest, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const sp = Object.fromEntries(req.nextUrl.searchParams.entries());
     const query = ControlsQuerySchema.parse(sp);
 
@@ -67,6 +70,8 @@ export const GET = withApiErrorHandling(async (req: NextRequest, { params: param
 export const POST = withApiErrorHandling(withValidatedBody(CreateControlSchema, async (req, { params: paramsPromise }: { params: Promise<{ tenantSlug: string }> }, body) => {
     const params = await paramsPromise;
     const ctx = await getTenantCtx(params, req);
+    // WP-2 — the compliance/GRC domain is gated behind CERTIFICATION.
+    await assertModuleEnabled(ctx, 'CERTIFICATION');
     const control = await createControl(ctx, body);
     return jsonResponse(control, { status: 201 });
 }));

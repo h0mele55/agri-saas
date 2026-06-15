@@ -55,6 +55,21 @@ interface NavSectionDef {
     items: NavItemDef[];
 }
 
+/**
+ * Defense-in-depth nav filter (Layer 2 of 2):
+ *   Layer 1 — the server layout uses noStore() so permissions AND module
+ *             availability are resolved fresh per request.
+ *   Layer 2 — this client-side filter removes gated items.
+ * Fail-closed: when `visible` is explicitly set, only keep the item when it
+ * is strictly `true`. An unset `visible` means "no gate — always shown".
+ */
+function filterVisible(items: NavItemDef[]): NavItemDef[] {
+    return items.filter((item) => {
+        if (item.visible === undefined) return true;
+        return item.visible === true;
+    });
+}
+
 // ─── Navigation configuration ───
 
 export function useNavSections(): NavSectionDef[] {
@@ -63,6 +78,17 @@ export function useNavSections(): NavSectionDef[] {
     const tenant = useTenantContext();
     // Live badge — fetched lazily; undefined when count is 0 or load fails.
     const calendarBadge = useCalendarBadge(tenant.tenantSlug);
+
+    // Module availability gate (plan-allowed ∧ tenant-enabled, resolved
+    // server-side in the tenant layout). The GRC surfaces (risks, controls,
+    // audits, policies, vendors, processes) hang off the CERTIFICATION
+    // module — a startup-farmer tenant on the simple-mode plan never sees
+    // them. `availableModules` is absent on pre-port providers ⇒ degrade
+    // gracefully to "all available" so older sessions are unaffected until
+    // natural re-mint.
+    const certAvailable =
+        tenant.availableModules === undefined ||
+        tenant.availableModules.includes('CERTIFICATION');
 
     // R13-PR7 — tenant sidebar restructure.
     //
@@ -91,7 +117,7 @@ export function useNavSections(): NavSectionDef[] {
             // govern day-to-day, distinct from the daily-cadence
             // work that sits under "Comply".
             title: 'Govern',
-            items: [
+            items: filterVisible([
                 { href: tenantHref('/assets'), label: 'Asset', icon: Building2 },
                 { href: tenantHref('/locations'), label: 'Location', icon: MapPin },
                 { href: tenantHref('/journal'), label: 'Journal', icon: NotebookPen },
@@ -101,18 +127,21 @@ export function useNavSections(): NavSectionDef[] {
                 // Govern. Reuses the already-imported ClipboardList glyph
                 // (the task affordance) — no new lucide import.
                 { href: tenantHref('/farm-tasks'), label: 'Farm Tasks', icon: ClipboardList },
-                { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle },
-                { href: tenantHref('/controls'), label: 'Control', icon: ShieldCheck },
-            ],
+                // Risk + Control are GRC surfaces gated behind the
+                // CERTIFICATION module — hidden for simple-mode farm tenants.
+                { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle, visible: certAvailable },
+                { href: tenantHref('/controls'), label: 'Control', icon: ShieldCheck, visible: certAvailable },
+            ]),
         },
         {
             title: 'Comply',
-            items: [
+            items: filterVisible([
                 // R13-PR16 — Audit moved from "Manage" to the top of
                 // "Comply" because audits are a daily-cadence
                 // workflow (Plan / Schedule / Review / Docs), not
                 // ongoing governance configuration.
-                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck },
+                // GRC surface — gated behind the CERTIFICATION module.
+                { href: tenantHref('/audits'), label: 'Audit', icon: ClipboardCheck, visible: certAvailable },
                 { href: tenantHref('/tasks'), label: 'Plan', icon: ClipboardList },
                 {
                     href: tenantHref('/calendar'),
@@ -122,39 +151,37 @@ export function useNavSections(): NavSectionDef[] {
                 },
                 { href: tenantHref('/tests'), label: 'Review', icon: FlaskConical },
                 { href: tenantHref('/evidence'), label: 'Docs', icon: Paperclip },
-            ],
+            ]),
         },
         {
             title: 'Manage',
-            items: [
+            items: filterVisible([
                 // R13-PR12 — Frameworks dropped from the sidebar.
                 // The page stays reachable via the Frameworks pill on
                 // the Audits page header (R13-PR9) and via the command
                 // palette (⌘K → "Frameworks").
                 // R13-PR16 — Audit moved up to Comply (see above).
-                { href: tenantHref('/policies'), label: 'Policy', icon: FileText },
+                // Policy is a GRC surface — gated behind CERTIFICATION.
+                { href: tenantHref('/policies'), label: 'Policy', icon: FileText, visible: certAvailable },
                 // Knowledge Base — versioned SOPs / guides / reference
                 // articles (the Policy feature's twin). Sits under Manage
                 // alongside Policy. Reuses the already-imported FileText
                 // glyph (document/article affordance) — no new lucide
                 // import (the sidebar's icon contract is LucideIcon).
+                // NOT gated by CERTIFICATION: the knowledge base is a
+                // farm-operations surface (growing guides / SOPs), useful
+                // to simple-mode tenants on its own.
                 { href: tenantHref('/knowledge'), label: 'Knowledge', icon: FileText },
-                { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck },
+                // Vendor is a GRC surface — gated behind CERTIFICATION.
+                { href: tenantHref('/vendors'), label: 'Vendor', icon: Truck, visible: certAvailable },
                 // R25-PR-A — Processes canvas. Visual mapping of
                 // business + IT processes with controls placed on
                 // the connections between steps. Sits under Manage
                 // alongside Policy + Vendor — same governance-tool
-                // tier.
-                { href: tenantHref('/processes'), label: 'Process', icon: Workflow },
+                // tier. GRC surface — gated behind CERTIFICATION.
+                { href: tenantHref('/processes'), label: 'Process', icon: Workflow, visible: certAvailable },
                 { href: tenantHref('/reports'), label: 'Report', icon: BarChart3, visible: perms.reports.view },
-            ].filter(item => {
-                // DEFENSE-IN-DEPTH (Layer 2 of 2):
-                // Layer 1: Server layout uses noStore() to ensure fresh permissions per request.
-                // Layer 2: This client-side filter removes gated items based on the resolved permissions.
-                // Fail-closed: if `visible` is explicitly set, only include when strictly `true`.
-                if (item.visible === undefined) return true; // no gate — always visible
-                return item.visible === true;               // gated — only if permission is true
-            }),
+            ]),
         },
     ];
 }

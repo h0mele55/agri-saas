@@ -35,6 +35,16 @@ jest.mock('@/app-layer/events/audit', () => ({
     logEvent: jest.fn(),
 }));
 
+// The plan dimension of gating goes through getTenantPlan (a DB read).
+// Mock just that — `planAllowsModule` / `planModules` stay REAL (pure
+// logic). Default is `null` (self-hosted / billing-unconfigured), which
+// allows every module, so the tenant-toggle tests below behave exactly as
+// they did before the plan dimension landed.
+const mockGetTenantPlan = jest.fn();
+jest.mock('@/lib/entitlements-server', () => ({
+    getTenantPlan: (tenantId: string) => mockGetTenantPlan(tenantId),
+}));
+
 import { ModuleSettingsRepository } from '@/app-layer/repositories/ModuleSettingsRepository';
 import { logEvent } from '@/app-layer/events/audit';
 import {
@@ -51,11 +61,15 @@ import {
     setEnabledModules,
     isModuleEnabled,
     assertModuleEnabled,
+    getAvailableModules,
+    isModuleAvailable,
 } from '@/app-layer/usecases/modules';
 import { makeRequestContext } from '../helpers/make-context';
 
 beforeEach(() => {
     jest.clearAllMocks();
+    // Default: no billing account → plan null → plan allows every module.
+    mockGetTenantPlan.mockResolvedValue(null);
 });
 
 const adminCtx = makeRequestContext('ADMIN', { userId: 'user-admin' });
@@ -177,6 +191,90 @@ describe('assertModuleEnabled', () => {
         await expect(assertModuleEnabled(readerCtx, 'CERTIFICATION')).rejects.toThrow(
             /module_disabled: CERTIFICATION/,
         );
+    });
+
+    it('throws when the PLAN blocks the module even though the tenant enabled it', async () => {
+        // FREE plan cannot reach CERTIFICATION (PRO) — the plan half of
+        // availability fails first, regardless of the tenant toggle.
+        mockGetTenantPlan.mockResolvedValue('FREE');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue({
+            enabledModules: ['CERTIFICATION'],
+        });
+        await expect(assertModuleEnabled(readerCtx, 'CERTIFICATION')).rejects.toThrow(
+            /module_disabled: CERTIFICATION/,
+        );
+    });
+});
+
+// ─── isModuleAvailable — plan ∧ tenant ─────────────────────────────
+
+describe('isModuleAvailable', () => {
+    it('available when plan allows AND tenant enabled', async () => {
+        mockGetTenantPlan.mockResolvedValue('PRO');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue({
+            enabledModules: ['CERTIFICATION'],
+        });
+        expect(await isModuleAvailable(readerCtx, 'CERTIFICATION')).toBe(true);
+    });
+
+    it('NOT available when the plan blocks it (FREE → CERTIFICATION)', async () => {
+        mockGetTenantPlan.mockResolvedValue('FREE');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue(null); // all tenant-enabled
+        expect(await isModuleAvailable(readerCtx, 'CERTIFICATION')).toBe(false);
+        // FREE still reaches the agriculture core.
+        expect(await isModuleAvailable(readerCtx, 'JOURNAL')).toBe(true);
+    });
+
+    it('NOT available when the tenant toggled it off (even on PRO)', async () => {
+        mockGetTenantPlan.mockResolvedValue('PRO');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue({
+            enabledModules: ['JOURNAL'],
+        });
+        expect(await isModuleAvailable(readerCtx, 'CERTIFICATION')).toBe(false);
+    });
+
+    it('null plan (self-hosted) defers entirely to the tenant toggle', async () => {
+        mockGetTenantPlan.mockResolvedValue(null);
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue(null);
+        expect(await isModuleAvailable(readerCtx, 'CERTIFICATION')).toBe(true);
+    });
+});
+
+// ─── getAvailableModules — the intersection list ───────────────────
+
+describe('getAvailableModules', () => {
+    it('FREE plan + all-enabled tenant → just the simple-mode core', async () => {
+        mockGetTenantPlan.mockResolvedValue('FREE');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue(null);
+        expect((await getAvailableModules(readerCtx)).sort()).toEqual(
+            ['INVENTORY', 'JOURNAL', 'PLANNING'],
+        );
+    });
+
+    it('PRO plan + all-enabled tenant → core + GRC, never AI', async () => {
+        mockGetTenantPlan.mockResolvedValue('PRO');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue(null);
+        const available = await getAvailableModules(readerCtx);
+        expect(available).toContain('CERTIFICATION');
+        expect(available).toContain('JOURNAL');
+        expect(available).not.toContain('AI');
+    });
+
+    it('intersects the two dimensions — PRO plan but tenant restricted to JOURNAL', async () => {
+        mockGetTenantPlan.mockResolvedValue('PRO');
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue({
+            enabledModules: ['JOURNAL', 'CERTIFICATION'],
+        });
+        // Plan allows both; tenant enabled both → both available.
+        expect((await getAvailableModules(readerCtx)).sort()).toEqual(['CERTIFICATION', 'JOURNAL']);
+    });
+
+    it('null plan defers to the tenant list verbatim', async () => {
+        mockGetTenantPlan.mockResolvedValue(null);
+        (ModuleSettingsRepository.get as jest.Mock).mockResolvedValue({
+            enabledModules: ['JOURNAL', 'AI'],
+        });
+        expect((await getAvailableModules(readerCtx)).sort()).toEqual(['AI', 'JOURNAL']);
     });
 });
 
