@@ -74,8 +74,8 @@ describe('Infrastructure Regression Guards', () => {
             }
         });
 
-        test('exactly 21 scheduled jobs exist', () => {
-            expect(SCHEDULED_JOBS).toHaveLength(21);
+        test('exactly 22 scheduled jobs exist', () => {
+            expect(SCHEDULED_JOBS).toHaveLength(22);
         });
 
         test('scheduled job names match expected set', () => {
@@ -125,6 +125,9 @@ describe('Infrastructure Regression Guards', () => {
                 // In-app TASK_DUE notifications fired one week, one
                 // day, and on the day a task's dueAt falls.
                 'task-due-notification',
+                // Agro-intel — daily Open-Meteo weather pull per Location
+                // → WeatherObservation upsert + spray/disease signal eval.
+                'weather-pull',
             ]);
         });
     });

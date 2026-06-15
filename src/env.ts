@@ -211,6 +211,22 @@ export const env = createEnv({
         AI_RISK_ENABLED: z.string().default('true'),
         AI_RISK_PLAN_REQUIRED: z.string().default(''),
 
+        // Agro-intel — sensor/data-stream ingestion endpoint feature flag.
+        // '1' enables the token-gated POST ingestion route; anything else
+        // (default) returns 503 feature_disabled. Off by default — the
+        // stream-definition CRUD is always available; only live ingestion
+        // is flagged so an operator opts in before exposing the endpoint.
+        AGRO_DATASTREAMS_ENABLED: z.enum(['0', '1']).default('0'),
+
+        // Agro-intel — NDVI raster tile source for the location map's
+        // satellite-vegetation overlay. An XYZ `{z}/{x}/{y}` template URL.
+        // Optional + default '' — when unset the NDVI toggle renders a
+        // "configure a tile source" empty state instead of a raster layer.
+        // Real satellite provisioning (Sentinel/Planet/EOX) is a follow-up;
+        // the deliverable here is that the layer renders when a URL is set.
+        // CC0 / openly-licensed sources only.
+        AGRO_NDVI_TILE_URL: z.string().default(''),
+
         // Audit stream delivery retry (Epic E.2)
         // '0' disables retry (single POST); anything else (or unset) keeps retry on.
         // Kill-switch for debugging a misbehaving SIEM without redeploy.
@@ -332,6 +348,8 @@ export const env = createEnv({
         AI_RISK_USER_RPM: process.env.AI_RISK_USER_RPM,
         AI_RISK_ENABLED: process.env.AI_RISK_ENABLED,
         AI_RISK_PLAN_REQUIRED: process.env.AI_RISK_PLAN_REQUIRED,
+        AGRO_DATASTREAMS_ENABLED: process.env.AGRO_DATASTREAMS_ENABLED,
+        AGRO_NDVI_TILE_URL: process.env.AGRO_NDVI_TILE_URL,
 
         AUDIT_STREAM_RETRY_ENABLED: process.env.AUDIT_STREAM_RETRY_ENABLED,
         PLATFORM_ADMIN_API_KEY: process.env.PLATFORM_ADMIN_API_KEY,

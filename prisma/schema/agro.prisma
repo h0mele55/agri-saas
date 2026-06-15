@@ -1,0 +1,140 @@
+// ═══════════════════════════════════════════════════════════════════
+//  AGRO-INTEL DOMAIN — weather obs, agronomic signals, data streams
+// ═══════════════════════════════════════════════════════════════════
+//
+//  GAP-09 multi-file schema: new domain file. Conventions mirror
+//  agriculture.prisma / planning.prisma:
+//    • cuid ids, createdAt/updatedAt, soft-delete trio where it applies.
+//    • `@@unique([id, tenantId])` cross-tenant barrier; composite child
+//      FKs `[xId, tenantId] → [id, tenantId]`.
+//    • Every tenant-scoped table gets the canonical RLS trio in the
+//      migration (rls-coverage derives the set from the DMMF). All four
+//      models have a NON-NULL tenantId → standard split-policy form.
+//
+//  The agronomic MATH is not here — GDD accumulation + the
+//  spray-window / disease-risk rules are PURE functions in
+//  `src/lib/agro/{gdd,rules}.ts`. These models persist the weather the
+//  rules consume + the signals they emit. A disease-risk signal REUSES
+//  the GRC Risk register (Risk + matrix + treatment) — `AgroSignal.riskId`
+//  points at the created Risk; the AgroSignal row itself is the
+//  idempotency key so the daily job never double-fires.
+//
+//  Back-relations added elsewhere:
+//    • auth.prisma   Tenant:   weatherObservations / dataStreams /
+//                              dataStreamReadings / agroSignals
+//    • agriculture.prisma Location: weatherObservations / dataStreams /
+//                                   agroSignals
+//    • planning.prisma Planting:  agroSignals
+//    • compliance.prisma Risk:    agroSignals
+// ═══════════════════════════════════════════════════════════════════
+
+/// One day's weather for a Location, pulled from Open-Meteo (free, no
+/// key) by the daily `weather-pull` BullMQ job. Drives GDD accumulation
+/// per planting + the spray-window / disease-risk evaluators. One row per
+/// (location, date) — the job upserts.
+model WeatherObservation {
+  id           String   @id @default(cuid())
+  tenantId     String
+  locationId   String
+  /// Calendar day (UTC) the observation is for.
+  obsDate      DateTime @db.Date
+  /// Provenance — "open-meteo" today.
+  source       String   @default("open-meteo")
+  tempMaxC     Decimal? @db.Decimal(6, 2)
+  tempMinC     Decimal? @db.Decimal(6, 2)
+  tempMeanC    Decimal? @db.Decimal(6, 2)
+  precipMm     Decimal? @db.Decimal(8, 2)
+  windMaxKmh   Decimal? @db.Decimal(7, 2)
+  humidityMean Decimal? @db.Decimal(5, 2)
+  /// Raw API slice for audit / reprocessing.
+  rawJson      Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  location Location @relation(fields: [locationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, locationId, obsDate])
+  @@index([tenantId, obsDate])
+}
+
+/// A sensor / external data stream (farmOS data-stream concept) — behind
+/// the AGRO_DATASTREAMS feature flag. A device POSTs readings to the
+/// token-gated ingestion endpoint; `ingestTokenHash` is the SHA-256 of
+/// the raw token (never stored plainly), mirroring AuditPackShare.
+model DataStream {
+  id              String           @id @default(cuid())
+  tenantId        String
+  locationId      String?
+  key             String
+  name            String
+  kind            DataStreamKind
+  unit            String?
+  /// SHA-256(rawIngestToken). Null until a token is minted.
+  ingestTokenHash String?
+  status          DataStreamStatus @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+  deletedByUserId String?
+  retentionUntil  DateTime?
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id])
+  location Location?           @relation(fields: [locationId, tenantId], references: [id, tenantId])
+  readings DataStreamReading[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, key])
+  @@index([tenantId, locationId])
+  @@index([tenantId, status])
+  @@index([ingestTokenHash])
+}
+
+/// A single reading on a DataStream (time-series). Written by the
+/// ingestion endpoint. High-volume — kept lean.
+model DataStreamReading {
+  id           String   @id @default(cuid())
+  tenantId     String
+  dataStreamId String
+  recordedAt   DateTime
+  value        Decimal  @db.Decimal(18, 6)
+  unit         String?
+  rawJson      Json?
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  dataStream DataStream @relation(fields: [dataStreamId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId, dataStreamId, recordedAt])
+}
+
+/// An agronomic signal the daily job emits from the weather rules — a
+/// spray-window warning or a disease-risk escalation. The row is the
+/// IDEMPOTENCY key (one per location/kind/day) AND the provenance link to
+/// the reused Risk-register Risk + whether a notification was sent.
+model AgroSignal {
+  id           String          @id @default(cuid())
+  tenantId     String
+  locationId   String
+  plantingId   String?
+  kind         AgroSignalKind
+  /// Free severity label per kind (e.g. UNSUITABLE / HIGH).
+  level        String?
+  signalDate   DateTime        @db.Date
+  /// The Risk row this signal raised (disease risk reuses the register).
+  riskId       String?
+  notified     Boolean         @default(false)
+  detailsJson  Json?
+  createdAt    DateTime        @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  location Location  @relation(fields: [locationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  planting Planting? @relation(fields: [plantingId, tenantId], references: [id, tenantId])
+  risk     Risk?     @relation(fields: [riskId, tenantId], references: [id, tenantId])
+
+  @@unique([tenantId, locationId, kind, signalDate])
+  @@index([tenantId, signalDate])
+  @@index([tenantId, plantingId])
+  @@index([tenantId, riskId])
+}

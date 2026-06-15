@@ -381,6 +381,8 @@ model Risk {
   // RQ2-1 — per-mutation score provenance ledger.
   scoreEvents      RiskScoreEvent[]
   lossEvents       LossEvent[]
+  /// Agro-intel — a disease-risk signal that raised this Risk.
+  agroSignals      AgroSignal[]
 
   /// Composite parent key — supports the
   /// `RiskTreatmentPlan.(riskId, tenantId) → Risk.(id, tenantId)`

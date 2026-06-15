@@ -185,6 +185,19 @@ describe('CI Guard: No direct prisma in tenant-scoped code', () => {
         // a Notification row per overdue vendor + bumps the vendor's
         // nextReviewAt to silence the reminder until next cycle.
         'vendor-reassessment-reminder.ts',
+        // Agro-intel — public token-gated data-stream ingestion. Same
+        // shape as vendor-assessment-response.ts: the device-facing
+        // `ingestReadings` path has NO user RequestContext — token
+        // verification (SHA-256 hash compare) precedes tenant
+        // resolution, so it looks up the DataStream by id with the
+        // global prisma client, then `createMany`s readings under
+        // `runWithAuditContext` bound to the matched stream's tenantId.
+        // RLS bypass is intentional + bounded (writes scoped to that
+        // tenant). The tenant-scoped CRUD in the same file
+        // (createDataStream / listDataStreams / listReadings) uses
+        // runInTenantContext. See route-exemptions.ts for the
+        // anti-enumeration route shape.
+        'data-stream.ts',
     ];
 
     const usecases = readFilesInDir(path.join(SRC_ROOT, 'app-layer/usecases'));

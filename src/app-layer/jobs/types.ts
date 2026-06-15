@@ -514,6 +514,15 @@ export interface LowStockMonitorPayload {
     tenantId?: string;
 }
 
+/**
+ * Agro-intel — daily cross-tenant weather pull (Open-Meteo) + agro-signal
+ * evaluation. Scoped to one tenant when `tenantId` is set, else every
+ * tenant that owns a Location.
+ */
+export interface WeatherPullPayload {
+    tenantId?: string;
+}
+
 export interface JobPayloadMap {
     'health-check': HealthCheckPayload;
     'automation-runner': AutomationRunnerPayload;
@@ -550,6 +559,7 @@ export interface JobPayloadMap {
     'risk-snapshot': RiskSnapshotPayload;
     'report-delivery': ReportDeliveryPayload;
     'low-stock-monitor': LowStockMonitorPayload;
+    'weather-pull': WeatherPullPayload;
 }
 
 /** Union of all valid job names */
@@ -684,6 +694,15 @@ export const JOB_DEFAULTS: Record<JobName, {
         removeOnFail: 200,
     },
     'low-stock-monitor': {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+    },
+    'weather-pull': {
+        // Daily Open-Meteo pull + signal eval. One retry on a transient
+        // network/DB blip; the WeatherObservation upsert + AgroSignal
+        // unique-claim make a re-run fully idempotent.
         attempts: 2,
         backoff: { type: 'exponential', delay: 10000 },
         removeOnComplete: 100,

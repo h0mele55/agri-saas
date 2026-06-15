@@ -47,6 +47,16 @@ export interface MapCanvasProps {
     onCreateGeometry?: (geometry: Polygon) => void;
     /** Fired (debounced) when an existing parcel's polygon is reshaped. */
     onUpdateGeometry?: (parcelId: string, geometry: Polygon) => void;
+    /**
+     * NDVI raster overlay (Agro-intel). When `showNdvi` is true AND an
+     * XYZ `{z}/{x}/{y}` template `ndviTileUrl` is supplied, a raster
+     * `<Source>`/`<Layer>` is drawn over the AOI (the map is already fit
+     * to the location's parcel bbox via `bounds`). When the URL is empty
+     * the layer is simply not rendered — the page surfaces a "configure a
+     * tile source" empty state.
+     */
+    showNdvi?: boolean;
+    ndviTileUrl?: string;
     className?: string;
 }
 
@@ -62,8 +72,11 @@ export function MapCanvas({
     mode = 'select',
     onCreateGeometry,
     onUpdateGeometry,
+    showNdvi = false,
+    ndviTileUrl,
     className,
 }: MapCanvasProps) {
+    const ndviActive = showNdvi && !!ndviTileUrl && ndviTileUrl.length > 0;
     const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
     const done = useMemo(() => new Set(doneIds), [doneIds]);
     const mapRef = useRef<MapRef | null>(null);
@@ -212,6 +225,15 @@ export function MapCanvas({
                 style={{ width: '100%', height: '100%' }}
                 cursor={interactive && !drawing ? 'pointer' : 'grab'}
             >
+                {/* NDVI raster overlay (Agro-intel). Drawn first so the
+                    parcel fill/line layers stay legible on top. The map is
+                    already fit to the AOI bbox via `bounds`. */}
+                {ndviActive && (
+                    <Source id="ndvi" type="raster" tiles={[ndviTileUrl!]} tileSize={256}>
+                        <Layer id="ndvi-raster" type="raster" paint={{ 'raster-opacity': 0.7 }} />
+                    </Source>
+                )}
+
                 {/* Hide the static layer while editing so terra-draw owns
                     the on-map render of the editable polygons. */}
                 {mode !== 'edit' && (

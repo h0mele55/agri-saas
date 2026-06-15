@@ -1113,6 +1113,30 @@ enum PlantingStage {
   HARVEST
 }
 
+// ─── Agro-intel domain (agro.prisma) ─────────────────────────────────
+
+enum DataStreamKind {
+  TEMPERATURE
+  SOIL_MOISTURE
+  HUMIDITY
+  RAINFALL
+  WIND
+  LEAF_WETNESS
+  CUSTOM
+}
+
+enum DataStreamStatus {
+  ACTIVE
+  DISABLED
+}
+
+/// What an AgroSignal represents — a spray-window suitability warning or a
+/// disease-pressure escalation. Disease risk reuses the GRC Risk register.
+enum AgroSignalKind {
+  SPRAY_WINDOW
+  DISEASE_RISK
+}
+
 /// Lot genealogy edge kind (OFBiz lot-genealogy concept, reimplemented).
 /// DERIVATION: the child lot was produced using the parent — a harvest
 /// lot derived from the seed/fertiliser/pesticide lots consumed on its

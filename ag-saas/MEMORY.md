@@ -478,3 +478,65 @@ Succession planning that auto-generates field Tasks and computes seed demand.
   computed delta.
 - **No seed-demand roll-up** — seedQuantityGrams is per-planting; a season-level
   "total seed to order per variety" report is the obvious next step.
+
+---
+
+## Phase 10 — Agro-intel: weather, GDD, agronomic rules → Risk register (feat/agro-intel)
+
+A data-driven layer over spray/planning/risk: daily weather → obs store; GDD per
+planting; spray-window + disease-risk rules → notifications + Risk-register entries;
+NDVI map layer; feature-flagged sensor data-stream ingestion.
+
+- **Pure math** `src/lib/agro/{gdd,rules}.ts` — clean-room (no GPL code): GDD
+  average method (cap + base floor); spray-window (wind/rain/temp → GOOD/CAUTION/
+  UNSUITABLE) + disease-risk (longest warm-wet consecutive run → LOW/MOD/HIGH).
+  18 unit tests. Prisma-free; the job/usecases feed them.
+- **Schema** `agro.prisma` — 4 tenant-scoped RLS models: WeatherObservation
+  (upsert per location/obsDate), DataStream + DataStreamReading (farmOS data-stream
+  concept), AgroSignal. AgroSignal's `@@unique([tenantId, locationId, kind,
+  signalDate])` is the IDEMPOTENCY key. Risk is REUSED (not a new model) — a
+  disease-risk signal `createRisk(category:'Agronomic')` and back-links `riskId`
+  on the signal.
+- **weather-pull BullMQ job** (`jobs/weather-pull.ts`, daily `0 6 * * *`): iterate
+  tenants (distinct Location.tenantId) → synthetic admin ctx + runInTenantContext →
+  per Location derive lat/lon (geo.ts `locationParcelBoundsSql` bbox centroid, else
+  `boundsJson`, else skip) → Open-Meteo fetch → upsert WeatherObservation → evaluate
+  signals. Registered in executor-registry + types.ts JobPayloadMap + schedules.ts.
+  Open-Meteo client (`lib/weather/open-meteo-client.ts`) is free/no-key, 15s
+  AbortController timeout, mocked in tests.
+- **agro-signals** (`usecases/agro-signals.ts`) — CLAIM-then-act idempotency: claim
+  the AgroSignal via create (catch P2002 unique → already handled today → no-op);
+  only a NEW claim fires the Notification (spray) / createRisk (disease, OUTSIDE the
+  claim tx since createRisk opens its own). A failed createRisk leaves a signal
+  without a risk (no duplicate on re-run; reconcilable) — acceptable.
+- **GDD on plantings** (`usecases/agro-gdd.ts`) — `accumulateGdd` over the
+  planting's location WeatherObservation from sowDate→today. Base temp is a module
+  constant `GDD_BASE_TEMP_C = 10` (CropVariety has NO base-temp column — per-variety
+  base temp is a follow-up). Surfaced via `GET …/planning/plantings/:id/gdd`.
+- **DataStream ingestion** — public token-gated endpoint
+  `POST /api/agro/data-streams/:streamId/ingest` (bare route, route-exemption):
+  feature-flag `env.AGRO_DATASTREAMS_ENABLED==='1'` else 503; SHA-256 constant-time
+  token compare; tenant resolved from the matched stream; uniform 401 (anti-
+  enumeration). `data-stream.ts` uses global prisma pre-auth (allowlisted, same
+  rationale as vendor-assessment-response) then `runWithAuditContext`.
+- **NDVI** — a raster `<Source>`/`<Layer>` toggle on the location map over the
+  parcel-bbox AOI; tile URL from `env.AGRO_NDVI_TILE_URL` (default '' → "configure a
+  source" empty state). The layer RENDERS; real satellite provisioning is a follow-up.
+
+### Remaining gaps (Phase 10)
+- **GDD base temp is a flat 10°C** — no per-crop/variety base (would need a
+  CropVariety.gddBaseTempC column + migration). Add for accurate maize (10) vs
+  brassica (varies) accumulation.
+- **NDVI is a tile-URL passthrough, not a real satellite pipeline** — no
+  Sentinel/COG fetch, no NDVI computation, no per-AOI clipping beyond the bbox.
+  AGRO_NDVI_TILE_URL must point at an existing XYZ raster.
+- **Weather job hits live Open-Meteo** — depends on the prod network policy
+  allowing api.open-meteo.com egress; CI/tests mock it. No backfill of historical
+  obs beyond Open-Meteo's `past_days=7`.
+- **Spray-window only fires on UNSUITABLE** (not CAUTION) and disease only on HIGH
+  — thresholds are code constants (DEFAULT_*), not per-tenant tunable yet.
+- **No GDD/weather card on the ag dashboard** — GDD shows on the planting detail
+  only; a dashboard "this week's spray windows / GDD progress" strip is the obvious
+  next surface. Data-stream readings have no charting UI (ingest + store only).
+- **A failed createRisk orphans a disease AgroSignal** (signal exists, riskId null)
+  — a reconcile pass could re-attempt.

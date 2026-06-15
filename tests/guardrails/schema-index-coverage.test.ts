@@ -397,6 +397,19 @@ const LIST_MODELS_TENANT_INDEX_SUFFICIENT: Record<string, string> = {
         'listItems filters by tenantId + category and searches name — covered by @@index([tenantId, category]) / @@index([tenantId, name]).',
     OperationParcel:
         'OperationParcel is read per-job (taskId + tenantId) — covered by @@index([tenantId, taskId]); status rollups use @@index([tenantId, status]).',
+    // ─── Agro-intel (weather obs + data streams + signals) ───
+    WeatherObservation:
+        'agro-signals + getPlantingGdd findMany by tenantId + locationId + obsDate range, ordered by obsDate — covered exactly by @@unique([tenantId, locationId, obsDate]) (the upsert key) + @@index([tenantId, obsDate]); both reads are take-bounded (64 / 400).',
+    DataStream:
+        'listDataStreams filters by tenantId (deletedAt:null), orders by createdAt DESC — covered by @@index([tenantId, locationId]) / @@index([tenantId, status]); the per-tenant stream set is small and take:200-bounded. Ingestion looks up a single stream by PK (findUnique).',
+    DataStreamReading:
+        'listReadings filters by tenantId + dataStreamId, orders by recordedAt DESC — covered exactly by @@index([tenantId, dataStreamId, recordedAt]); take:500-bounded. Writes are createMany only.',
+    // NOTE: AgroSignal is NOT findMany-queried — agro-signals claims/updates
+    // rows via createMany(skipDuplicates) + updateMany on the
+    // @@unique([tenantId, locationId, kind, signalDate]) key. So it is
+    // intentionally absent from this map (Layer C-completeness only triages
+    // findMany'd models). Its listing index @@index([tenantId, signalDate])
+    // exists for any future date-ordered read.
     // ─── Inventory ledger (Phase 1) ───
     InventoryLot:
         'listLots filters by tenantId (+ optional itemId), orders by createdAt DESC — covered by @@index([tenantId, itemId]); getFefoLot filters tenantId+itemId+quantityOnHand>0 ordered by expiresAt — covered by @@index([tenantId, expiresAt]); bounded take:200.',

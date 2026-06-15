@@ -181,6 +181,16 @@ describe('Structural Guard: Tenant Isolation Conventions', () => {
             // src/lib/security/external-assessment-access.ts and
             // src/lib/errors/route-exemptions.ts (anti_enumeration).
             'vendor-assessment',
+            // Agro-intel — public token-gated data-stream ingestion
+            // (`/api/agro/data-streams/[streamId]/ingest`). The caller is
+            // a sensor/device with NO session and no tenant membership;
+            // tenant resolution happens through the DataStream row's
+            // tenantId after the SHA-256 ingest-token verifier matches.
+            // Feature-flagged (AGRO_DATASTREAMS_ENABLED) + anti-enumeration
+            // 401. The tenant-scoped data-stream CRUD lives under
+            // /api/t/[tenantSlug]/agro/. See data-stream.ts (ingestReadings)
+            // and route-exemptions.ts (anti_enumeration).
+            'agro',
             // Avatar roadmap P3 — account-level (session-scoped)
             // routes. A user's profile/avatar is theirs across every
             // tenant, so `/api/account/*` resolves the session user,

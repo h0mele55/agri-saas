@@ -22,7 +22,7 @@ import { createColumns, DataTable } from '@/components/ui/table';
 import { GanttTimeline } from '@/components/ui/GanttTimeline';
 import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
 import { InlineEmptyState } from '@/components/ui/inline-empty-state';
-import { SkeletonCard } from '@/components/ui/skeleton';
+import { SkeletonCard, SkeletonLine } from '@/components/ui/skeleton';
 import { Heading } from '@/components/ui/typography';
 import { Tooltip } from '@/components/ui/tooltip';
 import { CircleCheck } from '@/components/ui/icons/nucleo';
@@ -68,6 +68,29 @@ const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
     HARVESTED: 'success',
     TERMINATED: 'neutral',
 };
+
+/**
+ * Accumulated GDD for one planting (Agro-intel). Lazily fetches the
+ * per-planting GDD endpoint; the board has a small bounded set of rows so
+ * SWR's per-key dedup keeps this cheap. Renders "—" until weather exists.
+ */
+function GddCell({ plantingId }: { plantingId: string }) {
+    const { data, isLoading } = useTenantSWR<{ totalGdd: number; baseTempC: number; days: unknown[] }>(
+        `/planning/plantings/${plantingId}/gdd`,
+    );
+    if (isLoading && !data) {
+        return <SkeletonLine className="h-3 w-8" />;
+    }
+    const total = data?.totalGdd ?? 0;
+    if (!data || (data.days?.length ?? 0) === 0) {
+        return <span className="text-xs text-content-subtle">—</span>;
+    }
+    return (
+        <Tooltip content={`Base ${data.baseTempC}°C, sow → today`}>
+            <span className="text-xs text-content-muted tabular-nums">{total.toLocaleString()}</span>
+        </Tooltip>
+    );
+}
 
 /** A planned date beside its actual realisation (or an em-dash). */
 function PlannedActual({ planned, actual }: { planned: string | null; actual: string | null }) {
@@ -214,6 +237,12 @@ export function PlantingBoard({
                             </span>
                         );
                     },
+                },
+                {
+                    id: 'gdd',
+                    header: 'GDD',
+                    enableSorting: false,
+                    cell: ({ row }) => <GddCell plantingId={row.original.plantingId} />,
                 },
                 {
                     accessorKey: 'status',

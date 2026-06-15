@@ -281,6 +281,26 @@ export const BARE_ROUTE_EXEMPTIONS: ReadonlyArray<BareRouteExemption> = [
             'mapping as the GET sibling.',
     },
 
+    // ─── Agro-intel — public data-stream ingestion ───
+    //
+    // Device-facing reading ingestion, gated by a per-stream ingest
+    // token (SHA-256 hash compare) + the AGRO_DATASTREAMS_ENABLED flag.
+    // Custom { error } shapes: 503 feature_disabled when the flag is
+    // off, 400 invalid_body, and a UNIFORM 401 access_denied for every
+    // token/stream failure (anti-enumeration — probing stream ids
+    // without a valid token must not reveal which gate tripped). The
+    // wrapper's generic ApiErrorResponse would break that uniform-401
+    // contract on an internal throw.
+    {
+        file: 'agro/data-streams/[streamId]/ingest/route.ts',
+        category: 'anti_enumeration',
+        reason:
+            'Public token-gated data-stream ingestion. Feature-flagged ' +
+            '(503 feature_disabled) + per-stream ingest-token gate; ' +
+            'collapses every token/stream failure to a uniform 401 ' +
+            'access_denied to avoid leaking which gate tripped.',
+    },
+
     // ─── Staging fixture ───
     //
     // Dev-/staging-only seed endpoint with its own token gate, body
