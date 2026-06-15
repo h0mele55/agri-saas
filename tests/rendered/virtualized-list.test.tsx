@@ -6,16 +6,19 @@
  *     visible window plus the configured overscan — never the
  *     full 1000 rows
  *   - scrolling shifts the rendered window
- *   - `itemSize` as a function routes to `VariableSizeList` and
- *     respects per-index sizes
+ *   - `itemSize` as a function feeds react-window v2's `List`
+ *     `rowHeight` callback and respects per-index sizes
  *   - `renderItem` receives an index + a positional `style` whose
- *     transform/top reflects the row's position
+ *     `transform: translateY(...)` reflects the row's position
+ *     (react-window v2 positions rows via transform, not `top`)
  *   - aria-label is forwarded to the inner scroll viewport
  *
- * jsdom has no layout engine — every test passes explicit height +
- * width so AutoSizer is bypassed. The AutoSizer code path is
- * exercised at runtime in the rollout integration tests (which
- * mount inside sized containers).
+ * jsdom has no layout engine — every test passes an explicit height
+ * so react-window v2's `List` uses it as `defaultHeight` (the
+ * pre-measurement / SSR initial) and renders the visible window
+ * without a ResizeObserver firing. The auto-fill (ResizeObserver)
+ * path is exercised at runtime in the rollout integration tests
+ * (which mount inside sized containers).
  */
 /** @jest-environment jsdom */
 
@@ -81,12 +84,13 @@ describe("VirtualizedList — windowing contract", () => {
         // Starting state: row 0 visible.
         expect(screen.getByTestId("row-0")).toBeInTheDocument();
 
-        // react-window's outer scroll element is the FIRST div the
-        // FixedSizeList renders inside our wrapper. It carries
-        // `style.overflow: auto` so we identify it that way.
+        // react-window v2's scroll container is the `List` root div
+        // inside our wrapper. It carries `style.overflowY: auto` (v1
+        // used the shorthand `overflow: auto`) so we identify it that
+        // way.
         const all = Array.from(container.querySelectorAll("div"));
         const scrollContainer = all.find(
-            (el) => (el as HTMLElement).style?.overflow === "auto",
+            (el) => (el as HTMLElement).style?.overflowY === "auto",
         ) as HTMLDivElement | undefined;
         expect(scrollContainer).toBeTruthy();
 
@@ -132,10 +136,11 @@ describe("VirtualizedList — render contract", () => {
         );
 
         const row1 = screen.getByTestId("row-1");
-        // react-window applies top + position: absolute via style.
+        // react-window v2 positions rows via `position: absolute` +
+        // `transform: translateY(...)` (v1 used `top`).
         expect(row1.style.position).toBe("absolute");
         // Row 1 starts at 50px (1 * itemSize).
-        expect(row1.style.top).toBe("50px");
+        expect(row1.style.transform).toBe("translateY(50px)");
     });
 
     it("forwards aria-label to the wrapper element", () => {
@@ -180,7 +185,7 @@ describe("VirtualizedList — render contract", () => {
 });
 
 describe("VirtualizedList — variable size mode", () => {
-    it("itemSize as a function routes to VariableSizeList and respects per-index sizes", () => {
+    it("itemSize as a function feeds the List rowHeight callback and respects per-index sizes", () => {
         const sizes = [20, 60, 30, 100, 40];
         render(
             <VirtualizedList
@@ -201,12 +206,13 @@ describe("VirtualizedList — variable size mode", () => {
         const row1 = screen.getByTestId("row-1");
         const row2 = screen.getByTestId("row-2");
 
+        // v2 positions via `transform: translateY(...)`.
         // Row 1 starts at 20 (size[0]).
-        expect(row1.style.top).toBe("20px");
+        expect(row1.style.transform).toBe("translateY(20px)");
         // Row 2 starts at 80 (20 + 60).
-        expect(row2.style.top).toBe("80px");
+        expect(row2.style.transform).toBe("translateY(80px)");
         // Row 0 starts at 0.
-        expect(row0.style.top).toBe("0px");
+        expect(row0.style.transform).toBe("translateY(0px)");
     });
 
     it("variable mode also windows large lists correctly", () => {
@@ -298,32 +304,38 @@ describe("VirtualizedList — itemKey", () => {
     });
 });
 
-describe("VirtualizedList — auto-sizing fallback", () => {
-    it("renders without explicit dimensions inside an AutoSizer wrapper (suppresses 0×0 render in jsdom)", () => {
-        // jsdom returns 0 for offsetWidth/Height — AutoSizer reports
-        // {0, 0} and our primitive short-circuits to null. Assert that
-        // no error is thrown and the outer wrapper still renders.
+describe("VirtualizedList — auto-fill (ResizeObserver) fallback", () => {
+    it("renders without explicit dimensions and still windows (no AutoSizer, List self-measures)", () => {
+        // react-window v2 dropped react-virtualized-auto-sizer — the
+        // `List` self-measures its parent via a ResizeObserver and uses
+        // `defaultHeight` (0 here) until measured. jsdom never fires the
+        // observer, so the List falls back to a 0-height container. The
+        // invariant that still matters: the wrapper renders without
+        // throwing AND windowing caps the rendered rows far below the
+        // 100 logical items (v2 renders only a tiny visible+overscan
+        // band at 0 height, not all 100).
         const { container } = render(
             <VirtualizedList
                 itemCount={100}
                 itemSize={30}
                 renderItem={({ index, style }) => (
-                    <div style={style}>Row {index}</div>
+                    <div style={style} data-testid={`row-${index}`}>
+                        Row {index}
+                    </div>
                 )}
             />,
         );
         expect(container.querySelector("[data-virtualized-list]")).toBeTruthy();
-        // No row content rendered because AutoSizer reported 0×0.
-        expect(container.querySelectorAll("div div div").length).toBeLessThanOrEqual(2);
-        // Ensures the renderItem function never threw — also asserted
-        // implicitly by the test passing.
+        // Windowing holds even without explicit dimensions — nowhere
+        // near 100 rows are in the DOM.
+        const rendered = countRendered("row");
+        expect(rendered).toBeLessThan(100);
     });
 
-    it("explicit height + auto width path renders rows when AutoSizer measures width", () => {
-        // We can't drive AutoSizer's measurement in jsdom, so just
-        // assert this path mounts without error and produces the
-        // wrapper. Real-world width measurement is covered by the
-        // rollout integration tests.
+    it("explicit height + auto width path mounts and renders the visible window", () => {
+        // Explicit height feeds `defaultHeight`; width fills the parent
+        // (100%). react-window v2 renders rows from `defaultHeight`
+        // alone — no width measurement needed for a vertical list.
         const range10 = range(10);
         const { container } = render(
             <VirtualizedList

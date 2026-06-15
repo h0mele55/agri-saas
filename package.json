@@ -160,7 +160,6 @@
     "react-grid-layout": "^2.2.3",
     "react-hook-form": "^7.79.0",
     "react-map-gl": "^8.1.1",
-    "react-virtualized-auto-sizer": "^2.0.3",
     "react-window": "^2.2.7",
     "sanitize-html": "^2.17.5",
     "shpjs": "^6.2.0",
