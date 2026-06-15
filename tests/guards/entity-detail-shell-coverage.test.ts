@@ -55,6 +55,8 @@ const ADOPTED_PAGES: ReadonlyArray<Adopter> = [
   { page: "src/app/t/[tenantSlug]/(app)/tests/runs/[runId]/page.tsx", entity: "Test run" },
   // Agriculture (Feature 1) — spray-prescription map.
   { page: "src/app/t/[tenantSlug]/(app)/locations/[locationId]/page.tsx", entity: "Location" },
+  // Field Journal.
+  { page: "src/app/t/[tenantSlug]/(app)/journal/[id]/page.tsx", entity: "Journal entry" },
 ];
 
 /**

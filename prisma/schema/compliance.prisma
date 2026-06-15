@@ -1312,6 +1312,7 @@ model FileRecord {
   // Agriculture (Feature 1) — locations whose original spatial file
   // (shapefile/KML/GeoJSON) this row stores.
   locationSpatialFiles Location[]       @relation("LocationSpatialFile")
+  logEntryFiles        LogEntryFile[]   @relation("LogEntryFileRecord")
 
   @@index([tenantId])
   @@index([tenantId, status])

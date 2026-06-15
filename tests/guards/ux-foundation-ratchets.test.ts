@@ -115,9 +115,16 @@ describe('Epic 64 — window.confirm() ceiling', () => {
     // mis-click can't silently drop typed edits. The modal→sheet swap
     // leaves the count unchanged (one confirm out, one in).
     //
+    // Field Journal (2026-06-14) bumped 18 → 19 for the
+    // `JournalEntryModal` create/edit surface. It carries the SAME
+    // unsaved-changes discard guard as `NewAssetModal` / `NewTaskModal`
+    // — a synchronous `window.confirm` on close so a mis-click can't
+    // silently drop a typed entry (title, TipTap notes, quantity rows).
+    // Same sync-close rationale as the sites above.
+    //
     // To LOWER this number: migrate one or more remaining sites and
     // bump the constant down. Don't lower without a real migration.
-    const CONFIRM_CALL_CEILING = 18;
+    const CONFIRM_CALL_CEILING = 19;
 
     it(`has at most ${CONFIRM_CALL_CEILING} native-confirm call sites under the tenant app`, () => {
         const offenders: string[] = [];

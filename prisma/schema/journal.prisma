@@ -44,6 +44,10 @@ model LogEntry {
   /// FK — OperationParcel has no [id, tenantId] barrier). Lets the job
   /// answer "what did this application consume?".
   operationParcelId String?
+  /// Ekylibre intervention-cost concept (reimplemented): optional
+  /// cost of this field event, for per-activity costing later.
+  costAmount        Decimal?       @db.Decimal(14, 2)
+  costCurrency      String?
   createdByUserId   String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
@@ -56,6 +60,9 @@ model LogEntry {
   createdBy       User?              @relation("LogEntryCreator", fields: [createdByUserId], references: [id])
   quantities      LogQuantity[]
   stockTx         StockTransaction[]
+  locations       LogLocation[]
+  equipment       LogEquipment[]
+  files           LogEntryFile[]
 
   @@unique([id, tenantId])
   @@index([tenantId, type, occurredAt])
@@ -80,4 +87,84 @@ model LogQuantity {
 
   @@index([tenantId, logEntryId])
   @@index([tenantId, unitId])
+}
+
+/// Tenant-scoped farm equipment (tractor, sprayer, drill, …) that field
+/// work is logged against. Generalised from the Asset pattern — the AG
+/// equipment register, distinct from the compliance Asset (a Prisma
+/// model rename is deliberately deferred). RLS trio in the migration.
+model Equipment {
+  id              String    @id @default(cuid())
+  tenantId        String
+  name            String
+  category        String?
+  make            String?
+  model           String?
+  serialNumber    String?
+  year            Int?
+  meterValue      Decimal?  @db.Decimal(12, 1)
+  attributesJson  Json?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  deletedByUserId String?
+  retentionUntil  DateTime?
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  createdBy User?          @relation("EquipmentCreator", fields: [createdByUserId], references: [id])
+  logLinks  LogEquipment[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, category])
+  @@index([tenantId, name])
+}
+
+/// Link: a LogEntry happened at a Location (the Feature-1 field block).
+model LogLocation {
+  id         String @id @default(cuid())
+  tenantId   String
+  logEntryId String
+  locationId String
+
+  logEntry LogEntry @relation(fields: [logEntryId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  location Location @relation(fields: [locationId, tenantId], references: [id, tenantId])
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([logEntryId, locationId])
+  @@index([tenantId, locationId])
+}
+
+/// Link: a LogEntry used a piece of Equipment.
+model LogEquipment {
+  id          String @id @default(cuid())
+  tenantId    String
+  logEntryId  String
+  equipmentId String
+
+  logEntry  LogEntry  @relation(fields: [logEntryId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId, tenantId], references: [id, tenantId])
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@unique([logEntryId, equipmentId])
+  @@index([tenantId, equipmentId])
+}
+
+/// Link: a photo / document attached to a LogEntry via the existing
+/// FileRecord pipeline (HortusFox-style photo logging). FileRecord has
+/// no [id, tenantId] barrier → simple FK; isolation via tenantId + RLS.
+model LogEntryFile {
+  id           String   @id @default(cuid())
+  tenantId     String
+  logEntryId   String
+  fileRecordId String
+  caption      String?
+  createdAt    DateTime @default(now())
+
+  logEntry   LogEntry   @relation(fields: [logEntryId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  fileRecord FileRecord @relation("LogEntryFileRecord", fields: [fileRecordId], references: [id])
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+
+  @@unique([logEntryId, fileRecordId])
+  @@index([tenantId, logEntryId])
 }

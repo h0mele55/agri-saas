@@ -37,6 +37,13 @@ const MIGRATED_PAGES = [
     'risks/correlations/page.tsx',
     // RQ-10 — reports; semantic tokens + Card/Button/StatusBadge only.
     'risks/reports/page.tsx',
+    // Field Journal — design-system-native from birth. Server shell +
+    // EntityListPage client + EntityDetailLayout detail page; semantic
+    // tokens + Card/Button/StatusBadge/Modal/EntityListPage only, no
+    // raw color / legacy btn / legacy badge classes.
+    'journal/page.tsx',
+    'journal/JournalClient.tsx',
+    'journal/[id]/page.tsx',
     'dashboard/page.tsx',
     // Epic 69 split the dashboard into a thin server shell + a
     // `'use client'` component owning the card composition. Both

@@ -119,6 +119,7 @@ model Location {
   spatialFile   FileRecord?    @relation("LocationSpatialFile", fields: [spatialFileId], references: [id])
   parcels       Parcel[]
   inventoryLots InventoryLot[]
+  logLocations  LogLocation[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, key])
