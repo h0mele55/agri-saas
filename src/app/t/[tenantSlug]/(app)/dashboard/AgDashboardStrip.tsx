@@ -32,8 +32,13 @@ export default function AgDashboardStrip() {
 
     if (!data) return null;
 
-    const journalOn = data.enabledModules.includes('JOURNAL');
-    const inventoryOn = data.enabledModules.includes('INVENTORY');
+    // Defensive: a malformed / partial cache payload (e.g. an SWR key
+    // collision in tests, or a future error-shape from the endpoint) can
+    // leave `enabledModules` undefined even when `data` is truthy. Treat a
+    // missing list as "no ag modules" → the strip renders nothing, the same
+    // safe default as the no-data branch above.
+    const journalOn = data.enabledModules?.includes('JOURNAL') ?? false;
+    const inventoryOn = data.enabledModules?.includes('INVENTORY') ?? false;
 
     // The strip exists only for ag tenants. With neither core ag module
     // enabled, render nothing — the farm row is invisible for pure-GRC.
