@@ -40,6 +40,8 @@ import { applyCatalogFile } from '../prisma/catalog-applier';
 const SCHEME_CATALOGS = [
     'globalgap-ifa-demo.yaml',
     'eu-organic-2018-848-demo.yaml',
+    'leaf-marque-demo.yaml',
+    'red-tractor-demo.yaml',
 ];
 
 const CATALOG_DIR = path.resolve(__dirname, '..', 'prisma', 'catalogs');

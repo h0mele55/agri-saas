@@ -1,7 +1,8 @@
 #!/usr/bin/env tsx
 /**
  * Seed the crop-planning catalog (CropType + CropVariety) with common
- * market-garden crops.
+ * market-garden + field crops, each carrying several representative
+ * varieties.
  *
  * Content provenance: the agronomic figures below (days to maturity,
  * spacing, seeds-per-gram, germination) are GENERIC public-domain
@@ -9,11 +10,13 @@
  * CC0 / public domain (https://openfarm.cc — "all data is licensed
  * CC0"). Public-domain data is embedded + redistributed freely;
  * `sourceUrn: 'openfarm:cc0'` records provenance on every variety. No
- * proprietary data is copied.
+ * proprietary seed-catalog data (named cultivar performance, branded
+ * descriptions, MSDS text) is copied — every figure is a generic
+ * agronomic norm authored for this seed.
  *
- * Each crop becomes a CropType (+ one representative CropVariety) in the
- * target tenant. Idempotent: CropType upserts on (tenantId, key),
- * CropVariety on (tenantId, cropTypeId, key); re-running skips rows
+ * Each entry becomes a CropType plus N representative CropVarieties in
+ * the target tenant. Idempotent: CropType upserts on (tenantId, key),
+ * each CropVariety on (tenantId, cropTypeId, key); re-running skips rows
  * already present.
  *
  * Usage:
@@ -25,149 +28,278 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 type Method = 'DIRECT_SOW' | 'TRANSPLANT';
 
-interface SeedVariety {
+/** One variety's succession-engine defaults. */
+interface VarietySeed {
+    key: string;
+    name: string;
+    defaultMethod: Method;
+    daysToGermination: number;
+    /** Sow → transplant (TRANSPLANT crops); null for direct-sow. */
+    daysToTransplant: number | null;
+    daysToMaturity: number;
+    harvestWindowDays: number;
+    inRowSpacingCm: number;
+    betweenRowSpacingCm: number;
+    seedsPerGram: number;
+    germinationRate: number;
+    seedsPerCell: number;
+}
+
+/** A CropType + its representative varieties. */
+interface CropSeed {
     cropType: { key: string; name: string; family: string; category: string };
-    variety: {
-        key: string;
-        name: string;
-        defaultMethod: Method;
-        daysToGermination: number;
-        /** Sow → transplant (TRANSPLANT crops). */
-        daysToTransplant: number | null;
-        daysToMaturity: number;
-        harvestWindowDays: number;
-        inRowSpacingCm: number;
-        betweenRowSpacingCm: number;
-        seedsPerGram: number;
-        germinationRate: number;
-        seedsPerCell: number;
-    };
+    varieties: VarietySeed[];
 }
 
 /**
- * ~12 common crops with CC0 (OpenFarm-style) agronomic norms. Generic
+ * ~28 common crops with CC0 (OpenFarm-style) agronomic norms and several
+ * representative varieties each (~70 varieties total). Generic
  * public-domain figures — NOT transcribed from any proprietary source.
+ *
+ * Within a crop, the per-variety numbers vary only where the variety
+ * meaningfully differs agronomically (e.g. cherry vs. beefsteak tomato
+ * days-to-maturity); the rest inherit the crop's typical norm.
  */
-export const CROP_VARIETIES: SeedVariety[] = [
+export const CROP_VARIETIES: CropSeed[] = [
     {
         cropType: { key: 'tomato', name: 'Tomato', family: 'Solanaceae', category: 'fruiting' },
-        variety: {
-            key: 'tomato-standard', name: 'Standard Slicing',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 42,
-            daysToMaturity: 65, harvestWindowDays: 35,
-            inRowSpacingCm: 45, betweenRowSpacingCm: 90,
-            seedsPerGram: 350, germinationRate: 0.9, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'tomato-cherry', name: 'Cherry', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 42, daysToMaturity: 60, harvestWindowDays: 49, inRowSpacingCm: 45, betweenRowSpacingCm: 90, seedsPerGram: 350, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'tomato-beefsteak', name: 'Beefsteak', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 42, daysToMaturity: 80, harvestWindowDays: 35, inRowSpacingCm: 50, betweenRowSpacingCm: 90, seedsPerGram: 350, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'tomato-paste', name: 'Paste (Roma)', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 42, daysToMaturity: 75, harvestWindowDays: 28, inRowSpacingCm: 45, betweenRowSpacingCm: 90, seedsPerGram: 350, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'tomato-heirloom', name: 'Heirloom Slicing', defaultMethod: 'TRANSPLANT', daysToGermination: 8, daysToTransplant: 42, daysToMaturity: 78, harvestWindowDays: 35, inRowSpacingCm: 50, betweenRowSpacingCm: 90, seedsPerGram: 350, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'lettuce', name: 'Lettuce', family: 'Asteraceae', category: 'leafy green' },
-        variety: {
-            key: 'lettuce-leaf', name: 'Leaf Lettuce',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 5, daysToTransplant: 28,
-            daysToMaturity: 45, harvestWindowDays: 14,
-            inRowSpacingCm: 25, betweenRowSpacingCm: 30,
-            seedsPerGram: 800, germinationRate: 0.85, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'lettuce-butterhead', name: 'Butterhead', defaultMethod: 'TRANSPLANT', daysToGermination: 5, daysToTransplant: 28, daysToMaturity: 50, harvestWindowDays: 14, inRowSpacingCm: 25, betweenRowSpacingCm: 30, seedsPerGram: 800, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'lettuce-romaine', name: 'Romaine', defaultMethod: 'TRANSPLANT', daysToGermination: 5, daysToTransplant: 28, daysToMaturity: 60, harvestWindowDays: 14, inRowSpacingCm: 30, betweenRowSpacingCm: 30, seedsPerGram: 800, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'lettuce-looseleaf', name: 'Looseleaf', defaultMethod: 'TRANSPLANT', daysToGermination: 5, daysToTransplant: 21, daysToMaturity: 45, harvestWindowDays: 21, inRowSpacingCm: 20, betweenRowSpacingCm: 30, seedsPerGram: 800, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'lettuce-crisphead', name: 'Crisphead', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 28, daysToMaturity: 70, harvestWindowDays: 10, inRowSpacingCm: 30, betweenRowSpacingCm: 35, seedsPerGram: 800, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'carrot', name: 'Carrot', family: 'Apiaceae', category: 'root' },
-        variety: {
-            key: 'carrot-nantes', name: 'Nantes',
-            defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null,
-            daysToMaturity: 70, harvestWindowDays: 21,
-            inRowSpacingCm: 5, betweenRowSpacingCm: 30,
-            seedsPerGram: 750, germinationRate: 0.8, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'carrot-nantes', name: 'Nantes', defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null, daysToMaturity: 70, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 30, seedsPerGram: 750, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'carrot-danvers', name: 'Danvers', defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null, daysToMaturity: 75, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 30, seedsPerGram: 750, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'carrot-imperator', name: 'Imperator', defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null, daysToMaturity: 80, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 35, seedsPerGram: 750, germinationRate: 0.78, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'beet', name: 'Beet', family: 'Amaranthaceae', category: 'root' },
-        variety: {
-            key: 'beet-detroit', name: 'Detroit Dark Red',
-            defaultMethod: 'DIRECT_SOW', daysToGermination: 10, daysToTransplant: null,
-            daysToMaturity: 55, harvestWindowDays: 21,
-            inRowSpacingCm: 10, betweenRowSpacingCm: 30,
-            seedsPerGram: 55, germinationRate: 0.8, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'beet-detroit', name: 'Detroit Dark Red', defaultMethod: 'DIRECT_SOW', daysToGermination: 10, daysToTransplant: null, daysToMaturity: 55, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 55, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'beet-golden', name: 'Golden', defaultMethod: 'DIRECT_SOW', daysToGermination: 12, daysToTransplant: null, daysToMaturity: 55, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 55, germinationRate: 0.72, seedsPerCell: 1 },
+            { key: 'beet-cylindra', name: 'Cylindra', defaultMethod: 'DIRECT_SOW', daysToGermination: 10, daysToTransplant: null, daysToMaturity: 60, harvestWindowDays: 21, inRowSpacingCm: 8, betweenRowSpacingCm: 30, seedsPerGram: 55, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'bean', name: 'Bush Bean', family: 'Fabaceae', category: 'legume' },
-        variety: {
-            key: 'bean-bush', name: 'Bush Snap',
-            defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null,
-            daysToMaturity: 55, harvestWindowDays: 21,
-            inRowSpacingCm: 10, betweenRowSpacingCm: 45,
-            seedsPerGram: 3, germinationRate: 0.85, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'bean-bush-green', name: 'Bush Green Snap', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 55, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 45, seedsPerGram: 3, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'bean-bush-yellow', name: 'Bush Yellow Wax', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 55, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 45, seedsPerGram: 3, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'bean-pole', name: 'Pole Snap', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 65, harvestWindowDays: 42, inRowSpacingCm: 15, betweenRowSpacingCm: 90, seedsPerGram: 3, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
     },
     {
-        cropType: { key: 'squash', name: 'Summer Squash', family: 'Cucurbitaceae', category: 'fruiting' },
-        variety: {
-            key: 'squash-zucchini', name: 'Zucchini',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21,
-            daysToMaturity: 50, harvestWindowDays: 35,
-            inRowSpacingCm: 60, betweenRowSpacingCm: 120,
-            seedsPerGram: 7, germinationRate: 0.9, seedsPerCell: 1,
-        },
+        cropType: { key: 'pea', name: 'Pea', family: 'Fabaceae', category: 'legume' },
+        varieties: [
+            { key: 'pea-shelling', name: 'Shelling', defaultMethod: 'DIRECT_SOW', daysToGermination: 9, daysToTransplant: null, daysToMaturity: 60, harvestWindowDays: 14, inRowSpacingCm: 5, betweenRowSpacingCm: 45, seedsPerGram: 4, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'pea-snap', name: 'Sugar Snap', defaultMethod: 'DIRECT_SOW', daysToGermination: 9, daysToTransplant: null, daysToMaturity: 65, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 45, seedsPerGram: 4, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'pea-snow', name: 'Snow', defaultMethod: 'DIRECT_SOW', daysToGermination: 9, daysToTransplant: null, daysToMaturity: 60, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 45, seedsPerGram: 5, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
     },
     {
-        cropType: { key: 'kale', name: 'Kale', family: 'Brassicaceae', category: 'leafy green' },
-        variety: {
-            key: 'kale-lacinato', name: 'Lacinato',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35,
-            daysToMaturity: 60, harvestWindowDays: 56,
-            inRowSpacingCm: 45, betweenRowSpacingCm: 60,
-            seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1,
-        },
+        cropType: { key: 'squash-summer', name: 'Summer Squash', family: 'Cucurbitaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'squash-zucchini', name: 'Zucchini', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 50, harvestWindowDays: 35, inRowSpacingCm: 60, betweenRowSpacingCm: 120, seedsPerGram: 7, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'squash-yellow', name: 'Yellow Crookneck', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 52, harvestWindowDays: 35, inRowSpacingCm: 60, betweenRowSpacingCm: 120, seedsPerGram: 7, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'squash-patty', name: 'Pattypan', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 52, harvestWindowDays: 35, inRowSpacingCm: 60, betweenRowSpacingCm: 120, seedsPerGram: 7, germinationRate: 0.9, seedsPerCell: 1 },
+        ],
     },
     {
-        cropType: { key: 'pepper', name: 'Pepper', family: 'Solanaceae', category: 'fruiting' },
-        variety: {
-            key: 'pepper-bell', name: 'Bell',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56,
-            daysToMaturity: 70, harvestWindowDays: 42,
-            inRowSpacingCm: 45, betweenRowSpacingCm: 75,
-            seedsPerGram: 160, germinationRate: 0.8, seedsPerCell: 1,
-        },
+        cropType: { key: 'squash-winter', name: 'Winter Squash', family: 'Cucurbitaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'squash-butternut', name: 'Butternut', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 95, harvestWindowDays: 14, inRowSpacingCm: 60, betweenRowSpacingCm: 150, seedsPerGram: 5, germinationRate: 0.88, seedsPerCell: 1 },
+            { key: 'squash-acorn', name: 'Acorn', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 85, harvestWindowDays: 14, inRowSpacingCm: 60, betweenRowSpacingCm: 150, seedsPerGram: 6, germinationRate: 0.88, seedsPerCell: 1 },
+            { key: 'squash-spaghetti', name: 'Spaghetti', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 90, harvestWindowDays: 14, inRowSpacingCm: 60, betweenRowSpacingCm: 150, seedsPerGram: 5, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'pumpkin', name: 'Pumpkin', family: 'Cucurbitaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'pumpkin-sugar', name: 'Sugar Pie', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 100, harvestWindowDays: 14, inRowSpacingCm: 90, betweenRowSpacingCm: 180, seedsPerGram: 4, germinationRate: 0.88, seedsPerCell: 1 },
+            { key: 'pumpkin-jack', name: 'Jack-o-Lantern', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 21, daysToMaturity: 110, harvestWindowDays: 14, inRowSpacingCm: 120, betweenRowSpacingCm: 240, seedsPerGram: 4, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'cucumber', name: 'Cucumber', family: 'Cucurbitaceae', category: 'fruiting' },
-        variety: {
-            key: 'cucumber-slicing', name: 'Slicing',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 21,
-            daysToMaturity: 55, harvestWindowDays: 28,
-            inRowSpacingCm: 30, betweenRowSpacingCm: 120,
-            seedsPerGram: 35, germinationRate: 0.9, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'cucumber-slicing', name: 'Slicing', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 21, daysToMaturity: 55, harvestWindowDays: 28, inRowSpacingCm: 30, betweenRowSpacingCm: 120, seedsPerGram: 35, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'cucumber-pickling', name: 'Pickling', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 21, daysToMaturity: 52, harvestWindowDays: 28, inRowSpacingCm: 25, betweenRowSpacingCm: 120, seedsPerGram: 35, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'cucumber-greenhouse', name: 'Greenhouse (Seedless)', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 21, daysToMaturity: 60, harvestWindowDays: 49, inRowSpacingCm: 40, betweenRowSpacingCm: 120, seedsPerGram: 30, germinationRate: 0.9, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'melon', name: 'Melon', family: 'Cucurbitaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'melon-cantaloupe', name: 'Cantaloupe', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 28, daysToMaturity: 80, harvestWindowDays: 21, inRowSpacingCm: 45, betweenRowSpacingCm: 150, seedsPerGram: 30, germinationRate: 0.88, seedsPerCell: 1 },
+            { key: 'melon-honeydew', name: 'Honeydew', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 28, daysToMaturity: 90, harvestWindowDays: 21, inRowSpacingCm: 45, betweenRowSpacingCm: 150, seedsPerGram: 30, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'watermelon', name: 'Watermelon', family: 'Cucurbitaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'watermelon-icebox', name: 'Icebox', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 28, daysToMaturity: 80, harvestWindowDays: 14, inRowSpacingCm: 60, betweenRowSpacingCm: 180, seedsPerGram: 10, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'watermelon-seedless', name: 'Seedless', defaultMethod: 'TRANSPLANT', daysToGermination: 8, daysToTransplant: 28, daysToMaturity: 85, harvestWindowDays: 14, inRowSpacingCm: 90, betweenRowSpacingCm: 200, seedsPerGram: 12, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'pepper', name: 'Pepper', family: 'Solanaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'pepper-bell', name: 'Bell', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 70, harvestWindowDays: 42, inRowSpacingCm: 45, betweenRowSpacingCm: 75, seedsPerGram: 160, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'pepper-jalapeno', name: 'Jalapeño', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 72, harvestWindowDays: 49, inRowSpacingCm: 40, betweenRowSpacingCm: 75, seedsPerGram: 180, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'pepper-banana', name: 'Banana (Sweet)', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 70, harvestWindowDays: 49, inRowSpacingCm: 40, betweenRowSpacingCm: 75, seedsPerGram: 180, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'eggplant', name: 'Eggplant', family: 'Solanaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'eggplant-globe', name: 'Globe', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 75, harvestWindowDays: 42, inRowSpacingCm: 50, betweenRowSpacingCm: 75, seedsPerGram: 200, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'eggplant-italian', name: 'Italian (Long)', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 70, harvestWindowDays: 42, inRowSpacingCm: 45, betweenRowSpacingCm: 75, seedsPerGram: 220, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'kale', name: 'Kale', family: 'Brassicaceae', category: 'leafy green' },
+        varieties: [
+            { key: 'kale-lacinato', name: 'Lacinato', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 60, harvestWindowDays: 56, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'kale-curly', name: 'Curly', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 60, harvestWindowDays: 56, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'kale-red-russian', name: 'Red Russian', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 55, harvestWindowDays: 56, inRowSpacingCm: 40, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'chard', name: 'Swiss Chard', family: 'Amaranthaceae', category: 'leafy green' },
+        varieties: [
+            { key: 'chard-fordhook', name: 'Fordhook Giant', defaultMethod: 'TRANSPLANT', daysToGermination: 8, daysToTransplant: 28, daysToMaturity: 55, harvestWindowDays: 70, inRowSpacingCm: 25, betweenRowSpacingCm: 45, seedsPerGram: 55, germinationRate: 0.8, seedsPerCell: 2 },
+            { key: 'chard-rainbow', name: 'Rainbow (Bright Lights)', defaultMethod: 'TRANSPLANT', daysToGermination: 8, daysToTransplant: 28, daysToMaturity: 55, harvestWindowDays: 70, inRowSpacingCm: 25, betweenRowSpacingCm: 45, seedsPerGram: 55, germinationRate: 0.78, seedsPerCell: 2 },
+        ],
+    },
+    {
+        cropType: { key: 'spinach', name: 'Spinach', family: 'Amaranthaceae', category: 'leafy green' },
+        varieties: [
+            { key: 'spinach-savoy', name: 'Savoy', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 45, harvestWindowDays: 21, inRowSpacingCm: 8, betweenRowSpacingCm: 30, seedsPerGram: 90, germinationRate: 0.8, seedsPerCell: 1 },
+            { key: 'spinach-smooth', name: 'Smooth Leaf', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 42, harvestWindowDays: 21, inRowSpacingCm: 8, betweenRowSpacingCm: 30, seedsPerGram: 90, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'arugula', name: 'Arugula', family: 'Brassicaceae', category: 'leafy green' },
+        varieties: [
+            { key: 'arugula-salad', name: 'Salad (Cultivated)', defaultMethod: 'DIRECT_SOW', daysToGermination: 5, daysToTransplant: null, daysToMaturity: 35, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 15, seedsPerGram: 550, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'arugula-wild', name: 'Wild (Sylvetta)', defaultMethod: 'DIRECT_SOW', daysToGermination: 7, daysToTransplant: null, daysToMaturity: 50, harvestWindowDays: 28, inRowSpacingCm: 5, betweenRowSpacingCm: 15, seedsPerGram: 600, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'broccoli', name: 'Broccoli', family: 'Brassicaceae', category: 'brassica' },
+        varieties: [
+            { key: 'broccoli-calabrese', name: 'Calabrese', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 65, harvestWindowDays: 14, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'broccoli-sprouting', name: 'Sprouting', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 80, harvestWindowDays: 28, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'cauliflower', name: 'Cauliflower', family: 'Brassicaceae', category: 'brassica' },
+        varieties: [
+            { key: 'cauliflower-white', name: 'White', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 75, harvestWindowDays: 10, inRowSpacingCm: 50, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'cauliflower-romanesco', name: 'Romanesco', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 90, harvestWindowDays: 10, inRowSpacingCm: 50, betweenRowSpacingCm: 70, seedsPerGram: 300, germinationRate: 0.82, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'cabbage', name: 'Cabbage', family: 'Brassicaceae', category: 'brassica' },
+        varieties: [
+            { key: 'cabbage-green', name: 'Green', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 75, harvestWindowDays: 21, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'cabbage-red', name: 'Red', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 80, harvestWindowDays: 21, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'cabbage-savoy', name: 'Savoy', defaultMethod: 'TRANSPLANT', daysToGermination: 6, daysToTransplant: 35, daysToMaturity: 85, harvestWindowDays: 21, inRowSpacingCm: 45, betweenRowSpacingCm: 60, seedsPerGram: 300, germinationRate: 0.83, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'sweet-corn', name: 'Sweet Corn', family: 'Poaceae', category: 'grain' },
+        varieties: [
+            { key: 'sweet-corn-se', name: 'Sugary Enhanced (SE)', defaultMethod: 'DIRECT_SOW', daysToGermination: 7, daysToTransplant: null, daysToMaturity: 78, harvestWindowDays: 10, inRowSpacingCm: 20, betweenRowSpacingCm: 75, seedsPerGram: 5, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'sweet-corn-sh2', name: 'Supersweet (sh2)', defaultMethod: 'DIRECT_SOW', daysToGermination: 8, daysToTransplant: null, daysToMaturity: 80, harvestWindowDays: 10, inRowSpacingCm: 20, betweenRowSpacingCm: 75, seedsPerGram: 5, germinationRate: 0.8, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'radish', name: 'Radish', family: 'Brassicaceae', category: 'root' },
-        variety: {
-            key: 'radish-cherry', name: 'Cherry Belle',
-            defaultMethod: 'DIRECT_SOW', daysToGermination: 5, daysToTransplant: null,
-            daysToMaturity: 25, harvestWindowDays: 10,
-            inRowSpacingCm: 5, betweenRowSpacingCm: 15,
-            seedsPerGram: 100, germinationRate: 0.9, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'radish-cherry', name: 'Cherry Belle', defaultMethod: 'DIRECT_SOW', daysToGermination: 5, daysToTransplant: null, daysToMaturity: 25, harvestWindowDays: 10, inRowSpacingCm: 5, betweenRowSpacingCm: 15, seedsPerGram: 100, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'radish-french-breakfast', name: 'French Breakfast', defaultMethod: 'DIRECT_SOW', daysToGermination: 5, daysToTransplant: null, daysToMaturity: 28, harvestWindowDays: 10, inRowSpacingCm: 5, betweenRowSpacingCm: 15, seedsPerGram: 100, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'radish-daikon', name: 'Daikon', defaultMethod: 'DIRECT_SOW', daysToGermination: 6, daysToTransplant: null, daysToMaturity: 60, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 90, germinationRate: 0.88, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'turnip', name: 'Turnip', family: 'Brassicaceae', category: 'root' },
+        varieties: [
+            { key: 'turnip-purple-top', name: 'Purple Top', defaultMethod: 'DIRECT_SOW', daysToGermination: 6, daysToTransplant: null, daysToMaturity: 50, harvestWindowDays: 21, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 400, germinationRate: 0.85, seedsPerCell: 1 },
+            { key: 'turnip-hakurei', name: 'Hakurei (Salad)', defaultMethod: 'DIRECT_SOW', daysToGermination: 5, daysToTransplant: null, daysToMaturity: 40, harvestWindowDays: 14, inRowSpacingCm: 8, betweenRowSpacingCm: 25, seedsPerGram: 450, germinationRate: 0.88, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'parsnip', name: 'Parsnip', family: 'Apiaceae', category: 'root' },
+        varieties: [
+            { key: 'parsnip-hollow-crown', name: 'Hollow Crown', defaultMethod: 'DIRECT_SOW', daysToGermination: 18, daysToTransplant: null, daysToMaturity: 120, harvestWindowDays: 28, inRowSpacingCm: 8, betweenRowSpacingCm: 30, seedsPerGram: 200, germinationRate: 0.7, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'onion', name: 'Onion', family: 'Amaryllidaceae', category: 'allium' },
-        variety: {
-            key: 'onion-yellow', name: 'Yellow Storage',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56,
-            daysToMaturity: 100, harvestWindowDays: 14,
-            inRowSpacingCm: 10, betweenRowSpacingCm: 30,
-            seedsPerGram: 250, germinationRate: 0.75, seedsPerCell: 1,
-        },
+        varieties: [
+            { key: 'onion-yellow', name: 'Yellow Storage', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 100, harvestWindowDays: 14, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 250, germinationRate: 0.75, seedsPerCell: 1 },
+            { key: 'onion-red', name: 'Red', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 105, harvestWindowDays: 14, inRowSpacingCm: 10, betweenRowSpacingCm: 30, seedsPerGram: 250, germinationRate: 0.75, seedsPerCell: 1 },
+            { key: 'onion-sweet', name: 'Sweet', defaultMethod: 'TRANSPLANT', daysToGermination: 10, daysToTransplant: 56, daysToMaturity: 95, harvestWindowDays: 14, inRowSpacingCm: 12, betweenRowSpacingCm: 30, seedsPerGram: 250, germinationRate: 0.72, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'leek', name: 'Leek', family: 'Amaryllidaceae', category: 'allium' },
+        varieties: [
+            { key: 'leek-summer', name: 'Summer', defaultMethod: 'TRANSPLANT', daysToGermination: 12, daysToTransplant: 60, daysToMaturity: 100, harvestWindowDays: 28, inRowSpacingCm: 15, betweenRowSpacingCm: 30, seedsPerGram: 350, germinationRate: 0.75, seedsPerCell: 1 },
+            { key: 'leek-overwinter', name: 'Overwintering', defaultMethod: 'TRANSPLANT', daysToGermination: 12, daysToTransplant: 60, daysToMaturity: 150, harvestWindowDays: 56, inRowSpacingCm: 15, betweenRowSpacingCm: 30, seedsPerGram: 350, germinationRate: 0.75, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'garlic', name: 'Garlic', family: 'Amaryllidaceae', category: 'allium' },
+        varieties: [
+            { key: 'garlic-hardneck', name: 'Hardneck', defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null, daysToMaturity: 240, harvestWindowDays: 14, inRowSpacingCm: 15, betweenRowSpacingCm: 30, seedsPerGram: 1, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'garlic-softneck', name: 'Softneck', defaultMethod: 'DIRECT_SOW', daysToGermination: 14, daysToTransplant: null, daysToMaturity: 240, harvestWindowDays: 14, inRowSpacingCm: 15, betweenRowSpacingCm: 30, seedsPerGram: 1, germinationRate: 0.9, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'potato', name: 'Potato', family: 'Solanaceae', category: 'root' },
+        varieties: [
+            { key: 'potato-russet', name: 'Russet', defaultMethod: 'DIRECT_SOW', daysToGermination: 18, daysToTransplant: null, daysToMaturity: 110, harvestWindowDays: 21, inRowSpacingCm: 30, betweenRowSpacingCm: 75, seedsPerGram: 1, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'potato-yukon', name: 'Yellow (Yukon-type)', defaultMethod: 'DIRECT_SOW', daysToGermination: 18, daysToTransplant: null, daysToMaturity: 90, harvestWindowDays: 21, inRowSpacingCm: 30, betweenRowSpacingCm: 75, seedsPerGram: 1, germinationRate: 0.9, seedsPerCell: 1 },
+            { key: 'potato-fingerling', name: 'Fingerling', defaultMethod: 'DIRECT_SOW', daysToGermination: 18, daysToTransplant: null, daysToMaturity: 100, harvestWindowDays: 21, inRowSpacingCm: 25, betweenRowSpacingCm: 75, seedsPerGram: 1, germinationRate: 0.9, seedsPerCell: 1 },
+        ],
+    },
+    {
+        cropType: { key: 'strawberry', name: 'Strawberry', family: 'Rosaceae', category: 'fruiting' },
+        varieties: [
+            { key: 'strawberry-junebearing', name: 'June-bearing', defaultMethod: 'TRANSPLANT', daysToGermination: 21, daysToTransplant: 56, daysToMaturity: 110, harvestWindowDays: 21, inRowSpacingCm: 30, betweenRowSpacingCm: 90, seedsPerGram: 250, germinationRate: 0.6, seedsPerCell: 1 },
+            { key: 'strawberry-everbearing', name: 'Everbearing', defaultMethod: 'TRANSPLANT', daysToGermination: 21, daysToTransplant: 56, daysToMaturity: 120, harvestWindowDays: 90, inRowSpacingCm: 30, betweenRowSpacingCm: 90, seedsPerGram: 250, germinationRate: 0.6, seedsPerCell: 1 },
+        ],
     },
     {
         cropType: { key: 'basil', name: 'Basil', family: 'Lamiaceae', category: 'herb' },
-        variety: {
-            key: 'basil-genovese', name: 'Genovese',
-            defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 35,
-            daysToMaturity: 50, harvestWindowDays: 56,
-            inRowSpacingCm: 25, betweenRowSpacingCm: 30,
-            seedsPerGram: 600, germinationRate: 0.85, seedsPerCell: 3,
-        },
+        varieties: [
+            { key: 'basil-genovese', name: 'Genovese', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 35, daysToMaturity: 50, harvestWindowDays: 56, inRowSpacingCm: 25, betweenRowSpacingCm: 30, seedsPerGram: 600, germinationRate: 0.85, seedsPerCell: 3 },
+            { key: 'basil-thai', name: 'Thai', defaultMethod: 'TRANSPLANT', daysToGermination: 7, daysToTransplant: 35, daysToMaturity: 55, harvestWindowDays: 56, inRowSpacingCm: 25, betweenRowSpacingCm: 30, seedsPerGram: 600, germinationRate: 0.85, seedsPerCell: 3 },
+        ],
+    },
+    {
+        cropType: { key: 'cilantro', name: 'Cilantro', family: 'Apiaceae', category: 'herb' },
+        varieties: [
+            { key: 'cilantro-slow-bolt', name: 'Slow-bolt', defaultMethod: 'DIRECT_SOW', daysToGermination: 10, daysToTransplant: null, daysToMaturity: 45, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 20, seedsPerGram: 90, germinationRate: 0.8, seedsPerCell: 2 },
+            { key: 'cilantro-leisure', name: 'Leisure', defaultMethod: 'DIRECT_SOW', daysToGermination: 10, daysToTransplant: null, daysToMaturity: 50, harvestWindowDays: 21, inRowSpacingCm: 5, betweenRowSpacingCm: 20, seedsPerGram: 90, germinationRate: 0.8, seedsPerCell: 2 },
+        ],
     },
 ];
 
@@ -214,35 +346,37 @@ export async function importCropVarieties(
             cropTypesCreated++;
         }
 
-        // CropVariety — upsert on (tenantId, cropTypeId, key).
-        const existingVariety = await prisma.cropVariety.findFirst({
-            where: { tenantId: tenant.id, cropTypeId: cropType.id, key: seed.variety.key },
-            select: { id: true },
-        });
-        if (existingVariety) {
-            skipped++;
-            continue;
+        // CropVariety — upsert on (tenantId, cropTypeId, key), one per variety.
+        for (const v of seed.varieties) {
+            const existingVariety = await prisma.cropVariety.findFirst({
+                where: { tenantId: tenant.id, cropTypeId: cropType.id, key: v.key },
+                select: { id: true },
+            });
+            if (existingVariety) {
+                skipped++;
+                continue;
+            }
+            await prisma.cropVariety.create({
+                data: {
+                    tenantId: tenant.id,
+                    cropTypeId: cropType.id,
+                    key: v.key,
+                    name: v.name,
+                    defaultMethod: v.defaultMethod,
+                    daysToGermination: v.daysToGermination,
+                    daysToTransplant: v.daysToTransplant,
+                    daysToMaturity: v.daysToMaturity,
+                    harvestWindowDays: v.harvestWindowDays,
+                    inRowSpacingCm: v.inRowSpacingCm,
+                    betweenRowSpacingCm: v.betweenRowSpacingCm,
+                    seedsPerGram: v.seedsPerGram,
+                    germinationRate: v.germinationRate,
+                    seedsPerCell: v.seedsPerCell,
+                    sourceUrn: 'openfarm:cc0',
+                },
+            });
+            varietiesCreated++;
         }
-        await prisma.cropVariety.create({
-            data: {
-                tenantId: tenant.id,
-                cropTypeId: cropType.id,
-                key: seed.variety.key,
-                name: seed.variety.name,
-                defaultMethod: seed.variety.defaultMethod,
-                daysToGermination: seed.variety.daysToGermination,
-                daysToTransplant: seed.variety.daysToTransplant,
-                daysToMaturity: seed.variety.daysToMaturity,
-                harvestWindowDays: seed.variety.harvestWindowDays,
-                inRowSpacingCm: seed.variety.inRowSpacingCm,
-                betweenRowSpacingCm: seed.variety.betweenRowSpacingCm,
-                seedsPerGram: seed.variety.seedsPerGram,
-                germinationRate: seed.variety.germinationRate,
-                seedsPerCell: seed.variety.seedsPerCell,
-                sourceUrn: 'openfarm:cc0',
-            },
-        });
-        varietiesCreated++;
     }
 
     return { tenantId: tenant.id, cropTypesCreated, varietiesCreated, skipped };

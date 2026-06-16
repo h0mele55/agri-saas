@@ -7,12 +7,24 @@
  * AUTO_EVIDENCE_RULES requirement codes really exist in the catalogs, the
  * frameworks are AG_SCHEME, the text is marked illustrative).
  */
+import * as fs from 'fs';
 import * as path from 'path';
-import { loadAndValidateCatalogFile } from '../../prisma/catalog-loader';
+import {
+    loadAndValidateCatalogFile,
+    CatalogValidationError,
+} from '../../prisma/catalog-loader';
 import { AUTO_EVIDENCE_RULES } from '@/app-layer/usecases/auto-evidence';
 
 const CATALOG_DIR = path.resolve(__dirname, '..', '..', 'prisma', 'catalogs');
-const SCHEME_FILES = ['globalgap-ifa-demo.yaml', 'eu-organic-2018-848-demo.yaml'];
+
+/** Illustrative scheme catalogs added alongside the original two. */
+const NEW_SCHEME_FILES = ['leaf-marque-demo.yaml', 'red-tractor-demo.yaml'];
+
+const SCHEME_FILES = [
+    'globalgap-ifa-demo.yaml',
+    'eu-organic-2018-848-demo.yaml',
+    ...NEW_SCHEME_FILES,
+];
 
 describe('scheme catalogs — load + validate', () => {
     test.each(SCHEME_FILES)('%s parses + cross-validates against CatalogFileSchema', (fileName) => {
@@ -62,6 +74,90 @@ describe('scheme catalogs — load + validate', () => {
                     expect(catalogCodes!.has(code)).toBe(true);
                 }
             }
+        }
+    });
+});
+
+describe('new illustrative scheme catalogs (LEAF Marque + Red Tractor)', () => {
+    test.each(NEW_SCHEME_FILES)('%s is a sized, themed, illustrative AG_SCHEME', (fileName) => {
+        const file = loadAndValidateCatalogFile(path.join(CATALOG_DIR, fileName));
+
+        // ~8-15 requirements + matching templates, organized by theme.
+        expect(file.framework.kind).toBe('AG_SCHEME');
+        expect(file.requirements.length).toBeGreaterThanOrEqual(8);
+        expect(file.requirements.length).toBeLessThanOrEqual(15);
+        expect(file.templates.length).toBeGreaterThanOrEqual(1);
+
+        // Demo version + license-hygiene marker on the framework.
+        expect(file.framework.version).toBe('2024-demo');
+        expect(file.framework.description ?? '').toMatch(/illustrative|concept-only|paraphrased|NOT the official/i);
+
+        // A starter pack exists, referencing only this file's templates
+        // (the loader's cross-validator would already have thrown otherwise).
+        expect(file.pack).toBeDefined();
+        expect((file.pack!.templateCodes ?? []).length).toBeGreaterThan(0);
+
+        // Every requirement is themed (organized into sections).
+        for (const r of file.requirements) {
+            expect((r.theme ?? r.section ?? '').length).toBeGreaterThan(0);
+        }
+    });
+
+    it('both new catalogs are registered in the importer SCHEME_CATALOGS list', () => {
+        const importer = fs.readFileSync(
+            path.resolve(__dirname, '..', '..', 'scripts', 'import-schemes.ts'),
+            'utf8',
+        );
+        for (const fileName of NEW_SCHEME_FILES) {
+            expect(importer).toContain(fileName);
+        }
+    });
+
+    it('the LEAF Marque catalog defines its IFM theme codes', () => {
+        const file = loadAndValidateCatalogFile(path.join(CATALOG_DIR, 'leaf-marque-demo.yaml'));
+        expect(file.framework.key).toBe('LEAF-MARQUE-DEMO');
+        const codes = new Set(file.requirements.map((r) => r.code));
+        for (const c of ['LM.1.1', 'LM.2.1', 'LM.3.1']) {
+            expect(codes.has(c)).toBe(true);
+        }
+    });
+
+    it('the Red Tractor catalog defines its traceability + plant-protection codes', () => {
+        const file = loadAndValidateCatalogFile(path.join(CATALOG_DIR, 'red-tractor-demo.yaml'));
+        expect(file.framework.key).toBe('RED-TRACTOR-DEMO');
+        const codes = new Set(file.requirements.map((r) => r.code));
+        for (const c of ['RT.1.1', 'RT.2.1', 'RT.2.3']) {
+            expect(codes.has(c)).toBe(true);
+        }
+    });
+
+    it('rejects a scheme YAML whose template points at a missing requirement', () => {
+        // Regression proof the cross-validator is wired — written to the
+        // OS temp dir (not the catalog dir, which the importer scans).
+        const os = require('os');
+        const tmp = path.join(
+            fs.mkdtempSync(path.join(os.tmpdir(), 'scheme-catalog-')),
+            'bad.yaml',
+        );
+        fs.writeFileSync(
+            tmp,
+            [
+                'framework: { key: BAD-DEMO, name: Bad demo, kind: AG_SCHEME }',
+                'requirements:',
+                '  - { code: X.1, title: A requirement }',
+                'templates:',
+                '  - code: T1',
+                '    title: Template',
+                '    category: C',
+                '    requirementCodes: [X.999]',
+                '',
+            ].join('\n'),
+            'utf8',
+        );
+        try {
+            expect(() => loadAndValidateCatalogFile(tmp)).toThrow(CatalogValidationError);
+        } finally {
+            fs.rmSync(tmp, { force: true });
         }
     });
 });

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { Geometry, Polygon } from 'geojson';
+import type { Geometry, LineString, Polygon } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/typography';
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { ToggleGroup } from '@/components/ui/toggle-group';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
-import { apiPost, apiPatch } from '@/lib/api-client';
+import { apiPost, apiPatch, ApiClientError } from '@/lib/api-client';
 import { SpatialImportModal } from '@/components/ui/map/SpatialImportModal';
 import { PrescriptionPanel } from '@/components/ui/map/PrescriptionPanel';
 import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
@@ -57,6 +57,14 @@ export default function LocationDetailPage() {
     const [newParcelName, setNewParcelName] = useState('');
     const [saving, setSaving] = useState(false);
     const [showNdvi, setShowNdvi] = useState(false);
+    // Merge: name-the-union modal (mirrors the draw → name-parcel flow).
+    const [mergeOpen, setMergeOpen] = useState(false);
+    const [mergeName, setMergeName] = useState('');
+    const [merging, setMerging] = useState(false);
+    const [mergeError, setMergeError] = useState<string | null>(null);
+    // Split: surfaces the "must fully cross" 400 inline; stays in split mode.
+    const [splitting, setSplitting] = useState(false);
+    const [splitError, setSplitError] = useState<string | null>(null);
 
     const locQ = useTenantSWR<LocationDetail>(`/locations/${locationId}`);
     const parcelsQ = useTenantSWR<ParcelsResp>(`/locations/${locationId}/parcels`);
@@ -96,6 +104,48 @@ export default function LocationDetailPage() {
     const reshapeParcel = async (parcelId: string, geometry: Polygon) => {
         await apiPatch(buildUrl(`/locations/${locationId}/parcels/${parcelId}`), { geometry });
         await parcelsQ.mutate();
+    };
+
+    const mergeParcels = async () => {
+        if (selected.length < 2 || !mergeName.trim()) return;
+        setMerging(true);
+        setMergeError(null);
+        try {
+            await apiPost(buildUrl(`/locations/${locationId}/parcels/merge`), {
+                parcelIds: selected,
+                name: mergeName.trim(),
+            });
+            setMergeOpen(false);
+            setMergeName('');
+            setSelected([]);
+            await parcelsQ.mutate();
+            await locQ.mutate();
+        } catch (err) {
+            setMergeError(err instanceof ApiClientError ? err.message : 'Failed to merge parcels.');
+        } finally {
+            setMerging(false);
+        }
+    };
+
+    const splitParcel = async (line: LineString) => {
+        // Exactly one selected parcel is the target (the toolbar gates this).
+        const targetId = selected[0];
+        if (!targetId || splitting) return;
+        setSplitting(true);
+        setSplitError(null);
+        try {
+            await apiPost(buildUrl(`/locations/${locationId}/parcels/${targetId}/split`), { line });
+            setSelected([]);
+            await parcelsQ.mutate();
+            await locQ.mutate();
+            setMapMode('select');
+        } catch (err) {
+            // A blade that doesn't fully cross returns 400 "must fully cross".
+            // Surface it inline and stay in split mode so the user retries.
+            setSplitError(err instanceof ApiClientError ? err.message : 'Failed to split parcel.');
+        } finally {
+            setSplitting(false);
+        }
     };
 
     const tabs = [
@@ -147,17 +197,37 @@ export default function LocationDetailPage() {
                                 { value: 'select', label: 'Select' },
                                 { value: 'draw', label: 'Draw' },
                                 { value: 'edit', label: 'Edit' },
+                                { value: 'split', label: 'Split' },
                             ]}
                             selected={mapMode}
-                            selectAction={(v) => { setMapMode(v as MapMode); setSelected([]); }}
+                            selectAction={(v) => {
+                                const next = v as MapMode;
+                                setSplitError(null);
+                                // Selection is disabled inside split mode (terra-draw owns
+                                // the pointer there), so carry a single selected parcel over
+                                // as the split target. Every other mode clears selection.
+                                setSelected((prev) => (next === 'split' && prev.length === 1 ? prev : []));
+                                setMapMode(next);
+                            }}
                         />
                         <span className="text-xs text-content-subtle">
                             {mapMode === 'draw'
                                 ? 'Click to add vertices; double-click to finish the parcel.'
                                 : mapMode === 'edit'
                                   ? 'Drag a vertex to reshape; changes save automatically.'
-                                  : 'Click parcels to select them for a spray job.'}
+                                  : mapMode === 'split'
+                                    ? 'Draw a line across the target parcel to split it in two.'
+                                    : 'Click parcels to select them for a spray job.'}
                         </span>
+                        {mapMode === 'select' && selected.length >= 2 && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => { setMergeError(null); setMergeName(''); setMergeOpen(true); }}
+                            >
+                                Merge
+                            </Button>
+                        )}
                         <div className="ml-auto flex items-center gap-compact">
                             <Button
                                 variant={showNdvi && ndviConfigured ? 'primary' : 'secondary'}
@@ -184,6 +254,7 @@ export default function LocationDetailPage() {
                             mode={mapMode}
                             onCreateGeometry={(g) => setPendingGeometry(g)}
                             onUpdateGeometry={reshapeParcel}
+                            onCreateSplitLine={(line) => { void splitParcel(line); }}
                             showNdvi={showNdvi && ndviConfigured}
                             ndviTileUrl={ndviTileUrl}
                         />
@@ -196,6 +267,28 @@ export default function LocationDetailPage() {
                                     selectedParcelIds={selected}
                                     onCreated={() => { setSelected([]); setTab('operations'); }}
                                 />
+                                {selected.length >= 2 && (
+                                    <p className="mt-3 text-xs text-content-subtle">
+                                        {selected.length} parcels selected — use “Merge” above to combine them into one.
+                                    </p>
+                                )}
+                            </div>
+                        ) : mapMode === 'split' ? (
+                            <div className="space-y-default rounded-lg border border-border-subtle p-4">
+                                <Heading level={3}>Split parcel</Heading>
+                                <p className="text-sm text-content-secondary">
+                                    {selected.length === 1
+                                        ? 'Draw a line that fully crosses the selected parcel to cut it in two.'
+                                        : 'No target parcel. Switch to Select, click one parcel, then return to Split.'}
+                                </p>
+                                {splitting && (
+                                    <p className="text-sm text-content-secondary">Splitting parcel…</p>
+                                )}
+                                {splitError && (
+                                    <div role="alert" className="rounded-lg border border-border-error bg-bg-error px-3 py-2 text-sm text-content-error">
+                                        {splitError}
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div className="rounded-lg border border-border-subtle p-4 text-sm text-content-secondary">
@@ -283,6 +376,32 @@ export default function LocationDetailPage() {
                     <Modal.Actions>
                         <Button variant="secondary" size="sm" type="button" onClick={() => { setPendingGeometry(null); setNewParcelName(''); }}>Cancel</Button>
                         <Button variant="primary" size="sm" type="submit" loading={saving} disabled={!newParcelName.trim() || saving}>Create parcel</Button>
+                    </Modal.Actions>
+                </Modal.Form>
+            </Modal>
+
+            <Modal
+                showModal={mergeOpen}
+                setShowModal={(v) => { if (!v) { setMergeOpen(false); setMergeName(''); setMergeError(null); } }}
+                size="sm"
+                title="Merge parcels"
+                description="Name the parcel formed by merging the selected parcels."
+            >
+                <Modal.Header title="Merge parcels" description={`Combine ${selected.length} selected parcels into one. The originals are replaced.`} />
+                <Modal.Form id="merge-parcels-form" onSubmit={(e) => { e.preventDefault(); void mergeParcels(); }}>
+                    <Modal.Body>
+                        <FormField label="Name" required>
+                            <Input value={mergeName} onChange={(e) => setMergeName(e.target.value)} placeholder="e.g. North block" />
+                        </FormField>
+                        {mergeError && (
+                            <div role="alert" className="mt-3 rounded-lg border border-border-error bg-bg-error px-3 py-2 text-sm text-content-error">
+                                {mergeError}
+                            </div>
+                        )}
+                    </Modal.Body>
+                    <Modal.Actions>
+                        <Button variant="secondary" size="sm" type="button" onClick={() => { setMergeOpen(false); setMergeName(''); setMergeError(null); }}>Cancel</Button>
+                        <Button variant="primary" size="sm" type="submit" loading={merging} disabled={selected.length < 2 || !mergeName.trim() || merging}>Merge parcels</Button>
                     </Modal.Actions>
                 </Modal.Form>
             </Modal>

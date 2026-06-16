@@ -40,6 +40,7 @@ import { applyCatalogFile } from '../prisma/catalog-applier';
 import { importUnits } from './import-units';
 import { importKnowledge } from './import-knowledge';
 import { importCropVarieties } from './import-crop-varieties';
+import { importProducts } from './import-products';
 import {
     generateSuccessions,
     mergeTiming,
@@ -131,6 +132,19 @@ async function seedFarm(spec: FarmSpec, pwd: string) {
     }
     const fert = await ensureItem('Liquid Nitrogen 28%', 'FERTILIZER', litre?.id);
     await ensureItem(spec.cropProduct, 'HARVESTED_PRODUCE', kg?.id);
+
+    // Generic, illustrative product/active-ingredient catalog (PESTICIDE /
+    // FERTILIZER / AMENDMENT archetypes) on the INVENTORY surface, so the
+    // inventory list shows a realistic spread of inputs immediately.
+    // Idempotent on (tenantId, sku). Generic public-domain agronomy only —
+    // no proprietary label data (see import-products.ts LICENSE note).
+    if (spec.modules.includes('INVENTORY')) {
+        try {
+            await importProducts(prisma, { tenantId: tenant.id });
+        } catch (e) {
+            console.warn(`  ⚠️  ${spec.slug}: product catalog seed skipped:`, e instanceof Error ? e.message : e);
+        }
+    }
 
     // Location (a field) — reuses the entitlement-gated usecase.
     let locationId: string | null = null;
@@ -269,9 +283,11 @@ async function seedDemoPlanning(tenantId: string, locationId: string | null) {
         });
     }
 
-    // 3 — a demo CropPlan on the lettuce variety (idempotent).
+    // 3 — a demo CropPlan on a lettuce variety (idempotent). The crop
+    //     catalog (import-crop-varieties.ts) seeds several lettuce
+    //     varieties; the looseleaf type is the demo plan's anchor.
     const lettuce = await prisma.cropVariety.findFirst({
-        where: { tenantId, key: 'lettuce-leaf' },
+        where: { tenantId, key: 'lettuce-looseleaf' },
     });
     if (!lettuce) return; // catalog import must have been skipped
 

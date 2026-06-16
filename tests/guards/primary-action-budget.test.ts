@@ -60,6 +60,12 @@ const PRIMARY_BUDGET: Record<string, number> = {
     // and the create-modal confirm ("Create") are each the single primary
     // of their region (list header vs dialog) and never on screen together.
     "src/app/t/[tenantSlug]/(app)/locations/LocationsClient.tsx": 2,
+    // Fast-follows (in-map split/merge) — the Location DETAIL page has two
+    // modal-confirm primaries, never co-visible: "Create parcel" (name a
+    // drawn polygon) and "Merge parcels" (name the union of ≥2 selected).
+    // Each is the single primary of its dialog; the split flow adds zero
+    // (its blade is drawn on the map, its toolbar trigger is secondary).
+    "src/app/t/[tenantSlug]/(app)/locations/[locationId]/page.tsx": 2,
     // Agriculture (Phase 1) — inventory list: the "New lot" header CTA + the
     // three dialog confirms (Create product / Create lot / Post movement),
     // each the single primary of a distinct modal region, never co-visible.
