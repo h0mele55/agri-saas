@@ -1,0 +1,418 @@
+'use client';
+
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { Row } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
+import { Plus } from '@/components/ui/icons/nucleo';
+import { createColumns } from '@/components/ui/table';
+import {
+    FilterProvider,
+    filterStateToUrlParams,
+    useFilterContext,
+    useFilters,
+    type FilterType,
+} from '@/components/ui/filter';
+import { EntityListPage } from '@/components/layout/EntityListPage';
+import { EmptyState } from '@/components/ui/empty-state';
+import { TableTitleCell } from '@/components/ui/table-title-cell';
+import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { Tooltip } from '@/components/ui/tooltip';
+import { Pen2, Trash } from '@/components/ui/icons/nucleo';
+import { useToastWithUndo } from '@/components/ui/hooks';
+import { formatDate } from '@/lib/format-date';
+import {
+    buildContractFilters,
+    CONTRACT_FILTER_KEYS,
+    CONTRACT_STATUS_LABELS,
+    CONTRACT_TYPE_LABELS,
+} from './filter-defs';
+import { ContractFormModal } from './ContractFormModal';
+
+// ─── Types ───
+//
+// RAW Prisma Contract model: Decimal columns serialize as STRINGS over
+// JSON. Parse with Number(...) for display; keep them as strings on the
+// row so the edit form can round-trip them losslessly.
+export interface ContractRow {
+    id: string;
+    seasonId: string | null;
+    key: string | null;
+    counterparty: string;
+    commodity: string | null;
+    type: 'SALE' | 'PURCHASE';
+    status: 'DRAFT' | 'ACTIVE' | 'DELIVERED' | 'SETTLED' | 'CANCELLED';
+    volumeTonnes: string | null;
+    pricePerTonne: string | null;
+    priceCurrency: string | null;
+    deliveryStart: string | null;
+    deliveryEnd: string | null;
+    terms: string | null;
+    pricingNotes: string | null;
+    createdAt: string;
+    updatedAt: string;
+    season?: { id: string; name: string; status: string } | null;
+}
+
+interface ContractsClientProps {
+    initialContracts: ContractRow[];
+    tenantSlug: string;
+    permissions: { canWrite: boolean };
+}
+
+const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
+    DRAFT: 'neutral',
+    ACTIVE: 'info',
+    DELIVERED: 'success',
+    SETTLED: 'success',
+    CANCELLED: 'warning',
+};
+const TYPE_BADGE: Record<string, StatusBadgeVariant> = {
+    SALE: 'info',
+    PURCHASE: 'neutral',
+};
+
+/** Format a string|null decimal for display; right-aligned tabular-nums. */
+function fmtNum(v: string | null): string {
+    if (v == null || v === '') return '—';
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '—';
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+export function ContractsClient(props: ContractsClientProps) {
+    const filterCtx = useFilterContext([], CONTRACT_FILTER_KEYS, {});
+    return (
+        <FilterProvider value={filterCtx}>
+            <ContractsPageInner {...props} />
+        </FilterProvider>
+    );
+}
+
+function ContractsPageInner({
+    initialContracts,
+    tenantSlug,
+    permissions,
+}: ContractsClientProps) {
+    const apiUrl = useCallback(
+        (path: string) => `/api/t/${tenantSlug}${path}`,
+        [tenantSlug],
+    );
+    const queryClient = useQueryClient();
+    const triggerUndoToast = useToastWithUndo();
+
+    const filterCtx = useFilters();
+    const { state, search, hasActive, clearAll } = filterCtx;
+
+    // Create / edit modal state. A null `editing` with the modal open is a
+    // create; a row sets edit mode.
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [editing, setEditing] = useState<ContractRow | null>(null);
+
+    // ─── API query string from filter state (status + type only) ───
+    const filtersForQuery = useMemo(() => {
+        const params = filterStateToUrlParams(state);
+        // `q` is not a server param for contracts — search filters loaded
+        // rows in-memory below.
+        return params;
+    }, [state]);
+
+    const queryKeyFilters = useMemo(() => {
+        const obj: Record<string, string> = {};
+        for (const [k, v] of filtersForQuery) obj[k] = v;
+        return obj;
+    }, [filtersForQuery]);
+
+    // Only hydrate from SSR when no facet is active (the SSR slice is the
+    // unfiltered newest-first list).
+    const noFacets = Object.keys(queryKeyFilters).length === 0;
+
+    const contractsQuery = useQuery<ContractRow[]>({
+        queryKey: ['grain-contracts', tenantSlug, 'list', queryKeyFilters],
+        queryFn: async () => {
+            const qs = filtersForQuery.toString();
+            const res = await fetch(apiUrl(`/grain/contracts${qs ? `?${qs}` : ''}`));
+            if (!res.ok) throw new Error('Failed to fetch contracts');
+            return res.json();
+        },
+        initialData: noFacets ? initialContracts : undefined,
+        // eslint-disable-next-line react-hooks/purity
+        initialDataUpdatedAt: noFacets ? Date.now() : 0,
+        staleTime: 30_000,
+    });
+
+    // Stable ref so the search memo below doesn't recompute every render
+    // (query.data ?? [] would mint a fresh array each pass).
+    const rawContracts = useMemo(
+        () => contractsQuery.data ?? [],
+        [contractsQuery.data],
+    );
+    const loading = contractsQuery.isLoading && !contractsQuery.data;
+
+    // Live free-text search (counterparty / commodity) over loaded rows —
+    // FilterToolbar's search box is live (no Enter).
+    const contracts = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return rawContracts;
+        // guardrail-ignore: in-memory text filter over the loaded page, not a DB query.
+        return rawContracts.filter(
+            (c) =>
+                c.counterparty.toLowerCase().includes(q) ||
+                (c.commodity ?? '').toLowerCase().includes(q),
+        );
+    }, [rawContracts, search]);
+
+    const liveFilterDefs: FilterType[] = useMemo(() => buildContractFilters(), []);
+
+    const refetch = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['grain-contracts', tenantSlug] });
+    }, [queryClient, tenantSlug]);
+
+    const handleDelete = useCallback(
+        (contract: ContractRow) => {
+            const listKey = [
+                'grain-contracts',
+                tenantSlug,
+                'list',
+                queryKeyFilters,
+            ];
+            const previous =
+                queryClient.getQueryData<ContractRow[]>(listKey);
+            // Optimistic remove.
+            queryClient.setQueryData<ContractRow[]>(listKey, (old) =>
+                (old ?? []).filter((c) => c.id !== contract.id),
+            );
+            triggerUndoToast({
+                message: `Contract with ${contract.counterparty} deleted`,
+                undoMessage: 'Undo',
+                action: async () => {
+                    const res = await fetch(
+                        apiUrl(`/grain/contracts/${contract.id}`),
+                        { method: 'DELETE' },
+                    );
+                    if (!res.ok) throw new Error('Delete contract failed');
+                },
+                undoAction: () => {
+                    if (previous) queryClient.setQueryData(listKey, previous);
+                },
+                onError: () => {
+                    if (previous) queryClient.setQueryData(listKey, previous);
+                },
+                onCommit: () => refetch(),
+            });
+        },
+        [apiUrl, queryClient, queryKeyFilters, refetch, tenantSlug, triggerUndoToast],
+    );
+
+    const handleRowClick = useCallback(
+        (row: Row<ContractRow>) => {
+            if (!permissions.canWrite) return;
+            setEditing(row.original);
+            setIsCreateOpen(true);
+        },
+        [permissions.canWrite],
+    );
+    const getRowId = useCallback((c: ContractRow) => c.id, []);
+
+    const columns = useMemo(
+        () =>
+            createColumns<ContractRow>([
+                {
+                    accessorKey: 'counterparty',
+                    header: 'Counterparty',
+                    cell: ({ row }) => (
+                        <TableTitleCell id={`contract-link-${row.original.id}`}>
+                            {row.original.counterparty}
+                        </TableTitleCell>
+                    ),
+                },
+                {
+                    id: 'commodity',
+                    header: 'Commodity',
+                    accessorFn: (c) => c.commodity ?? '—',
+                    cell: ({ getValue }) => (
+                        <span className="text-xs text-content-muted">
+                            {getValue() as string}
+                        </span>
+                    ),
+                },
+                {
+                    accessorKey: 'type',
+                    header: 'Type',
+                    cell: ({ row }) => (
+                        <StatusBadge
+                            variant={TYPE_BADGE[row.original.type] ?? 'neutral'}
+                            size="sm"
+                        >
+                            {CONTRACT_TYPE_LABELS[row.original.type]}
+                        </StatusBadge>
+                    ),
+                },
+                {
+                    accessorKey: 'status',
+                    header: 'Status',
+                    cell: ({ row }) => (
+                        <StatusBadge
+                            variant={STATUS_BADGE[row.original.status] ?? 'neutral'}
+                            size="sm"
+                        >
+                            {CONTRACT_STATUS_LABELS[row.original.status]}
+                        </StatusBadge>
+                    ),
+                },
+                {
+                    id: 'volumeTonnes',
+                    header: 'Volume (t)',
+                    accessorFn: (c) => c.volumeTonnes ?? '',
+                    cell: ({ row }) => (
+                        <span className="text-xs text-content-default tabular-nums tracking-tight block text-right">
+                            {fmtNum(row.original.volumeTonnes)}
+                        </span>
+                    ),
+                },
+                {
+                    id: 'pricePerTonne',
+                    header: 'Price / t',
+                    accessorFn: (c) => c.pricePerTonne ?? '',
+                    cell: ({ row }) => (
+                        <span className="text-xs text-content-default tabular-nums tracking-tight block text-right">
+                            {fmtNum(row.original.pricePerTonne)}
+                            {row.original.priceCurrency
+                                ? ` ${row.original.priceCurrency}`
+                                : ''}
+                        </span>
+                    ),
+                },
+                {
+                    id: 'deliveryStart',
+                    header: 'Delivery',
+                    accessorFn: (c) => c.deliveryStart ?? '',
+                    cell: ({ row }) => (
+                        <span className="text-xs text-content-muted">
+                            {formatDate(row.original.deliveryStart)}
+                        </span>
+                    ),
+                },
+                {
+                    id: 'actions',
+                    header: '',
+                    enableHiding: false,
+                    cell: ({ row }) =>
+                        permissions.canWrite ? (
+                            <div className="flex items-center justify-end gap-tight">
+                                <Tooltip content="Edit contract">
+                                    <button
+                                        type="button"
+                                        aria-label="Edit contract"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-content-muted transition-colors hover:bg-bg-muted hover:text-content-emphasis focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        data-testid={`contract-edit-${row.original.id}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditing(row.original);
+                                            setIsCreateOpen(true);
+                                        }}
+                                    >
+                                        <Pen2 className="h-3.5 w-3.5" aria-hidden />
+                                    </button>
+                                </Tooltip>
+                                <Tooltip content="Delete contract">
+                                    <button
+                                        type="button"
+                                        aria-label="Delete contract"
+                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md text-content-muted transition-colors hover:bg-bg-error hover:text-content-error focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                        data-testid={`contract-delete-${row.original.id}`}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(row.original);
+                                        }}
+                                    >
+                                        <Trash className="h-3.5 w-3.5" aria-hidden />
+                                    </button>
+                                </Tooltip>
+                            </div>
+                        ) : null,
+                },
+            ]),
+        [permissions.canWrite, handleDelete],
+    );
+
+    return (
+        <EntityListPage<ContractRow>
+            className="animate-fadeIn gap-section"
+            header={{
+                breadcrumbs: [
+                    { label: 'Dashboard', href: `/t/${tenantSlug}/dashboard` },
+                    { label: 'Contracts' },
+                ],
+                title: 'Contracts',
+                description:
+                    'Forward sales of produce and purchases of inputs against your counterparties.',
+                actions: permissions.canWrite ? (
+                    <Button
+                        variant="primary"
+                        icon={<Plus className="-ml-0.5 -mr-2.5" />}
+                        id="new-contract-btn"
+                        onClick={() => {
+                            setEditing(null);
+                            setIsCreateOpen(true);
+                        }}
+                    >
+                        Contract
+                    </Button>
+                ) : null,
+            }}
+            filters={{
+                defs: liveFilterDefs,
+                searchId: 'grain-contracts-search',
+                searchPlaceholder: 'Search contracts…',
+            }}
+            table={{
+                data: contracts,
+                columns,
+                loading,
+                getRowId,
+                onRowClick: permissions.canWrite ? handleRowClick : undefined,
+                emptyState: hasActive || search ? (
+                    <EmptyState
+                        size="sm"
+                        variant="no-results"
+                        title="No contracts match your filters"
+                        description="Try widening your search or clearing one of the active filters."
+                        secondaryAction={{ label: 'Clear filters', onClick: () => clearAll() }}
+                    />
+                ) : (
+                    <EmptyState
+                        size="sm"
+                        variant="no-records"
+                        title="No contracts yet"
+                        description="Record a forward sale or input purchase against a counterparty."
+                        primaryAction={
+                            permissions.canWrite
+                                ? {
+                                      label: 'Add contract',
+                                      onClick: () => {
+                                          setEditing(null);
+                                          setIsCreateOpen(true);
+                                      },
+                                  }
+                                : undefined
+                        }
+                    />
+                ),
+                resourceName: (p) => (p ? 'contracts' : 'contract'),
+                'data-testid': 'grain-contracts-table',
+                className: 'hover:bg-bg-muted',
+            }}
+        >
+            {permissions.canWrite && (
+                <ContractFormModal
+                    open={isCreateOpen}
+                    setOpen={setIsCreateOpen}
+                    tenantSlug={tenantSlug}
+                    contract={editing}
+                    onSaved={refetch}
+                />
+            )}
+        </EntityListPage>
+    );
+}

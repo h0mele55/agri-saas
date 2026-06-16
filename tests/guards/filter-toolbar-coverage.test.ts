@@ -53,6 +53,9 @@ const EXEMPTIONS: Record<string, string> = {
     // Agriculture (Phase 1) — lean inventory lots roster.
     "src/app/t/[tenantSlug]/(app)/inventory/InventoryClient.tsx":
         "Lean inventory lots roster — lot/product/on-hand/expiry; faceted filtering (by item/low-stock) arrives once the catalog grows past a single screen.",
+    // Enterprise-grain (GRAIN) — read-only cost rollup report.
+    "src/app/t/[tenantSlug]/(app)/grain/costs/CostsClient.tsx":
+        "Read-only cost rollup report — dimension toggle (planting/field/season) + sort, no faceted filters. The whole page is an aggregation digest with no per-row mutation.",
     // ── Cross-tenant read-only aggregation views (org-level) ──
     // These render a portfolio of tenant-scoped data without the
     // per-tenant filtering surface that FilterToolbar provides.

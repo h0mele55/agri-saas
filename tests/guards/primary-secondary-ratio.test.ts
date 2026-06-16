@@ -191,7 +191,15 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // (two list creates, two modal confirms, one detail action). The
 // modal confirms are balanced by their Cancel secondaries, so the
 // ratio direction is preserved. Measured = 148; ceiling at 148.
-const MAX_PRIMARY_COUNT = 148;
+//
+// +6 (2026-06-16): enterprise-grain tenant UI — three new CRUD entity
+// surfaces (Contracts / Bins / Yield), each with its single primary
+// header create trigger ("Contract" / "Bin" / "Yield") + its
+// create/edit modal's primary confirm ("Create/Save …"). Six earned
+// primaries; the three modal confirms are each balanced by a Cancel
+// secondary, so the secondary≥primary ratio direction holds (the
+// read-only Costs report adds zero primaries). Measured = 154.
+const MAX_PRIMARY_COUNT = 154;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

@@ -45,6 +45,9 @@ const EXEMPTIONS: Record<string, string> = {
     // Agriculture (Phase 1) — lean inventory lots roster, four fixed columns.
     "inventory/InventoryClient.tsx":
         "(c) lean inventory roster — four fixed columns (lot/product/on-hand/expiry); column-visibility gear deferred until the lots table grows wider.",
+    // Enterprise-grain (GRAIN) — read-only cost rollup report.
+    "grain/costs/CostsClient.tsx":
+        "(b) read-only cost rollup report — dimension toggle (planting/field/season) + sort; the whole page is a fixed-shape aggregation digest with no per-column hide/show.",
     // ─── (a) Sub-components — parent owns the toolbar ──────────────
     // R13-PR10 — `admin/AdminClient.tsx` was deleted; audit log
     // moved to `admin/audit-log/AuditLogClient.tsx`. The new sub-
