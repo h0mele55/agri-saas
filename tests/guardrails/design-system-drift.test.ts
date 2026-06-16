@@ -299,7 +299,14 @@ describe('New page token discipline', () => {
         //     EntityDetailLayout/DataTable/GanttTimeline/Modal/FormField/
         //     Combobox/DatePicker/StatusBadge); new surfaces, not yet
         //     promoted to MIGRATED_PAGES.
-        expect(unmigrated.length).toBeLessThanOrEqual(125);
+        //   - 133 (+8, 2026-06-16): enterprise-grain tenant UI —
+        //     grain/layout.tsx gate + the Contracts / Bins / Yield
+        //     list surfaces (page + client each) + Costs report
+        //     (page + client). Token-clean (semantic tokens +
+        //     EntityListPage/DataTable/Modal/FormField/Combobox/
+        //     DatePicker/RadioGroup/StatusBadge/ProgressBar/ToggleGroup);
+        //     new surfaces, not yet promoted to MIGRATED_PAGES.
+        expect(unmigrated.length).toBeLessThanOrEqual(133);
     });
 
     it('migrated page count is at least 4', () => {

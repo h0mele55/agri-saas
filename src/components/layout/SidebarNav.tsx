@@ -31,6 +31,10 @@ import {
     MapPin,
     Boxes,
     NotebookPen,
+    Wheat,
+    Warehouse,
+    LineChart,
+    Coins,
     type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -90,11 +94,14 @@ export function useNavSections(): NavSectionDef[] {
         tenant.availableModules === undefined ||
         tenant.availableModules.includes('CERTIFICATION');
 
-    // Enterprise-grain note: the GRAIN module's tenant surfaces
-    // (contracts / bins / yield / costing) are exposed via the public API
-    // + the ORG portfolio grain dashboard (/org/:slug/grain). The
-    // per-tenant management pages are a dedicated follow-up epic — until
-    // they exist, no tenant sidebar links are wired (no links to 404s).
+    // Enterprise-grain surfaces (contracts / bins / yield / costs) hang
+    // off the GRAIN module — a tenant whose plan doesn't reach the GRAIN
+    // tier (or which has it toggled off) never sees the section. As with
+    // `certAvailable`, an absent `availableModules` (pre-port providers)
+    // degrades gracefully to "available" until natural session re-mint.
+    const grainAvailable =
+        tenant.availableModules === undefined ||
+        tenant.availableModules.includes('GRAIN');
 
     // R13-PR7 — tenant sidebar restructure.
     //
@@ -143,6 +150,20 @@ export function useNavSections(): NavSectionDef[] {
                 // CERTIFICATION module — hidden for simple-mode farm tenants.
                 { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle, visible: certAvailable },
                 { href: tenantHref('/controls'), label: 'Practice', icon: ShieldCheck, visible: certAvailable },
+            ]),
+        },
+        {
+            // Grain — enterprise-grain operations (contracts / bins /
+            // yield / costs). Gated behind the GRAIN module; the whole
+            // section is dropped for non-grain tenants by the
+            // `sections.filter((s) => !s.title || s.items.length > 0)`
+            // tail below.
+            title: 'Grain',
+            items: filterVisible([
+                { href: tenantHref('/grain/contracts'), label: 'Contracts', icon: Wheat, visible: grainAvailable },
+                { href: tenantHref('/grain/bins'), label: 'Bins', icon: Warehouse, visible: grainAvailable },
+                { href: tenantHref('/grain/yield'), label: 'Yield', icon: LineChart, visible: grainAvailable },
+                { href: tenantHref('/grain/costs'), label: 'Costs', icon: Coins, visible: grainAvailable },
             ]),
         },
         {
