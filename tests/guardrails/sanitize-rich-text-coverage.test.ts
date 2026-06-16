@@ -84,6 +84,13 @@ const RICH_TEXT_COVERAGE: Readonly<
     RiskScoreEvent: { usecases: ['src/app-layer/usecases/risk-score-events.ts'], sanitizer: 'sanitizePlainText' },
     RiskTreatmentPlan: { usecases: ['src/app-layer/usecases/risk-treatment-plan.ts'], sanitizer: 'sanitizePlainText' },
     TreatmentMilestone: { usecases: ['src/app-layer/usecases/risk-treatment-plan.ts'], sanitizer: 'sanitizePlainText' },
+    // Enterprise-grain — Contract.terms / Contract.pricingNotes and
+    // YieldRecord.valuationNotes are encrypted at rest (Epic B manifest)
+    // AND sanitised at the usecase boundary before the write, so every
+    // downstream renderer (PDF / share link / SDK) that decrypts them sees
+    // safe content.
+    Contract: { usecases: ['src/app-layer/usecases/contract.ts'], sanitizer: 'sanitizePlainText' },
+    YieldRecord: { usecases: ['src/app-layer/usecases/yield-record.ts'], sanitizer: 'sanitizePlainText' },
 };
 
 /**
