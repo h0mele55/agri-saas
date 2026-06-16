@@ -90,6 +90,12 @@ export function useNavSections(): NavSectionDef[] {
         tenant.availableModules === undefined ||
         tenant.availableModules.includes('CERTIFICATION');
 
+    // Enterprise-grain note: the GRAIN module's tenant surfaces
+    // (contracts / bins / yield / costing) are exposed via the public API
+    // + the ORG portfolio grain dashboard (/org/:slug/grain). The
+    // per-tenant management pages are a dedicated follow-up epic — until
+    // they exist, no tenant sidebar links are wired (no links to 404s).
+
     // R13-PR7 — tenant sidebar restructure.
     //
     //   Board (standalone, no eyebrow)   home/dashboard
@@ -100,7 +106,7 @@ export function useNavSections(): NavSectionDef[] {
     // Renames carry forward to labels only — hrefs (and therefore
     // `data-testid="nav-<slug>"`) stay stable so existing E2E,
     // onboarding-tour, and analytics selectors keep working.
-    return [
+    const sections: NavSectionDef[] = [
         {
             // Board is the home link. No eyebrow — it reads as a
             // single anchor above the grouped nav, mirroring the
@@ -196,6 +202,12 @@ export function useNavSections(): NavSectionDef[] {
             ]),
         },
     ];
+
+    // Defensive: drop any TITLED section whose items were all filtered out
+    // (e.g. a future fully module-gated section) so no empty eyebrow
+    // renders. The untitled Board section always has an item, so it is
+    // never dropped.
+    return sections.filter((s) => !s.title || s.items.length > 0);
 }
 
 // ─── Sidebar content (shared between desktop sidebar and mobile drawer) ───

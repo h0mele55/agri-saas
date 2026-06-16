@@ -238,6 +238,9 @@ model Tenant {
   agroSignals              AgroSignal[]
   // WP-2 — per-tenant module gating.
   moduleSettings           TenantModuleSettings?
+  // Enterprise-grain domain.
+  contracts                Contract[]
+  yieldRecords             YieldRecord[]
   // Phase 1 — inventory ledger + journal.
   inventoryLots            InventoryLot[]
   stockTransactions        StockTransaction[]

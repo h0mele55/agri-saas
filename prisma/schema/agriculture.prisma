@@ -99,6 +99,12 @@ model Location {
   name            String
   description     String?
   status          LocationStatus @default(ACTIVE)
+  /// Enterprise-grain: physical kind. FIELD (default) is a growing area;
+  /// BIN/STORAGE hold harvested produce and carry `capacityTonnes`.
+  kind            LocationKind   @default(FIELD)
+  /// Storage capacity in metric tonnes (BIN/STORAGE only). Null for a
+  /// FIELD. Used to compute bin fill % against the sum of stored lots.
+  capacityTonnes  Decimal?       @db.Decimal(14, 2)
   ownerUserId     String?
   /// Original uploaded spatial file (shapefile .zip / .kml / .geojson),
   /// stored via the existing FileRecord pipeline (domain "spatial").
@@ -125,11 +131,13 @@ model Location {
   weatherObservations WeatherObservation[]
   dataStreams         DataStream[]
   agroSignals         AgroSignal[]
+  yieldRecords        YieldRecord[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, key])
   @@index([tenantId, name])
   @@index([tenantId, status])
+  @@index([tenantId, kind])
 }
 
 /// One polygon imported from the spatial file. geometry is PostGIS

@@ -370,6 +370,17 @@ const LIST_QUERY_INDEXES: readonly CompositeIndex[] = [
         justification:
             'WorkItemRepository.list() linkedEntityType+linkedEntityId reverse-lookup',
     },
+    // ── Enterprise-grain (Contract + YieldRecord list filters) ──────
+    {
+        model: 'Contract',
+        fields: ['tenantId', 'status'],
+        justification: 'listContracts status filter',
+    },
+    {
+        model: 'YieldRecord',
+        fields: ['tenantId', 'seasonId'],
+        justification: 'listYieldRecords season filter',
+    },
 ];
 
 // ─────────────────────────────────────────────────────────────────────

@@ -152,16 +152,20 @@ describe('Entitlements', () => {
             const pro = planModules('PRO');
             expect(free.every((m) => pro.includes(m))).toBe(true);
             expect(pro).toContain('CERTIFICATION');
+            // AI + GRAIN are ENTERPRISE-tier — never unlocked at PRO.
             expect(pro).not.toContain('AI');
+            expect(pro).not.toContain('GRAIN');
         });
 
         test('null plan returns the full module set', () => {
-            expect(planModules(null)).toHaveLength(9);
+            expect(planModules(null)).toHaveLength(10);
             expect(planModules(null)).toContain('AI');
+            expect(planModules(null)).toContain('GRAIN');
         });
 
         test('ENTERPRISE returns the full module set', () => {
-            expect(planModules('ENTERPRISE')).toHaveLength(9);
+            expect(planModules('ENTERPRISE')).toHaveLength(10);
+            expect(planModules('ENTERPRISE')).toContain('GRAIN');
         });
     });
 
@@ -178,6 +182,10 @@ describe('Entitlements', () => {
 
         test('AI is ENTERPRISE', () => {
             expect(getModuleMinPlan('AI')).toBe('ENTERPRISE');
+        });
+
+        test('GRAIN (enterprise-grain) is ENTERPRISE', () => {
+            expect(getModuleMinPlan('GRAIN')).toBe('ENTERPRISE');
         });
     });
 });

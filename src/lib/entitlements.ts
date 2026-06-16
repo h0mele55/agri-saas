@@ -106,6 +106,10 @@ const MODULE_MIN_PLAN: Record<ModuleKey, BillingPlan> = {
     AUTOMATION: 'PRO',
     PROCESSES: 'PRO',
     AI: 'ENTERPRISE',
+    // Enterprise-grain — the large grain-producer surface (storage bins,
+    // marketing contracts, yield records, per-activity cost accounting,
+    // lot blending). ENTERPRISE-tier value for the portfolio persona.
+    GRAIN: 'ENTERPRISE',
 };
 
 /** True when `plan` is high enough to unlock `key`. `null` plan ⇒ all. */

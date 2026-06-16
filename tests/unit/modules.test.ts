@@ -78,7 +78,7 @@ const readerCtx = makeRequestContext('READER');
 // ─── src/lib/modules.ts — pure helpers ─────────────────────────────
 
 describe('pure helpers', () => {
-    it('ALL_MODULES enumerates the nine canonical module keys', () => {
+    it('ALL_MODULES enumerates the ten canonical module keys', () => {
         expect(ALL_MODULES).toEqual([
             'JOURNAL',
             'INVENTORY',
@@ -89,6 +89,7 @@ describe('pure helpers', () => {
             'AUTOMATION',
             'PROCESSES',
             'AI',
+            'GRAIN',
         ]);
     });
 

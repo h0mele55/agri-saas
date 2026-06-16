@@ -138,6 +138,42 @@ const MODULE_GATED_ROUTES: ReadonlyArray<{
         file: 'src/app/api/t/[tenantSlug]/planning/plantings/[plantingId]/gdd/route.ts',
         module: 'PLANNING',
     },
+    // Enterprise-grain domain — gated behind GRAIN (ENTERPRISE min-plan).
+    // A tenant without the GRAIN module (below the tier, or toggled off)
+    // gets a 403 here. Contracts + yield records + bins + blending +
+    // activity costing — the large grain-producer surface.
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/contracts/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/contracts/[contractId]/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/yield-records/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/yield-records/[yieldRecordId]/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/bins/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/bins/[binId]/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/blend/route.ts',
+        module: 'GRAIN',
+    },
+    {
+        file: 'src/app/api/t/[tenantSlug]/grain/costs/route.ts',
+        module: 'GRAIN',
+    },
     // Future module-gated routes add themselves here.
 ];
 

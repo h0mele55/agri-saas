@@ -45,8 +45,12 @@ describe('Sidebar polish discipline (Roadmap-2 PR-3)', () => {
         // R13-PR11 — the first grouped section was renamed from
         // "Workspace" to "Govern". Assert the new label.
         const src = read('src/components/layout/SidebarNav.tsx');
+        // The sections are built into a `const sections: NavSectionDef[] = [...]`
+        // then returned via `sections.filter(...)` (empty titled sections are
+        // dropped so a simple-mode tenant sees no empty eyebrow). Match the
+        // array literal — same shape as the org test below.
         const fnMatch = src.match(
-            /export function useNavSections[\s\S]+?return\s*\[([\s\S]+?)\];/,
+            /export function useNavSections[\s\S]+?const\s+sections[\s\S]+?=\s*\[([\s\S]+?)\];/,
         );
         expect(fnMatch).not.toBeNull();
         const sections = fnMatch![1]!;

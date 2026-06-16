@@ -519,6 +519,28 @@ async function main() {
         } catch (e) {
             console.warn('  ⚠️  Agro-intel demo seed skipped:', e instanceof Error ? e.message : e);
         }
+        // Enterprise-grain demo data (bins / contracts / yield / costing) on
+        // North Estate — it has the GRAIN module (ALL_MODULES) + ENTERPRISE plan.
+        try {
+            await seedGrainDemo(north.tenant.id, north.owner.id);
+        } catch (e) {
+            console.warn('  ⚠️  Enterprise-grain demo seed skipped:', e instanceof Error ? e.message : e);
+        }
+    }
+
+    // Enterprise-grain demo data on a SECOND child farm (South Estate) so the
+    // org-level grain portfolio dashboard aggregates non-zero figures across
+    // MORE THAN ONE farm. `seedGrainDemo` is per-tenant idempotent (bins keyed
+    // on (tenantId, key); lots/contracts/yields skip when a stable-key row
+    // exists), so re-running the seed never duplicates. Illustrative figures
+    // only — same marked-illustrative data shape as North Estate.
+    const south = seededChildren['bigfarm-south'];
+    if (south) {
+        try {
+            await seedGrainDemo(south.tenant.id, south.owner.id);
+        } catch (e) {
+            console.warn('  ⚠️  Enterprise-grain demo seed (South Estate) skipped:', e instanceof Error ? e.message : e);
+        }
     }
 
     // Org admin who sees the whole portfolio.
@@ -647,6 +669,160 @@ async function seedAgroIntel(tenantId: string): Promise<void> {
         });
     }
     console.log('✅ Agro-intel: 10d warm-wet weather + leaf-wetness stream seeded (disease + spray signals demonstrable)');
+}
+
+/**
+ * Enterprise-grain demo data (direct prisma, Redis-free, idempotent) for a
+ * grain-enabled ENTERPRISE farm. Illustrative figures only.
+ *
+ * Seeds:
+ *   • Two BIN/STORAGE Locations with `capacityTonnes`.
+ *   • A couple of HARVESTED_PRODUCE InventoryLots in those bins, each with
+ *     grain-quality `attributesJson` (moisture / testWeight / protein) +
+ *     an initial-stock RECEIPT (via the ledger writer) so bin fill shows.
+ *   • 2–3 Contracts (a SALE + a PURCHASE, varied status), with encrypted
+ *     terms/pricingNotes round-tripping through the middleware.
+ *   • A few YieldRecords linked to existing plantings / the field.
+ *   • One INPUT_APPLICATION LogEntry carrying a `costAmount` + a LogPlanting
+ *     link + a CONSUMPTION StockTransaction with a cost, so the per-activity
+ *     cost rollup shows non-zero numbers.
+ *
+ * Idempotent: bins upsert on (tenantId, key); lots/contracts/yields skip
+ * when a stable-key row already exists.
+ */
+async function seedGrainDemo(tenantId: string, userId: string): Promise<void> {
+    const ctx: RequestContext = { ...ownerCtx(tenantId, userId), tenantSlug: undefined };
+
+    // ── Bins (BIN/STORAGE Locations with capacity) ──
+    async function ensureBin(key: string, name: string, kind: 'BIN' | 'STORAGE', capacityTonnes: number) {
+        const existing = await prisma.location.findFirst({ where: { tenantId, key } });
+        if (existing) return existing;
+        return prisma.location.create({
+            data: { tenantId, key, name, kind, capacityTonnes, createdByUserId: userId },
+        });
+    }
+    const binA = await ensureBin('grain-bin-a', 'Grain Bin A (illustrative)', 'BIN', 500);
+    await ensureBin('grain-store-1', 'Main Grain Store (illustrative)', 'STORAGE', 2000);
+
+    // ── A HARVESTED_PRODUCE item + two lots stored in Bin A ──
+    const kg = await prisma.unit.findUnique({ where: { key: 'kg' } });
+    let produce = await prisma.item.findFirst({ where: { tenantId, category: 'HARVESTED_PRODUCE' } });
+    if (!produce && kg) {
+        produce = await prisma.item.create({
+            data: { tenantId, name: 'Milling Wheat (harvest)', category: 'HARVESTED_PRODUCE', defaultUnitId: kg.id, createdByUserId: userId },
+        });
+    }
+    if (produce) {
+        const lotSpecs = [
+            { code: 'WHEAT-A1', qty: 180, attrs: { moisture: 13.2, testWeight: 78, protein: 12.1 } },
+            { code: 'WHEAT-A2', qty: 140, attrs: { moisture: 14.0, testWeight: 76, protein: 11.4 } },
+        ];
+        for (const spec of lotSpecs) {
+            const existingLot = await prisma.inventoryLot.findFirst({ where: { tenantId, itemId: produce.id, lotCode: spec.code } });
+            if (existingLot) continue;
+            try {
+                await createLot(ctx, {
+                    itemId: produce.id,
+                    lotCode: spec.code,
+                    locationId: binA.id,
+                    initialQuantity: spec.qty,
+                });
+                // Stamp grain-quality attributes on the lot (createLot doesn't take attrs).
+                await prisma.inventoryLot.updateMany({
+                    where: { tenantId, itemId: produce.id, lotCode: spec.code },
+                    data: { attributesJson: spec.attrs },
+                });
+            } catch (e) {
+                console.warn(`  ⚠️  grain lot ${spec.code} skipped:`, e instanceof Error ? e.message : e);
+            }
+        }
+    }
+
+    // ── Contracts (a SALE + a PURCHASE + a settled SALE) ──
+    const season = await prisma.season.findFirst({ where: { tenantId, key: 'demo-season' }, select: { id: true } });
+    const contractSpecs = [
+        { key: 'SALE-2026-001', counterparty: 'Acme Mills Ltd', commodity: 'Milling Wheat', type: 'SALE' as const, status: 'ACTIVE' as const, volumeTonnes: 500, pricePerTonne: 235.5, terms: 'Illustrative: 500t milling wheat, FOB farm gate, EUR. Quality spec 13% protein min.', pricingNotes: 'Illustrative: basis +12 over Dec MATIF, locked 2026-05-01.' },
+        { key: 'BUY-2026-002', counterparty: 'AgChem Supplies', commodity: 'Liquid Nitrogen 28%', type: 'PURCHASE' as const, status: 'DRAFT' as const, volumeTonnes: 40, pricePerTonne: 310, terms: 'Illustrative: forward purchase of N28 fertiliser for spring application.', pricingNotes: null },
+        { key: 'SALE-2025-099', counterparty: 'Northern Grain Co', commodity: 'Feed Barley', type: 'SALE' as const, status: 'SETTLED' as const, volumeTonnes: 320, pricePerTonne: 188, terms: 'Illustrative: settled prior-season feed barley sale.', pricingNotes: null },
+    ];
+    for (const spec of contractSpecs) {
+        const existing = await prisma.contract.findFirst({ where: { tenantId, key: spec.key } });
+        if (existing) continue;
+        await prisma.contract.create({
+            data: {
+                tenantId,
+                seasonId: season?.id ?? null,
+                key: spec.key,
+                counterparty: spec.counterparty,
+                commodity: spec.commodity,
+                type: spec.type,
+                status: spec.status,
+                volumeTonnes: spec.volumeTonnes,
+                pricePerTonne: spec.pricePerTonne,
+                priceCurrency: 'EUR',
+                deliveryStart: new Date(Date.UTC(new Date().getUTCFullYear(), 8, 1)),
+                deliveryEnd: new Date(Date.UTC(new Date().getUTCFullYear(), 9, 31)),
+                terms: spec.terms,
+                pricingNotes: spec.pricingNotes,
+            },
+        });
+    }
+
+    // ── Yield records linked to existing plantings / the field ──
+    const field = await prisma.location.findFirst({ where: { tenantId, name: 'Home Field' }, select: { id: true } });
+    const plantings = await prisma.planting.findMany({ where: { tenantId }, select: { id: true }, take: 2 });
+    const existingYield = await prisma.yieldRecord.findFirst({ where: { tenantId }, select: { id: true } });
+    if (!existingYield) {
+        const yieldSpecs = [
+            { commodity: 'Milling Wheat', grossTonnes: 182.4, moisturePct: 13.5, areaHa: 24, plantingId: plantings[0]?.id ?? null, valuationNotes: 'Illustrative: valued at spot; quality premium for protein.' },
+            { commodity: 'Feed Barley', grossTonnes: 96.0, moisturePct: 14.8, areaHa: 16, plantingId: plantings[1]?.id ?? null, valuationNotes: 'Illustrative: held for Q1 carry.' },
+        ];
+        for (const spec of yieldSpecs) {
+            await prisma.yieldRecord.create({
+                data: {
+                    tenantId,
+                    plantingId: spec.plantingId,
+                    locationId: field?.id ?? null,
+                    seasonId: season?.id ?? null,
+                    commodity: spec.commodity,
+                    harvestedAt: new Date(Date.UTC(new Date().getUTCFullYear(), 8, 15)),
+                    grossTonnes: spec.grossTonnes,
+                    moisturePct: spec.moisturePct,
+                    areaHa: spec.areaHa,
+                    valuationNotes: spec.valuationNotes,
+                },
+            });
+        }
+    }
+
+    // ── A costed field event so the cost rollup is non-zero ──
+    // One INPUT_APPLICATION LogEntry with a costAmount + a LogPlanting link
+    // to the first planting; the cost rollup joins Planting → LogPlanting →
+    // LogEntry.costAmount (and any linked StockTransaction.costAmount).
+    if (plantings[0]) {
+        const already = await prisma.logPlanting.findFirst({ where: { tenantId, plantingId: plantings[0].id }, select: { id: true } });
+        if (!already) {
+            const entry = await prisma.logEntry.create({
+                data: {
+                    tenantId,
+                    type: 'INPUT_APPLICATION',
+                    status: 'DONE',
+                    occurredAt: new Date(),
+                    title: 'Applied nitrogen to wheat (illustrative, costed)',
+                    notes: '<p>Illustrative costed field event — backs the per-activity cost rollup.</p>',
+                    costAmount: 1250,
+                    costCurrency: 'EUR',
+                    createdByUserId: userId,
+                },
+                select: { id: true },
+            });
+            await prisma.logPlanting
+                .create({ data: { tenantId, logEntryId: entry.id, plantingId: plantings[0].id, stage: 'SOW' } })
+                .catch(() => {});
+        }
+    }
+
+    console.log('✅ Enterprise-grain: bins + produce lots + contracts + yield records + a costed field event seeded (illustrative)');
 }
 
 main()

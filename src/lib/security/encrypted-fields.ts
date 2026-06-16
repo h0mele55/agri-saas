@@ -208,6 +208,22 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
     //      infrastructure.
     RiskTreatmentPlan: ['closingRemark'],
     TreatmentMilestone: ['description'],
+
+    // ─── Enterprise-grain — marketing contracts + yield ────
+    //  The NEGOTIATED free text on a grain contract is the most
+    //  commercially sensitive content a producer holds — leaked
+    //  pricing terms move a market. The numeric magnitudes
+    //  (volumeTonnes, pricePerTonne) stay plaintext so the portfolio
+    //  rollups can SUM them; only the narrative is encrypted:
+    //    - Contract.terms — full negotiated contract terms.
+    //    - Contract.pricingNotes — pricing basis / premium rationale.
+    //    - YieldRecord.valuationNotes — commercial valuation commentary
+    //      on a harvest production record.
+    //  All three field names are unique to these two models, so the
+    //  manifest entry is the sole reason the middleware encrypts them
+    //  (no incidental cross-model name collision).
+    Contract: ['terms', 'pricingNotes'],
+    YieldRecord: ['valuationNotes'],
 } as const;
 
 /** Set of model names with at least one encrypted field. Fast-path check. */
