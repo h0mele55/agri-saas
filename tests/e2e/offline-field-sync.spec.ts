@@ -81,19 +81,21 @@ test('operator completes a spray job offline and it syncs on reconnect', async (
         await prisma.$disconnect();
     }
 
-    // 3 — Open the operator job page online; the line renders.
+    // 3 — Open the operator job page online; the line renders. NOTE: the
+    //     isolated tenant is named after this spec ("offline-field-sync …"),
+    //     so the status-badge text assertions use `exact` to avoid a
+    //     substring collision with the tenant name in the chrome.
     await authedPage.goto(`/t/${slug}/field/${taskId}`);
-    const main = authedPage.getByRole('main');
     await expect(authedPage.getByText('North 40')).toBeVisible();
     await expect(authedPage.getByRole('button', { name: 'Done' })).toBeVisible();
-    await expect(authedPage.getByText('Online')).toBeVisible();
+    await expect(authedPage.getByText('Online', { exact: true })).toBeVisible();
 
     // 4 — Go offline, mark Done. The line flips DONE optimistically and the
     //     mutation is queued (no network); the pending-sync count appears.
     await authedPage.context().setOffline(true);
-    await expect(authedPage.getByText('Offline')).toBeVisible();
+    await expect(authedPage.getByText('Offline', { exact: true })).toBeVisible();
     await authedPage.getByRole('button', { name: 'Done' }).click();
-    await expect(authedPage.getByText('DONE')).toBeVisible(); // optimistic
+    await expect(authedPage.getByText('DONE', { exact: true })).toBeVisible(); // optimistic
     await expect(authedPage.getByText('1 queued')).toBeVisible(); // outbox
 
     // 5 — Reconnect. The `online` event drains the outbox; the queue clears.
@@ -104,6 +106,6 @@ test('operator completes a spray job offline and it syncs on reconnect', async (
     //     the optimistic/snapshot copy) — the offline mark really synced.
     await authedPage.reload();
     await expect(authedPage.getByText('North 40')).toBeVisible();
-    await expect(main.getByText('DONE')).toBeVisible();
+    await expect(authedPage.getByText('DONE', { exact: true })).toBeVisible();
     await expect(authedPage.getByRole('button', { name: 'Done' })).toHaveCount(0);
 });
