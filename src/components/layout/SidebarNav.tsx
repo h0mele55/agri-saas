@@ -31,10 +31,6 @@ import {
     MapPin,
     Boxes,
     NotebookPen,
-    Wheat,
-    Warehouse,
-    LineChart,
-    Coins,
     type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -94,13 +90,11 @@ export function useNavSections(): NavSectionDef[] {
         tenant.availableModules === undefined ||
         tenant.availableModules.includes('CERTIFICATION');
 
-    // Enterprise-grain surfaces (contracts, bins, yield, costing) hang off
-    // the GRAIN module (ENTERPRISE min-plan). A startup-farm / simple-mode
-    // tenant never sees them. Same graceful degradation as `certAvailable`:
-    // an absent `availableModules` (pre-port session) reads as "available".
-    const grainAvailable =
-        tenant.availableModules === undefined ||
-        tenant.availableModules.includes('GRAIN');
+    // Enterprise-grain note: the GRAIN module's tenant surfaces
+    // (contracts / bins / yield / costing) are exposed via the public API
+    // + the ORG portfolio grain dashboard (/org/:slug/grain). The
+    // per-tenant management pages are a dedicated follow-up epic — until
+    // they exist, no tenant sidebar links are wired (no links to 404s).
 
     // R13-PR7 — tenant sidebar restructure.
     //
@@ -149,22 +143,6 @@ export function useNavSections(): NavSectionDef[] {
                 // CERTIFICATION module — hidden for simple-mode farm tenants.
                 { href: tenantHref('/risks'), label: 'Risk', icon: AlertTriangle, visible: certAvailable },
                 { href: tenantHref('/controls'), label: 'Practice', icon: ShieldCheck, visible: certAvailable },
-            ]),
-        },
-        // Grain & Trading — the large grain-producer surface (marketing
-        // contracts, storage bins, harvest yield, per-activity costing).
-        // Every item is gated behind the GRAIN module (ENTERPRISE
-        // min-plan); the whole section disappears for simple-mode farm
-        // tenants. `filterVisible` drops the items, but the section is also
-        // hidden when none survive so a grain-less tenant sees no empty
-        // eyebrow (see `sections.filter` below).
-        {
-            title: 'Grain',
-            items: filterVisible([
-                { href: tenantHref('/grain/contracts'), label: 'Contracts', icon: Wheat, visible: grainAvailable },
-                { href: tenantHref('/grain/bins'), label: 'Bins', icon: Warehouse, visible: grainAvailable },
-                { href: tenantHref('/grain/yield'), label: 'Yield', icon: LineChart, visible: grainAvailable },
-                { href: tenantHref('/grain/costs'), label: 'Costs', icon: Coins, visible: grainAvailable },
             ]),
         },
         {
@@ -225,9 +203,10 @@ export function useNavSections(): NavSectionDef[] {
         },
     ];
 
-    // Drop any TITLED section whose items were all filtered out (e.g. the
-    // "Grain" section for a simple-mode tenant) so no empty eyebrow renders.
-    // The untitled Board section always has an item, so it is never dropped.
+    // Defensive: drop any TITLED section whose items were all filtered out
+    // (e.g. a future fully module-gated section) so no empty eyebrow
+    // renders. The untitled Board section always has an item, so it is
+    // never dropped.
     return sections.filter((s) => !s.title || s.items.length > 0);
 }
 

@@ -102,3 +102,12 @@ guardrail all apply for free.
 - **Licence hygiene.** Ekylibre (AGPL) cost-accounting and OFBiz lot
   genealogy informed the CONCEPTS only — both reimplemented clean-room.
   No proprietary checklist or GPL/AGPL source was copied.
+- **Tenant grain UI is a deliberate follow-up.** The delivered UI is the
+  ORG portfolio grain dashboard (`/org/:slug/grain`); the per-tenant grain
+  surfaces (contracts / bins / yield / costing) ship as backend + public
+  API only this round. No tenant sidebar links are wired until the
+  per-tenant management pages exist — the alternative (links to
+  not-yet-built `/grain/*` routes) would 404. Building the four tenant
+  entity pages (full EntityListPage treatment + create/edit) is the
+  natural next epic; the usecases + routes + DTOs they consume are all
+  already in place.
