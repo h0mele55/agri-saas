@@ -199,7 +199,15 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // primaries; the three modal confirms are each balanced by a Cancel
 // secondary, so the secondary≥primary ratio direction holds (the
 // read-only Costs report adds zero primaries). Measured = 154.
-const MAX_PRIMARY_COUNT = 154;
+// +1 (2026-06-16): in-map parcel split/merge (Location detail Map tab).
+// The merge-the-selected-parcels modal's confirm ("Merge parcels") is the
+// single earned primary of that dialog surface — a create operation
+// (the union becomes a new parcel), matching the sibling "Create parcel"
+// confirm. It is balanced by the modal's Cancel secondary AND by the
+// toolbar's secondary "Merge" trigger, so the secondary≥primary ratio
+// direction holds (split adds zero primaries — its blade is drawn on the
+// map, no confirm button). Measured = 155.
+const MAX_PRIMARY_COUNT = 155;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

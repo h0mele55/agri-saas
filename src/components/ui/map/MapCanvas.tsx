@@ -6,11 +6,13 @@
  * the Location detail Map tab, the PrescriptionPanel, and the operator's
  * read-only field-operation view.
  *
- * Drawing/editing (Phase-1 fast-follow): when `mode` is 'draw' or 'edit'
- * a terra-draw (MIT) layer is mounted on the underlying MapLibre map via
- * its official adapter — 'draw' adds a polygon (→ onCreateGeometry),
- * 'edit' makes existing polygons' vertices draggable (→ onUpdateGeometry,
- * debounced). 'select' (default) keeps the original click-to-select
+ * Drawing/editing (Phase-1 fast-follow): when `mode` is 'draw', 'edit',
+ * or 'split' a terra-draw (MIT) layer is mounted on the underlying
+ * MapLibre map via its official adapter — 'draw' adds a polygon
+ * (→ onCreateGeometry), 'edit' makes existing polygons' vertices
+ * draggable (→ onUpdateGeometry, debounced), and 'split' draws a single
+ * LineString blade across a parcel (→ onCreateSplitLine, then auto-
+ * clears the line). 'select' (default) keeps the original click-to-select
  * behaviour and never loads terra-draw, so the read-only/operator and
  * spray-prescription paths are untouched.
  *
@@ -20,7 +22,7 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Map, { Layer, Source, type MapLayerMouseEvent, type MapRef } from 'react-map-gl/maplibre';
-import type { Feature, FeatureCollection, Geometry, Polygon } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, LineString, Polygon } from 'geojson';
 
 export interface MapParcel {
     id: string;
@@ -29,7 +31,7 @@ export interface MapParcel {
     geometry: Geometry | null;
 }
 
-export type MapMode = 'select' | 'draw' | 'edit';
+export type MapMode = 'select' | 'draw' | 'edit' | 'split';
 
 export interface MapCanvasProps {
     parcels: MapParcel[];
@@ -41,12 +43,14 @@ export interface MapCanvasProps {
     interactive?: boolean;
     /** Parcels rendered as completed (green) — operator progress. */
     doneIds?: string[];
-    /** Authoring mode (default 'select'). 'draw'/'edit' load terra-draw. */
+    /** Authoring mode (default 'select'). 'draw'/'edit'/'split' load terra-draw. */
     mode?: MapMode;
     /** Fired when a new polygon is drawn (draw mode). */
     onCreateGeometry?: (geometry: Polygon) => void;
     /** Fired (debounced) when an existing parcel's polygon is reshaped. */
     onUpdateGeometry?: (parcelId: string, geometry: Polygon) => void;
+    /** Fired when a split line is drawn across a parcel (split mode). */
+    onCreateSplitLine?: (line: LineString) => void;
     /**
      * NDVI raster overlay (Agro-intel). When `showNdvi` is true AND an
      * XYZ `{z}/{x}/{y}` template `ndviTileUrl` is supplied, a raster
@@ -72,6 +76,7 @@ export function MapCanvas({
     mode = 'select',
     onCreateGeometry,
     onUpdateGeometry,
+    onCreateSplitLine,
     showNdvi = false,
     ndviTileUrl,
     className,
@@ -84,7 +89,7 @@ export function MapCanvas({
     // the adapter's map generic across the component boundary.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const drawRef = useRef<any>(null);
-    const drawing = mode === 'draw' || mode === 'edit';
+    const drawing = mode === 'draw' || mode === 'edit' || mode === 'split';
 
     const data = useMemo<FeatureCollection>(() => ({
         type: 'FeatureCollection',
@@ -121,7 +126,7 @@ export function MapCanvas({
         );
     }, [interactive, onSelectionChange, selected, selectedIds, drawing]);
 
-    // ── terra-draw lifecycle (draw / edit modes only) ──────────────────
+    // ── terra-draw lifecycle (draw / edit / split modes only) ──────────
     useEffect(() => {
         const map = mapRef.current?.getMap();
         if (!map || !drawing) return;
@@ -132,14 +137,17 @@ export function MapCanvas({
         // Dynamic import keeps terra-draw out of the bundle for the
         // read-only/select paths and off the SSR graph entirely.
         (async () => {
-            const [{ TerraDraw, TerraDrawPolygonMode, TerraDrawSelectMode }, { TerraDrawMapLibreGLAdapter }] =
-                await Promise.all([import('terra-draw'), import('terra-draw-maplibre-gl-adapter')]);
+            const [
+                { TerraDraw, TerraDrawPolygonMode, TerraDrawLineStringMode, TerraDrawSelectMode },
+                { TerraDrawMapLibreGLAdapter },
+            ] = await Promise.all([import('terra-draw'), import('terra-draw-maplibre-gl-adapter')]);
             if (cancelled) return;
 
             const draw = new TerraDraw({
                 adapter: new TerraDrawMapLibreGLAdapter({ map }),
                 modes: [
                     new TerraDrawPolygonMode(),
+                    new TerraDrawLineStringMode(),
                     new TerraDrawSelectMode({
                         flags: {
                             polygon: {
@@ -162,6 +170,20 @@ export function MapCanvas({
                     const f = draw.getSnapshotFeature(id);
                     if (f && f.geometry.type === 'Polygon') {
                         onCreateGeometry?.(f.geometry as Polygon);
+                        draw.clear();
+                    }
+                });
+            } else if (mode === 'split') {
+                // Draw a single LineString blade across the target parcel.
+                // On finish, hand the line to the host (→ split API) and
+                // clear it — mirroring the draw-mode create+clear so a new
+                // attempt starts from a clean slate.
+                draw.setMode('linestring');
+                draw.on('finish', (id: string | number, context: { action: string }) => {
+                    if (context.action !== 'draw') return;
+                    const f = draw.getSnapshotFeature(id);
+                    if (f && f.geometry.type === 'LineString') {
+                        onCreateSplitLine?.(f.geometry as LineString);
                         draw.clear();
                     }
                 });
