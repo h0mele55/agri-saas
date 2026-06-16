@@ -112,8 +112,10 @@ model Season {
   deletedByUserId String?
   retentionUntil  DateTime?
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id])
-  cropPlans CropPlan[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  cropPlans    CropPlan[]
+  contracts    Contract[]
+  yieldRecords YieldRecord[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, key])
@@ -199,6 +201,7 @@ model Planting {
   parcel       Parcel?       @relation(fields: [parcelId, tenantId], references: [id, tenantId])
   logPlantings LogPlanting[]
   agroSignals  AgroSignal[]
+  yieldRecords YieldRecord[]
 
   @@unique([id, tenantId])
   @@index([tenantId, cropPlanId])

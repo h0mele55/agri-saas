@@ -977,6 +977,35 @@ enum LocationStatus {
   ARCHIVED
 }
 
+/// What a Location physically IS. Enterprise-grain adds storage
+/// semantics: a BIN/STORAGE Location carries `capacityTonnes` and holds
+/// InventoryLots of HARVESTED_PRODUCE. FIELD is the default (a growing
+/// area with parcels) — every pre-grain Location migrates to FIELD.
+enum LocationKind {
+  FIELD
+  BIN
+  STORAGE
+}
+
+/// Direction of a grain marketing/supply Contract from the tenant's
+/// point of view. SALE = forward-sell produce; PURCHASE = forward-buy
+/// inputs. Drives the portfolio "contracted volume" rollup sign.
+enum ContractType {
+  SALE
+  PURCHASE
+}
+
+/// Lifecycle of a Contract. DRAFT → ACTIVE (signed) → DELIVERED
+/// (volume moved) → SETTLED (paid); CANCELLED is terminal from any
+/// pre-SETTLED state.
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  DELIVERED
+  SETTLED
+  CANCELLED
+}
+
 /// Category of an inventory Item. For Feature 1 only the input
 /// products (PESTICIDE/FERTILIZER) are exercised; the rest are
 /// seeded ahead of the full inventory module.
@@ -1034,6 +1063,7 @@ enum ModuleKey {
   AUTOMATION
   PROCESSES
   AI
+  GRAIN
 }
 
 /// Phase-1 inventory ledger event types (ERPNext stock-ledger concept,
