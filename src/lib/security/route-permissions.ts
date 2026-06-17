@@ -169,6 +169,16 @@ export const ROUTE_PERMISSIONS: readonly RoutePermissionRule[] = [
             'Operator-driven fleet operation; ADMIN tier suffices.',
     },
 
+    // ── Stock-ledger reconciliation (ag observability) ──────────────
+    {
+        path: new RegExp(`^${T}\\/admin\\/ledger-reconciliation(\\/.*)?$`),
+        permission: 'admin.manage',
+        note:
+            'Re-walks the hash-chained stock ledger and reports ' +
+            'integrity drift. Operator-driven integrity sweep; ' +
+            'ADMIN tier suffices (same as key-rotation).',
+    },
+
     // ── Per-tenant DEK rotation (Epic F.2 follow-up) ────────────────
     {
         path: new RegExp(`^${T}\\/admin\\/tenant-dek-rotation(\\/.*)?$`),

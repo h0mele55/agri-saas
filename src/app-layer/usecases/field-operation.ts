@@ -9,6 +9,8 @@ import { ParcelRepository } from '../repositories/ParcelRepository';
 import { TERMINAL_WORK_ITEM_STATUSES } from '../domain/work-item-status';
 import { recordInputApplication, type InputApplicationResult } from './inventory';
 import { attachAutoEvidenceFromLogEntry } from './auto-evidence';
+import { traceAgUsecase } from '@/lib/observability';
+import { trace } from '@opentelemetry/api';
 
 type OperationType = 'SPRAY' | 'FERTILIZE' | 'SEED' | 'OTHER';
 type ParcelStatus = 'PENDING' | 'DONE' | 'SKIPPED';
@@ -100,7 +102,7 @@ export async function createFieldOperation(
         });
 
         await logEvent(db, ctx, {
-            action: 'FIELD_OPERATION_CREATED',
+            action: 'SPRAY_JOB_STARTED',
             entityType: 'Task',
             entityId: task.id,
             details: `Created field operation ${task.key} over ${input.parcelIds.length} parcels`,
@@ -183,6 +185,18 @@ export async function markOperationParcel(
     status: ParcelStatus,
     note?: string | null,
 ) {
+    return traceAgUsecase('field-operation.markOperationParcel', ctx, () =>
+        markOperationParcelImpl(ctx, taskId, lineId, status, note),
+    );
+}
+
+async function markOperationParcelImpl(
+    ctx: RequestContext,
+    taskId: string,
+    lineId: string,
+    status: ParcelStatus,
+    note?: string | null,
+) {
     return runInTenantContext(ctx, async (db) => {
         const line = await db.operationParcel.findFirst({
             where: { id: lineId, taskId, tenantId: ctx.tenantId },
@@ -207,7 +221,7 @@ export async function markOperationParcel(
         });
 
         await logEvent(db, ctx, {
-            action: 'OPERATION_PARCEL_STATUS_CHANGED',
+            action: 'OPERATION_PARCEL_MARKED',
             entityType: 'OperationParcel',
             entityId: lineId,
             details: `Parcel prescription ${fromStatus} → ${status}`,
@@ -217,6 +231,14 @@ export async function markOperationParcel(
                 fromStatus,
                 toStatus: status,
             },
+        });
+
+        trace.getActiveSpan()?.setAttributes({
+            'ag.taskId': taskId,
+            'ag.operationParcelId': lineId,
+            'ag.parcelId': line.parcelId,
+            'ag.status': status,
+            'ag.doseValue': Number(line.doseValue),
         });
 
         // Phase 1 — completing a line (from a non-DONE state) makes it a
@@ -273,6 +295,7 @@ export async function markOperationParcel(
             }
         }
 
+        trace.getActiveSpan()?.setAttribute('ag.jobResolved', resolved);
         return { success: true, resolved, application };
     });
 }

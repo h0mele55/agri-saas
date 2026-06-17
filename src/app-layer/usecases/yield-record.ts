@@ -5,6 +5,8 @@ import { assertCanRead, assertCanWrite } from '../policies/common';
 import { logEvent } from '../events/audit';
 import { notFound, badRequest } from '@/lib/errors/types';
 import { sanitizePlainText } from '@/lib/security/sanitize';
+import { traceAgUsecase } from '@/lib/observability';
+import { trace } from '@opentelemetry/api';
 import type {
     CreateYieldRecordInput,
     UpdateYieldRecordInput,
@@ -137,6 +139,10 @@ export async function getYieldRecord(ctx: RequestContext, id: string) {
 }
 
 export async function createYieldRecord(ctx: RequestContext, input: CreateYieldRecordInput) {
+    return traceAgUsecase('yield-record.createYieldRecord', ctx, () => createYieldRecordImpl(ctx, input));
+}
+
+async function createYieldRecordImpl(ctx: RequestContext, input: CreateYieldRecordInput) {
     assertCanWrite(ctx);
 
     const commodity = input.commodity != null ? sanitizePlainText(input.commodity) : null;
@@ -189,7 +195,7 @@ export async function createYieldRecord(ctx: RequestContext, input: CreateYieldR
             include: YIELD_INCLUDE,
         });
         await logEvent(db, ctx, {
-            action: 'CREATE',
+            action: 'HARVEST_YIELD_RECORDED',
             entityType: 'YieldRecord',
             entityId: record.id,
             details: `Recorded yield: ${commodity ?? 'harvest'} (${input.grossTonnes ?? 0} t)`,
@@ -202,6 +208,13 @@ export async function createYieldRecord(ctx: RequestContext, input: CreateYieldR
             },
         });
         return record;
+    });
+    trace.getActiveSpan()?.setAttributes({
+        'ag.yieldRecordId': row.id,
+        'ag.commodity': commodity ?? '',
+        'ag.grossTonnes': input.grossTonnes ?? 0,
+        'ag.areaHa': input.areaHa ?? 0,
+        'ag.plantingId': input.plantingId ?? '',
     });
     return toDto(row);
 }
