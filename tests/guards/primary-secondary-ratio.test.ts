@@ -207,7 +207,10 @@ const MIN_SECONDARY_TO_PRIMARY_RATIO = 0.9;
 // toolbar's secondary "Merge" trigger, so the secondary≥primary ratio
 // direction holds (split adds zero primaries — its blade is drawn on the
 // map, no confirm button). Measured = 155.
-const MAX_PRIMARY_COUNT = 155;
+// +1 for the "Run reconciliation" CTA on the admin Ledger Integrity
+// page — the single earned primary action on that utility surface,
+// balanced by the history table + status card secondaries. Measured = 156.
+const MAX_PRIMARY_COUNT = 156;
 
 describe("primary:secondary ratio direction", () => {
     const counts = (() => {

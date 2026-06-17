@@ -162,6 +162,14 @@ export default async function AdminPage({
                     Notifications
                 </Link>
                 <Link
+                    href={tenantHref('/admin/ledger-integrity')}
+                    className={buttonVariants({ variant: 'secondary' })}
+                    id="ledger-integrity-pill-btn"
+                >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Ledger Integrity
+                </Link>
+                <Link
                     href={tenantHref('/admin/audit-log')}
                     className={buttonVariants({ variant: 'secondary' })}
                     id="audit-log-pill-btn"
