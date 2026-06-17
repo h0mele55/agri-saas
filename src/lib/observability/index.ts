@@ -30,6 +30,7 @@ export type { LogLevel, LogFields } from './logger';
 export {
     getTracer,
     traceUsecase,
+    traceAgUsecase,
     traceOperation,
 } from './tracing';
 
@@ -42,6 +43,7 @@ export {
     recordRequestMetrics,
     recordRequestError,
     recordJobMetrics,
+    recordAgOperationMetrics,
     startQueueDepthReporting,
     normalizeRoute,
 } from './metrics';

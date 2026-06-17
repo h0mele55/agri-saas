@@ -126,3 +126,33 @@ groups:
     rules:
       - record: job:audit_stream_delivery_failures:rate5m
         expr: sum (rate(audit_stream_delivery_failures_total[5m]))
+
+  # ---------------------------------------------------------------------------
+  # Ag field operations — the traced ag usecases (field-operation, inventory,
+  # journal, yield-record, crop-planning, inventory.reconcileStockLedger).
+  # Both instruments carry the ag_operation + ag_outcome labels:
+  #   ag.operation.count    -> ag_operation_count_total
+  #   ag.operation.duration -> ag_operation_duration_milliseconds_{bucket,sum,count}
+  # ---------------------------------------------------------------------------
+  - name: inflect_ag_operations
+    interval: 30s
+    rules:
+      # Per-operation throughput (ops/s).
+      - record: job:ag_operation:rate5m
+        expr: sum by (ag_operation)(rate(ag_operation_count_total[5m]))
+
+      # Per-operation failure ratio (0..1). Clamped denominator avoids
+      # divide-by-zero on idle operations.
+      - record: job:ag_operation:failure_ratio5m
+        expr: |
+          sum by (ag_operation)(rate(ag_operation_count_total{ag_outcome="failure"}[5m]))
+          /
+          clamp_min(sum by (ag_operation)(rate(ag_operation_count_total[5m])), 1e-9)
+
+      # p95 ag-operation duration (ms) over a 5m window, per operation.
+      - record: job:ag_operation_duration_ms:p95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, ag_operation)(rate(ag_operation_duration_milliseconds_bucket[5m]))
+          )

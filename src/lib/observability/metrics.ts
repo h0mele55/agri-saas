@@ -338,6 +338,61 @@ export function recordJobMetrics(attrs: {
 }
 
 // ════════════════════════════════════════════════════════════════════════
+// AG FIELD-WORKFLOW METRICS — duration histogram for usecase SLOs
+// ════════════════════════════════════════════════════════════════════════
+//
+// OTel span durations are NOT exported as metrics (spans → traces only), so
+// an SLO like "ag.field-operation p95 < 1s" needs an explicit histogram.
+// `traceAgUsecase` records this alongside the span. Labels are a bounded set
+// (the operation name + success/failure) — never ids — so cardinality stays
+// flat. Prometheus name: `ag_operation_duration_milliseconds_bucket`,
+// labels `ag_operation` + `ag_outcome`.
+
+let _agOpCount: ReturnType<ReturnType<typeof getMeter>['createCounter']> | null = null;
+let _agOpDuration: ReturnType<ReturnType<typeof getMeter>['createHistogram']> | null = null;
+
+function getAgOpCount() {
+    if (!_agOpCount) {
+        _agOpCount = getMeter().createCounter('ag.operation.count', {
+            description: 'Total number of critical ag field-workflow operations',
+            unit: '1',
+        });
+    }
+    return _agOpCount;
+}
+
+function getAgOpDuration() {
+    if (!_agOpDuration) {
+        _agOpDuration = getMeter().createHistogram('ag.operation.duration', {
+            description: 'Critical ag field-workflow operation duration in milliseconds',
+            unit: 'ms',
+        });
+    }
+    return _agOpDuration;
+}
+
+/**
+ * Record a completed critical ag field-workflow operation.
+ *
+ * @param attrs.operation — dotted operation name (bounded; e.g.
+ *   `field-operation.markOperationParcel`) — NOT an id.
+ * @param attrs.success — whether the operation completed without throwing.
+ * @param attrs.durationMs — wall-clock duration in milliseconds.
+ */
+export function recordAgOperationMetrics(attrs: {
+    operation: string;
+    success: boolean;
+    durationMs: number;
+}): void {
+    const labels = {
+        'ag.operation': attrs.operation,
+        'ag.outcome': attrs.success ? 'success' : 'failure',
+    };
+    getAgOpCount().add(1, labels);
+    getAgOpDuration().record(attrs.durationMs, labels);
+}
+
+// ════════════════════════════════════════════════════════════════════════
 // AUDIT-STREAM METRICS — Instrument Singletons
 //
 // Delivery outcomes are recorded once per batch, after the retry loop in

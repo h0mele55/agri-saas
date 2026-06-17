@@ -207,3 +207,79 @@ groups:
             {{ $value | humanize }}s, near the 30s scrape interval. The target
             may be overloaded or exposing too many series.
           runbook_url: "https://docs.inflect.internal/observability/runbooks/slow-scrapes"
+
+  # ===========================================================================
+  # AG OPERATIONS SLO — agriculture field-operation signals.
+  # The ag usecases emit ag_operation_count_total + ag_operation_duration_*
+  # (labels ag_operation, ag_outcome). Recording rules in the
+  # inflect_ag_operations group back the cheap p95 / failure-ratio reads.
+  # ===========================================================================
+  - name: inflect_ag_operations_slo
+    rules:
+
+      # --- Spray-completion (markOperationParcel) p95 SLO breach (SLO: <1s).
+      # --- Uses the inflect_ag_operations recording rule for cheapness.
+      - alert: AgFieldOperationLatencyHigh
+        expr: job:ag_operation_duration_ms:p95{ag_operation="field-operation.markOperationParcel"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ag spray-completion p95 above the 1s SLO"
+          description: >-
+            field-operation.markOperationParcel p95 latency is
+            {{ $value | humanize }}ms (SLO: 1000ms) over the last 10 minutes.
+            Marking a parcel sprayed/operated should complete in under a
+            second — investigate the geometry/parcel-resolution path.
+          runbook_url: "https://docs.inflect.internal/observability/runbooks/ag-parcel-import-failures"
+
+      # --- Any ag operation failing above 5%.
+      - alert: AgOperationFailureRateHigh
+        expr: job:ag_operation:failure_ratio5m > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ag operation {{ $labels.ag_operation }} failure ratio above 5%"
+          description: >-
+            {{ $labels.ag_operation }} has failed at
+            {{ $value | humanizePercentage }} over the last 10 minutes.
+            Check the traced usecase, its inputs, and downstream
+            (DB / ledger / weather) dependencies.
+          runbook_url: "https://docs.inflect.internal/observability/runbooks/ag-parcel-import-failures"
+
+      # --- COMPLIANCE-CRITICAL: a stock-ledger reconciliation reported drift.
+      # --- The reconcile usecase emits ag_outcome="failure" when the
+      # --- append-only StockTransaction hash-chain fails to verify — a
+      # --- potential tamper / integrity event, not a routine ops alert.
+      - alert: AgLedgerReconciliationDrift
+        expr: increase(ag_operation_count_total{ag_operation="inventory.reconcileStockLedger",ag_outcome="failure"}[1h]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          compliance: "true"
+        annotations:
+          summary: "COMPLIANCE: stock-ledger reconciliation reported drift"
+          description: >-
+            inventory.reconcileStockLedger has reported a hash-chain break
+            ({{ $value | humanize }} failed reconciliations in the last hour).
+            The append-only StockTransaction ledger may have been tampered
+            with or written out-of-band — treat as an integrity/compliance
+            incident. Do NOT mutate the ledger.
+          runbook_url: "https://docs.inflect.internal/observability/runbooks/ag-ledger-reconciliation-drift"
+
+      # --- Weather ingestion lagging — the weather-pull job is failing/stale.
+      # --- Agro-signals depend on fresh WeatherObservation rows.
+      - alert: AgWeatherIngestionLag
+        expr: increase(job_execution_count_total{job_name="weather-pull",job_status="failure"}[6h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Weather ingestion lagging — weather-pull is failing"
+          description: >-
+            The weather-pull job has failed
+            ({{ $value | humanize }} failures in the last 6h). Open-Meteo may
+            be unreachable and today's WeatherObservation rows may be missing —
+            agro-signals (GDD, spray windows) degrade on stale weather.
+          runbook_url: "https://docs.inflect.internal/observability/runbooks/ag-weather-ingestion-lag"

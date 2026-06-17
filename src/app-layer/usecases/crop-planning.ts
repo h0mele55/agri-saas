@@ -18,6 +18,8 @@ import {
     type ComputedPlanting,
     type PlantingMethod,
 } from '@/lib/planning/succession';
+import { traceAgUsecase } from '@/lib/observability';
+import { trace } from '@opentelemetry/api';
 
 /**
  * Crop-planning usecases — the INTEGRATION layer over the pure
@@ -646,6 +648,12 @@ const STAGE_VERB: Record<'SOW' | 'TRANSPLANT' | 'HARVEST', string> = {
  *           exists) — no read-in-loop.
  */
 export async function generatePlantings(ctx: RequestContext, cropPlanId: string) {
+    return traceAgUsecase('crop-planning.generatePlantings', ctx, () =>
+        generatePlantingsImpl(ctx, cropPlanId),
+    );
+}
+
+async function generatePlantingsImpl(ctx: RequestContext, cropPlanId: string) {
     assertCanWrite(ctx);
 
     // ── Step 1 + 2 + 3: load, compute, persist plantings (one tx) ──
@@ -796,6 +804,13 @@ export async function generatePlantings(ctx: RequestContext, cropPlanId: string)
             tasksCreated++;
         }
     }
+
+    trace.getActiveSpan()?.setAttributes({
+        'ag.cropPlanId': plan.id,
+        'ag.plantingsGenerated': created.length,
+        'ag.tasksCreated': tasksCreated,
+        'ag.successions': plan.successions,
+    });
 
     return {
         cropPlanId: plan.id,

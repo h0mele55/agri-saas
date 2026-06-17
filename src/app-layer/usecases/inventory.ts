@@ -9,7 +9,14 @@ import { InventoryRepository } from '../repositories/InventoryRepository';
 import { JournalRepository } from '../repositories/JournalRepository';
 import { ModuleSettingsRepository } from '../repositories/ModuleSettingsRepository';
 import { resolveEnabledModules } from '@/lib/modules';
-import { appendStockTransaction, appendLotLink } from '@/lib/inventory/stock-ledger';
+import {
+    appendStockTransaction,
+    appendLotLink,
+    verifyStockChain,
+    type StockChainVerification,
+} from '@/lib/inventory/stock-ledger';
+import { traceAgUsecase, traceUsecase, recordAgOperationMetrics } from '@/lib/observability';
+import { trace } from '@opentelemetry/api';
 
 /**
  * Inventory — lots + the append-only stock ledger.
@@ -316,6 +323,16 @@ export async function recordInputApplication(
     ctx: RequestContext,
     line: InputApplicationLine,
 ): Promise<InputApplicationResult> {
+    return traceAgUsecase('inventory.recordInputApplication', ctx, () =>
+        recordInputApplicationImpl(db, ctx, line),
+    );
+}
+
+async function recordInputApplicationImpl(
+    db: PrismaTx,
+    ctx: RequestContext,
+    line: InputApplicationLine,
+): Promise<InputApplicationResult> {
     const modules = resolveEnabledModules(await ModuleSettingsRepository.get(db, ctx));
     const journalOn = modules.includes('JOURNAL');
     const inventoryOn = modules.includes('INVENTORY');
@@ -396,7 +413,84 @@ export async function recordInputApplication(
         note = 'zero_quantity';
     }
 
+    trace.getActiveSpan()?.setAttributes({
+        'ag.operationParcelId': line.id,
+        'ag.parcelId': line.parcelId,
+        'ag.productItemId': line.productItemId,
+        'ag.doseValue': toNum(line.doseValue),
+        'ag.consumed': consumed,
+        'ag.deductedFromLotId': deductedFromLotId ?? '',
+        ...(note ? { 'ag.note': note } : {}),
+    });
+
     return { journalEntryId, consumed, deductedFromLotId, note };
+}
+
+// ─── Ledger reconciliation (integrity sweep + drift alerting) ──────
+
+/**
+ * Re-walk the tenant's hash-chained stock ledger from scratch and report
+ * integrity. The operator-facing "is my inventory ledger intact?" check,
+ * surfaced at `POST /api/t/:slug/admin/ledger-reconciliation`.
+ *
+ * Observability is deliberately hand-rolled rather than reusing
+ * `traceAgUsecase`: a reconciliation that RUNS cleanly but DETECTS drift
+ * (`valid === false`, no throw) is exactly the event the
+ * `AgLedgerReconciliationDrift` SLO alert pages on. So the
+ * `ag.operation` metric outcome is keyed on `verification.valid`, not on
+ * "did the function throw" — a found break records `ag_outcome="failure"`
+ * so the alert fires, while still returning the report to the caller
+ * (200, not 500). An actual exception also records failure via the
+ * `finally`. The span (via `traceUsecase`) carries the full trace.
+ */
+export async function reconcileStockLedger(ctx: RequestContext): Promise<StockChainVerification> {
+    assertCanWrite(ctx);
+    const startMs = performance.now();
+    let valid = false;
+    try {
+        const verification = await traceUsecase('inventory.reconcileStockLedger', ctx, async () => {
+            const result = await runInTenantContext(ctx, async (db) => {
+                const v = await verifyStockChain(db, ctx.tenantId);
+                await logEvent(db, ctx, {
+                    action: 'LEDGER_RECONCILIATION_RUN',
+                    entityType: 'StockTransaction',
+                    entityId: ctx.tenantId,
+                    details: v.valid
+                        ? `Stock ledger verified intact across ${v.totalEntries} entries`
+                        : `Stock ledger DRIFT detected at entry ${v.firstBreakAt} (${v.firstBreakId})`,
+                    detailsJson: {
+                        category: 'data_lifecycle',
+                        summary: v.valid
+                            ? `Ledger reconciliation passed (${v.totalEntries} entries)`
+                            : `Ledger reconciliation FAILED — drift at entry ${v.firstBreakAt}`,
+                        data: {
+                            valid: v.valid,
+                            totalEntries: v.totalEntries,
+                            firstBreakAt: v.firstBreakAt ?? null,
+                            firstBreakId: v.firstBreakId ?? null,
+                        },
+                    },
+                });
+                return v;
+            });
+            trace.getActiveSpan()?.setAttributes({
+                'ag.operation': 'inventory.reconcileStockLedger',
+                'ag.ledgerValid': result.valid,
+                'ag.ledgerEntries': result.totalEntries,
+                ...(result.firstBreakId ? { 'ag.firstBreakId': result.firstBreakId } : {}),
+                ...(result.firstBreakAt !== undefined ? { 'ag.firstBreakAt': result.firstBreakAt } : {}),
+            });
+            return result;
+        });
+        valid = verification.valid;
+        return verification;
+    } finally {
+        recordAgOperationMetrics({
+            operation: 'inventory.reconcileStockLedger',
+            success: valid,
+            durationMs: Math.round(performance.now() - startMs),
+        });
+    }
 }
 
 // ─── Harvest → lot wiring (HARVEST_IN + genealogy) ─────────────────

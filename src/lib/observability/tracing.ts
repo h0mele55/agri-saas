@@ -11,6 +11,7 @@
 import { trace, SpanStatusCode, type Span, type Tracer } from '@opentelemetry/api';
 import type { RequestContext } from '@/app-layer/types';
 import { getRequestContext } from './context';
+import { recordAgOperationMetrics } from './metrics';
 
 const TRACER_NAME = 'inflect-compliance';
 
@@ -64,6 +65,57 @@ export async function traceUsecase<T>(
             if (error instanceof Error) {
                 span.recordException(error);
             }
+            throw error;
+        } finally {
+            span.end();
+        }
+    });
+}
+
+/**
+ * Trace a CRITICAL ag field-workflow usecase: an OTel span (like
+ * `traceUsecase`) PLUS a Prometheus duration histogram (`ag.operation.*`)
+ * so the operation has both a trace AND an SLO. Span durations are not
+ * exported as metrics, so the explicit histogram is what an alert like
+ * "ag.field-operation p95 < 1s" queries.
+ *
+ * `operation` is a bounded dotted name (e.g.
+ * `field-operation.markOperationParcel`) — never an id. Attach
+ * ids/doseValue/status to the active span mid-body via
+ * `trace.getActiveSpan()?.setAttributes(...)` (they're high-cardinality
+ * and belong on the span, NOT on the metric labels).
+ *
+ * @example
+ *   return traceAgUsecase('yield-record.createYieldRecord', ctx, async () => {
+ *       const row = await runInTenantContext(ctx, (db) => …);
+ *       trace.getActiveSpan()?.setAttributes({ 'ag.commodity': commodity ?? '' });
+ *       return toDto(row);
+ *   });
+ */
+export async function traceAgUsecase<T>(
+    operation: string,
+    ctx: RequestContext,
+    fn: () => Promise<T>,
+): Promise<T> {
+    const tracer = getTracer();
+    const startMs = performance.now();
+    return tracer.startActiveSpan(`usecase.${operation}`, async (span: Span) => {
+        span.setAttributes(contextAttributes(ctx));
+        span.setAttribute('ag.operation', operation);
+        try {
+            const result = await fn();
+            span.setStatus({ code: SpanStatusCode.OK });
+            recordAgOperationMetrics({ operation, success: true, durationMs: Math.round(performance.now() - startMs) });
+            return result;
+        } catch (error) {
+            span.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: error instanceof Error ? error.message : String(error),
+            });
+            if (error instanceof Error) {
+                span.recordException(error);
+            }
+            recordAgOperationMetrics({ operation, success: false, durationMs: Math.round(performance.now() - startMs) });
             throw error;
         } finally {
             span.end();

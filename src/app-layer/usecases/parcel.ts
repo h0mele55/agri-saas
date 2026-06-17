@@ -106,17 +106,23 @@ export async function updateParcel(ctx: RequestContext, parcelId: string, input:
         });
         if (input.geometry) await refreshLocationBounds(db, ctx, parcel.locationId);
 
+        // A geometry change is a distinct, audit-relevant event (the
+        // parcel's boundary — and therefore its area, its overlap with
+        // application records, and its compliance footprint — moved). It
+        // gets its own action so the audit stream + ag dashboards can
+        // separate boundary edits from metadata-only edits.
+        const reshaped = Boolean(input.geometry);
         await logEvent(db, ctx, {
-            action: 'PARCEL_UPDATED',
+            action: reshaped ? 'GEOMETRY_UPDATED' : 'PARCEL_UPDATED',
             entityType: 'Parcel',
             entityId: parcelId,
-            details: `Edited parcel ${parcel.name}${input.geometry ? ' (reshaped)' : ''}`,
+            details: `Edited parcel ${parcel.name}${reshaped ? ' (reshaped)' : ''}`,
             detailsJson: {
-                category: 'entity_lifecycle',
+                category: reshaped ? 'data_lifecycle' : 'entity_lifecycle',
                 entityName: 'Parcel',
                 operation: 'updated',
-                after: { reshaped: Boolean(input.geometry), areaHa: res.areaHa },
-                summary: `Edited parcel ${parcel.name}`,
+                after: { reshaped, areaHa: res.areaHa },
+                summary: reshaped ? `Reshaped parcel ${parcel.name}` : `Edited parcel ${parcel.name}`,
             },
         });
         return res;

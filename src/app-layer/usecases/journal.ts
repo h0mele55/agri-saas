@@ -24,6 +24,8 @@ import {
     FILE_MAX_SIZE_BYTES,
 } from '@/lib/storage';
 import { env } from '@/env';
+import { traceAgUsecase } from '@/lib/observability';
+import { trace } from '@opentelemetry/api';
 
 /**
  * Field-journal usecases — the durable record of work done (or planned)
@@ -153,6 +155,10 @@ export async function getLogEntry(ctx: RequestContext, id: string) {
 // ─── Create ─────────────────────────────────────────────────────────
 
 export async function createLogEntry(ctx: RequestContext, data: CreateLogEntryData) {
+    return traceAgUsecase('journal.createLogEntry', ctx, () => createLogEntryImpl(ctx, data));
+}
+
+async function createLogEntryImpl(ctx: RequestContext, data: CreateLogEntryData) {
     assertCanWrite(ctx);
 
     // Sanitize at the boundary (Epic D.2): title is single-line plain
@@ -246,6 +252,18 @@ export async function createLogEntry(ctx: RequestContext, data: CreateLogEntryDa
         if (data.type === 'INPUT_APPLICATION') {
             await attachAutoEvidenceFromLogEntry(db, ctx, entry.id);
         }
+
+        trace.getActiveSpan()?.setAttributes({
+            'ag.logEntryId': entry.id,
+            'ag.logEntryType': entry.type,
+            'ag.isHarvest': data.type === 'HARVEST' && !!data.harvest,
+            ...(data.type === 'HARVEST' && data.harvest
+                ? {
+                      'ag.harvestItemId': data.harvest.itemId,
+                      'ag.harvestQuantity': data.harvest.quantity,
+                  }
+                : {}),
+        });
 
         return entry;
     });
