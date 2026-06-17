@@ -7,6 +7,7 @@ import { notFound, badRequest } from '@/lib/errors/types';
 import { sanitizePlainText } from '@/lib/security/sanitize';
 import { traceAgUsecase } from '@/lib/observability';
 import { trace } from '@opentelemetry/api';
+import { emitAutomationEvent } from '../automation';
 import type {
     CreateYieldRecordInput,
     UpdateYieldRecordInput,
@@ -216,6 +217,25 @@ async function createYieldRecordImpl(ctx: RequestContext, input: CreateYieldReco
         'ag.areaHa': input.areaHa ?? 0,
         'ag.plantingId': input.plantingId ?? '',
     });
+
+    // Field-workflow automation trigger (Epic 60 bus) — fires AFTER the
+    // tx commits. Mirrors the HARVEST_YIELD_RECORDED audit action.
+    await emitAutomationEvent(ctx, {
+        event: 'HARVEST_YIELD_RECORDED',
+        entityType: 'YieldRecord',
+        entityId: row.id,
+        actorUserId: ctx.userId,
+        stableKey: row.id,
+        data: {
+            yieldRecordId: row.id,
+            commodity,
+            grossTonnes: input.grossTonnes ?? null,
+            areaHa: input.areaHa ?? null,
+            plantingId: input.plantingId ?? null,
+            seasonId: input.seasonId ?? null,
+        },
+    });
+
     return toDto(row);
 }
 

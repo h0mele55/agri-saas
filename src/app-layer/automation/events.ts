@@ -66,6 +66,15 @@ export const AUTOMATION_EVENTS = {
     CONTROL_STATUS_CHANGED: 'CONTROL_STATUS_CHANGED',
     POLICY_REVIEW_DUE: 'POLICY_REVIEW_DUE',
     VENDOR_ASSESSMENT_OVERDUE: 'VENDOR_ASSESSMENT_OVERDUE',
+
+    // ─── Ag field workflows — the observability epic writes these to the
+    //     audit log; now subscribable so a tenant can "notify the agronomist
+    //     when a spray job is created", "open a QA task when a parcel is
+    //     marked done", or "alert the buyer when a harvest yield is recorded".
+    //     Names mirror the audit `action` strings exactly. ───
+    SPRAY_JOB_STARTED: 'SPRAY_JOB_STARTED',
+    OPERATION_PARCEL_MARKED: 'OPERATION_PARCEL_MARKED',
+    HARVEST_YIELD_RECORDED: 'HARVEST_YIELD_RECORDED',
 } as const;
 
 export type AutomationEventName =

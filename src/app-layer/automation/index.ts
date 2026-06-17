@@ -51,6 +51,9 @@ export type {
     TaskStatusChangedData,
     IssueCreatedData,
     IssueStatusChangedData,
+    SprayJobStartedData,
+    OperationParcelMarkedData,
+    HarvestYieldRecordedData,
 } from './event-contracts';
 export {
     assertCanReadAutomation,

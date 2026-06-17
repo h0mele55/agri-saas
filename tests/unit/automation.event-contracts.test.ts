@@ -150,6 +150,45 @@ function buildFakeEvent(
                 event: name,
                 data: { fromStatus: 'OPEN', toStatus: 'RESOLVED' },
             };
+        case 'SPRAY_JOB_STARTED':
+            return {
+                ...base,
+                event: name,
+                data: {
+                    taskId: 't1',
+                    taskKey: 'FOP-1',
+                    locationId: 'loc1',
+                    operationType: 'SPRAY',
+                    parcelCount: 3,
+                    productItemId: 'item1',
+                    assigneeUserId: 'user2',
+                },
+            };
+        case 'OPERATION_PARCEL_MARKED':
+            return {
+                ...base,
+                event: name,
+                data: {
+                    taskId: 't1',
+                    operationParcelId: 'op1',
+                    parcelId: 'p1',
+                    status: 'DONE',
+                    jobResolved: false,
+                },
+            };
+        case 'HARVEST_YIELD_RECORDED':
+            return {
+                ...base,
+                event: name,
+                data: {
+                    yieldRecordId: 'yr1',
+                    commodity: 'Wheat',
+                    grossTonnes: 42,
+                    areaHa: 10,
+                    plantingId: null,
+                    seasonId: null,
+                },
+            };
     }
 }
 
