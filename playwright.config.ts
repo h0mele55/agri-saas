@@ -47,6 +47,28 @@ export default defineConfig({
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
+            // The `@mobile` responsive spec asserts phone-viewport layout;
+            // it would be meaningless at the desktop 1280px viewport, so the
+            // desktop project skips it (the two mobile projects below own it).
+            grepInvert: /@mobile/,
+        },
+        // Mobile viewports — the WCAG/responsive pass (`mobile-responsive.spec.ts`)
+        // is tagged `@mobile` and runs here. `Pixel 5` (Android Chrome, 393px)
+        // and `iPhone 13` (Mobile Safari, 390px) bracket the common phone
+        // breakpoints; both sit under the `md:` (768px) stacking threshold so
+        // the location detail map + parcel list verify their single-column
+        // mobile layout. Desktop specs aren't re-run here — `grep: /@mobile/`
+        // scopes each mobile project to the responsive spec only, so the serial
+        // suite doesn't triple in length.
+        {
+            name: 'mobile-android',
+            use: { ...devices['Pixel 5'] },
+            grep: /@mobile/,
+        },
+        {
+            name: 'mobile-ios',
+            use: { ...devices['iPhone 13'] },
+            grep: /@mobile/,
         },
     ],
     webServer: {

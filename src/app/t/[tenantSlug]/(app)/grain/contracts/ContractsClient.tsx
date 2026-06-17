@@ -16,7 +16,7 @@ import {
 import { EntityListPage } from '@/components/layout/EntityListPage';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
-import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { Tooltip } from '@/components/ui/tooltip';
 import { Pen2, Trash } from '@/components/ui/icons/nucleo';
 import { useToastWithUndo } from '@/components/ui/hooks';
@@ -24,8 +24,6 @@ import { formatDate } from '@/lib/format-date';
 import {
     buildContractFilters,
     CONTRACT_FILTER_KEYS,
-    CONTRACT_STATUS_LABELS,
-    CONTRACT_TYPE_LABELS,
 } from './filter-defs';
 import { ContractFormModal } from './ContractFormModal';
 
@@ -59,18 +57,6 @@ interface ContractsClientProps {
     tenantSlug: string;
     permissions: { canWrite: boolean };
 }
-
-const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
-    DRAFT: 'neutral',
-    ACTIVE: 'info',
-    DELIVERED: 'success',
-    SETTLED: 'success',
-    CANCELLED: 'warning',
-};
-const TYPE_BADGE: Record<string, StatusBadgeVariant> = {
-    SALE: 'info',
-    PURCHASE: 'neutral',
-};
 
 /** Format a string|null decimal for display; right-aligned tabular-nums. */
 function fmtNum(v: string | null): string {
@@ -240,24 +226,14 @@ function ContractsPageInner({
                     accessorKey: 'type',
                     header: 'Type',
                     cell: ({ row }) => (
-                        <StatusBadge
-                            variant={TYPE_BADGE[row.original.type] ?? 'neutral'}
-                            size="sm"
-                        >
-                            {CONTRACT_TYPE_LABELS[row.original.type]}
-                        </StatusBadge>
+                        <AgStatusBadge entity="contractType" status={row.original.type} />
                     ),
                 },
                 {
                     accessorKey: 'status',
                     header: 'Status',
                     cell: ({ row }) => (
-                        <StatusBadge
-                            variant={STATUS_BADGE[row.original.status] ?? 'neutral'}
-                            size="sm"
-                        >
-                            {CONTRACT_STATUS_LABELS[row.original.status]}
-                        </StatusBadge>
+                        <AgStatusBadge entity="contract" status={row.original.status} />
                     ),
                 },
                 {

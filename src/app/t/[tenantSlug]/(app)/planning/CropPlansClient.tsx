@@ -14,9 +14,9 @@ import {
 import { EntityListPage } from '@/components/layout/EntityListPage';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
-import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { toApiSearchParams } from '@/lib/filters/url-sync';
-import { buildCropPlanFilters, CROP_PLAN_FILTER_KEYS, CROP_PLAN_STATUS_LABELS } from './filter-defs';
+import { buildCropPlanFilters, CROP_PLAN_FILTER_KEYS } from './filter-defs';
 import { NewCropPlanModal } from './NewCropPlanModal';
 
 /** List-row shape returned by GET /planning/crop-plans. */
@@ -47,13 +47,6 @@ interface CropPlansClientProps {
     tenantSlug: string;
     permissions: { canWrite: boolean };
 }
-
-const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
-    DRAFT: 'neutral',
-    ACTIVE: 'info',
-    COMPLETED: 'success',
-    CANCELLED: 'warning',
-};
 
 export function CropPlansClient(props: CropPlansClientProps) {
     const filterCtx = useFilterContext([], CROP_PLAN_FILTER_KEYS, {});
@@ -147,14 +140,9 @@ function CropPlansPageInner({
                 {
                     accessorKey: 'status',
                     header: 'Status',
-                    cell: ({ row }) => {
-                        const s = row.original.status;
-                        return (
-                            <StatusBadge variant={STATUS_BADGE[s] ?? 'neutral'} size="sm">
-                                {(CROP_PLAN_STATUS_LABELS as Record<string, string>)[s] ?? s}
-                            </StatusBadge>
-                        );
-                    },
+                    cell: ({ row }) => (
+                        <AgStatusBadge entity="cropPlan" status={row.original.status} />
+                    ),
                 },
             ]),
         // eslint-disable-next-line react-hooks/exhaustive-deps

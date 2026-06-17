@@ -23,7 +23,7 @@
 import type { PrismaClient } from '@prisma/client';
 import { publishNotificationEvent } from '@/lib/notifications/notification-bus';
 
-export type AgroNotificationKind = 'SPRAY_WINDOW_WARNING' | 'DISEASE_RISK_RAISED';
+export type AgroNotificationKind = 'SPRAY_WINDOW_WARNING' | 'DISEASE_RISK_RAISED' | 'AGRO_COPILOT_READY';
 
 export interface AgroNotificationTarget {
     tenantId: string;
@@ -54,6 +54,11 @@ const COPY: Record<AgroNotificationKind, AgroCopy> = {
         title: 'Disease pressure rising',
         body: (label, detail) =>
             `High disease pressure detected at ${label}${detail ? ` — ${detail}` : '.'} A risk has been raised.`,
+    },
+    AGRO_COPILOT_READY: {
+        title: 'Agronomy copilot explanation',
+        body: (label, detail) =>
+            `An agronomy explanation is ready for ${label}${detail ? ` — ${detail}` : '.'}`,
     },
 };
 

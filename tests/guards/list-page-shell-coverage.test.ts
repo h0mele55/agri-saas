@@ -133,6 +133,12 @@ const EXEMPTIONS: Record<string, string> = {
     'planning/[cropPlanId]/PlantingBoard.tsx':
         'detail page sub-table — plantings of one crop plan (succession board)',
 
+    // A11y pass — location detail page mounts DataTable for the parcels
+    // sub-table (migrated off a raw <table>). Detail page
+    // (EntityDetailLayout), not a list page.
+    'locations/[locationId]/page.tsx':
+        'detail page — DataTable is the inner parcels sub-table',
+
     // Browse-and-install template picker — multi-section browser,
     // not a list page in the perf-complaint sense.
     'controls/templates/page.tsx':

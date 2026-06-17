@@ -19,6 +19,7 @@ import { sanitizeRichTextHtml } from '@/lib/security/sanitize';
 import { formatDateTime } from '@/lib/format-date';
 import { JournalEntryModal } from '../JournalEntryModal';
 import { JournalPhotosTab } from './JournalPhotosTab';
+import { PhotoIdCard, type PhotoIdData } from '@/components/ag/photo-id-card';
 import { LOG_ENTRY_TYPE_LABELS } from '../filter-defs';
 
 const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
@@ -63,6 +64,7 @@ interface LogEntryDetail {
     files?: PhotoLink[];
     locations?: LocationLink[];
     equipment?: EquipmentLink[];
+    attributesJson?: { pestId?: PhotoIdData } | null;
 }
 
 export default function JournalDetailPage() {
@@ -270,13 +272,18 @@ export default function JournalDetailPage() {
             )}
 
             {activeTab === 'photos' && (
-                <JournalPhotosTab
-                    entryId={entryId}
-                    photos={photos}
-                    apiUrl={apiUrl}
-                    canWrite={permissions.canWrite}
-                    onChanged={() => void mutate()}
-                />
+                <div className="space-y-default">
+                    {entry.attributesJson?.pestId && (
+                        <PhotoIdCard data={entry.attributesJson.pestId} />
+                    )}
+                    <JournalPhotosTab
+                        entryId={entryId}
+                        photos={photos}
+                        apiUrl={apiUrl}
+                        canWrite={permissions.canWrite}
+                        onChanged={() => void mutate()}
+                    />
+                </div>
             )}
         </EntityDetailLayout>
     );

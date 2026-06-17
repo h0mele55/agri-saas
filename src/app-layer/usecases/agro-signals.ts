@@ -44,6 +44,8 @@ import {
     type DiseaseDay,
 } from '@/lib/agro/rules';
 import { logger } from '@/lib/observability/logger';
+import { enqueue } from '../jobs/queue';
+import { isLlmConfigured } from '../ai/llm-client';
 
 /** Disease level → (likelihood, impact) on the 1–5 GRC matrix. */
 const DISEASE_RISK_MATRIX = { likelihood: 4, impact: 4 } as const;
@@ -285,6 +287,31 @@ export async function evaluateLocationSignals(
                 locationId,
                 error: err instanceof Error ? err.message : String(err),
             });
+        }
+    }
+
+    // ── Agronomy copilot — enrich a NEW signal with a plain-language
+    //    explanation (async, fail-safe). Gated on LLM config so the
+    //    signal path stays free when AI is off. A queue failure must
+    //    never fail signal evaluation, so it's swallowed + logged.
+    if (isLlmConfigured()) {
+        const signalDateIso = signalDate.toISOString();
+        const newSignals: Array<'SPRAY_WINDOW' | 'DISEASE_RISK'> = [
+            ...(phase1.sprayNew ? (['SPRAY_WINDOW'] as const) : []),
+            ...(phase1.diseaseNew ? (['DISEASE_RISK'] as const) : []),
+        ];
+        for (const kind of newSignals) {
+            try {
+                await enqueue('agronomy-copilot', { tenantId: ctx.tenantId, locationId, kind, signalDateIso });
+            } catch (err) {
+                logger.warn('agro-signals: copilot enqueue failed', {
+                    component: 'agro-signals',
+                    tenantId: ctx.tenantId,
+                    locationId,
+                    kind,
+                    error: err instanceof Error ? err.message : String(err),
+                });
+            }
         }
     }
 

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Geometry } from 'geojson';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { Heading } from '@/components/ui/typography';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
@@ -172,7 +173,7 @@ export function OfflineFieldPanel({ taskId }: { taskId: string }) {
                             </div>
                         ) : (
                             <div className="flex items-center justify-between">
-                                <StatusBadge variant={l.status === 'DONE' ? 'success' : 'neutral'}>{l.status}</StatusBadge>
+                                <AgStatusBadge entity="operationParcel" status={l.status} size="md" />
                                 <Button variant="secondary" size="sm" onClick={() => void mark(l, 'PENDING')}>Reopen</Button>
                             </div>
                         )}

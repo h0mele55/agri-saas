@@ -20,7 +20,7 @@ import { useMemo } from 'react';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { createColumns, DataTable } from '@/components/ui/table';
 import { GanttTimeline } from '@/components/ui/GanttTimeline';
-import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { InlineEmptyState } from '@/components/ui/inline-empty-state';
 import { SkeletonCard, SkeletonLine } from '@/components/ui/skeleton';
 import { Heading } from '@/components/ui/typography';
@@ -59,15 +59,6 @@ interface ProgressPayload {
     plan: { id: string; name: string };
     progress: PlantingProgressRow[];
 }
-
-const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
-    PLANNED: 'neutral',
-    SOWN: 'info',
-    TRANSPLANTED: 'info',
-    HARVESTING: 'warning',
-    HARVESTED: 'success',
-    TERMINATED: 'neutral',
-};
 
 /**
  * Accumulated GDD for one planting (Agro-intel). Lazily fetches the
@@ -248,9 +239,7 @@ export function PlantingBoard({
                     accessorKey: 'status',
                     header: 'Status',
                     cell: ({ row }) => (
-                        <StatusBadge variant={STATUS_BADGE[row.original.status] ?? 'neutral'} size="sm">
-                            {row.original.status}
-                        </StatusBadge>
+                        <AgStatusBadge entity="planting" status={row.original.status} />
                     ),
                 },
             ]),

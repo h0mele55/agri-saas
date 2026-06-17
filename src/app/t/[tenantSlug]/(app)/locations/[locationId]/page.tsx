@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { Geometry, LineString, Polygon } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
+import { DataTable, createColumns } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
@@ -82,6 +83,17 @@ export default function LocationDetailPage() {
     const mapParcels = useMemo<MapParcel[]>(
         () => parcels.map((p) => ({ id: p.id, name: p.name, areaHa: p.areaHa ?? null, geometry: (p.geometry ?? null) as Geometry | null })),
         [parcels],
+    );
+
+    type ParcelRow = ParcelsResp['parcels'][number];
+    const parcelColumns = useMemo(
+        () =>
+            createColumns<ParcelRow>([
+                { accessorKey: 'name', header: 'Name', cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
+                { id: 'crop', header: 'Crop', cell: ({ row }) => row.original.cropType ?? '—' },
+                { id: 'areaHa', header: 'Area (ha)', cell: ({ row }) => row.original.areaHa ?? '—' },
+            ]),
+        [],
     );
 
     const saveDrawnParcel = async () => {
@@ -193,6 +205,9 @@ export default function LocationDetailPage() {
                     <div className="flex flex-wrap items-center gap-compact">
                         <ToggleGroup
                             ariaLabel="Map mode"
+                            // Field operators tap these on a phone — bump each
+                            // segment to a ≥44px (WCAG 2.5.5) touch target.
+                            optionClassName="min-h-[44px] min-w-[44px] justify-center"
                             options={[
                                 { value: 'select', label: 'Select' },
                                 { value: 'draw', label: 'Draw' },
@@ -245,7 +260,7 @@ export default function LocationDetailPage() {
                             )}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 gap-section lg:grid-cols-[1fr_320px]">
+                    <div className="grid grid-cols-1 gap-section md:grid-cols-[1fr_320px]">
                         <MapCanvas
                             parcels={mapParcels}
                             bounds={bounds}
@@ -311,24 +326,17 @@ export default function LocationDetailPage() {
             )}
 
             {tab === 'parcels' && (
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-border-subtle text-left text-content-secondary">
-                            <th className="py-2 pr-4 font-medium">Name</th>
-                            <th className="py-2 pr-4 font-medium">Crop</th>
-                            <th className="py-2 pr-4 font-medium">Area (ha)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {parcels.map((p) => (
-                            <tr key={p.id} className="border-b border-border-subtle">
-                                <td className="py-2 pr-4 font-medium">{p.name}</td>
-                                <td className="py-2 pr-4">{p.cropType ?? '—'}</td>
-                                <td className="py-2 pr-4">{p.areaHa ?? '—'}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                <DataTable<ParcelRow>
+                    data={parcels}
+                    columns={parcelColumns}
+                    getRowId={(p) => p.id}
+                    loading={parcelsQ.isLoading && parcels.length === 0}
+                    emptyState={(
+                        <div className="p-6 text-sm text-content-secondary">
+                            No parcels yet — use “Import parcels” to upload a shapefile, KML, or GeoJSON.
+                        </div>
+                    )}
+                />
             )}
 
             {tab === 'operations' && (

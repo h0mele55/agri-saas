@@ -54,6 +54,19 @@ const MENU_COLUMN_WIDTH = 40;
 const CHEVRON_COLUMN_WIDTH = 32;
 const FIXED_UTILITY_COLUMN_IDS = new Set(["select", "menu"]);
 
+// WCAG 2.1 (axe `empty-table-header`) — utility columns whose visible
+// header is intentionally empty (a decorative chevron, a row kebab, a
+// per-row action cluster) still need an accessible name on the <th> so
+// screen-reader users hear what the column does instead of an empty
+// header. Visually nothing changes: the label lands on `aria-label`,
+// not in the DOM text. Keyed by column id; `actions` is the conventional
+// id pages give their trailing icon-button column.
+const UTILITY_HEADER_LABELS: Record<string, string> = {
+  "__row-chevron": "Open row",
+  menu: "Row actions",
+  actions: "Row actions",
+};
+
 const tableCellClassName = (
   columnId: string,
   clickable?: boolean,
@@ -1002,12 +1015,32 @@ export function Table<T>({
                                     );
                                     const headerTooltip =
                                       header.column.columnDef.meta?.headerTooltip;
+                                    // WCAG `empty-table-header`: utility
+                                    // columns (chevron / kebab / action
+                                    // cluster) render no visible header.
+                                    // axe wants screen-reader-visible text
+                                    // in the <th>, which `aria-label` on
+                                    // the cell alone doesn't satisfy — emit
+                                    // an `sr-only` label so the column has
+                                    // an accessible name with zero visual
+                                    // change. Keyed on the column id (the
+                                    // rendered header for these is an empty
+                                    // node, so content-sniffing is unreliable
+                                    // — `flexRender` of a `() => null` header
+                                    // still returns a React element).
+                                    const utilityLabel =
+                                      UTILITY_HEADER_LABELS[header.column.id];
 
                                     return (
                                       <HeaderWithTooltip
                                         tooltip={headerTooltip}
                                       >
                                         {headerContent}
+                                        {utilityLabel && (
+                                          <span className="sr-only">
+                                            {utilityLabel}
+                                          </span>
+                                        )}
                                       </HeaderWithTooltip>
                                     );
                                   })()}
