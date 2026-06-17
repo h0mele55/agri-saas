@@ -164,7 +164,8 @@ export interface IssueStatusChangedData {
 // ─── Ag field workflows ────────────────────────────────────────────────
 export interface SprayJobStartedData {
     taskId: string;
-    taskKey: string;
+    /** Task key; null for legacy tasks that predate keying. */
+    taskKey: string | null;
     locationId: string;
     /** SPRAY | FERTILIZE | SEED | OTHER */
     operationType: string;

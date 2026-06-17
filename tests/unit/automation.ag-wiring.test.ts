@@ -66,7 +66,9 @@ function makeCtx(): RequestContext {
 
 function capture(event: AutomationDomainEvent['event']): AutomationDomainEvent[] {
     const out: AutomationDomainEvent[] = [];
-    getAutomationBus().subscribe(event, (e) => out.push(e));
+    getAutomationBus().subscribe(event, (e) => {
+        out.push(e);
+    });
     return out;
 }
 
