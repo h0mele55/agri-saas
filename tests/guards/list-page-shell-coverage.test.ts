@@ -86,6 +86,13 @@ const EXEMPTIONS: Record<string, string> = {
     'admin/billing/BillingEventLog.tsx':
         'sub-component (parent owns layout)',
 
+    // Multi-section admin page: a hero integrity-status card + run
+    // button on top, a reconciliation-history table below. Parent
+    // owns layout; viewport-clamping the table alone would crowd the
+    // hero card.
+    'admin/ledger-integrity/LedgerIntegrityClient.tsx':
+        'multi-section admin page (status hero + history table)',
+
     // R10-PR1 — sub-component embedded inside the RBAC page (which is
     // a multi-section dashboard: members + permission matrix). Parent
     // owns layout.

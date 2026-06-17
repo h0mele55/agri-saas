@@ -90,6 +90,8 @@ const EXEMPTIONS: Record<string, string> = {
         "API keys admin — small fixed list (typical: <20) with inline create + revoke controls.",
     "src/app/t/[tenantSlug]/(app)/admin/billing/BillingEventLog.tsx":
         "Detail-tab sub-table inside the billing page — chronological event log with fixed scope.",
+    "src/app/t/[tenantSlug]/(app)/admin/ledger-integrity/LedgerIntegrityClient.tsx":
+        "Reconciliation-history sub-table on a multi-section admin page (status hero + history) — small fixed chronological log, no faceting.",
     "src/app/t/[tenantSlug]/(app)/admin/rbac/MembersTable.tsx":
         "Members sub-table on the RBAC admin dashboard — fixed list of tenant memberships with no faceting (members admin owns the writes; RBAC is read-only matrix).",
     "src/app/t/[tenantSlug]/(app)/access-reviews/[reviewId]/AccessReviewDetailClient.tsx":

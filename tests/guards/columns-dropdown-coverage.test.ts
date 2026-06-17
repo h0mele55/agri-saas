@@ -57,6 +57,8 @@ const EXEMPTIONS: Record<string, string> = {
         '(a) sub-component — chronological audit log; parent page owns chrome.',
     'admin/billing/BillingEventLog.tsx':
         '(a) sub-component — billing-page event log; parent decides chrome.',
+    'admin/ledger-integrity/LedgerIntegrityClient.tsx':
+        '(a) sub-component — reconciliation-history table on a status+history admin page; parent owns chrome.',
     'admin/rbac/MembersTable.tsx':
         '(a) sub-component — RBAC members sub-table; parent dashboard owns chrome.',
     'access-reviews/[reviewId]/AccessReviewDetailClient.tsx':

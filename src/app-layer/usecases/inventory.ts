@@ -8,6 +8,7 @@ import { sanitizePlainText } from '@/lib/security/sanitize';
 import { InventoryRepository } from '../repositories/InventoryRepository';
 import { JournalRepository } from '../repositories/JournalRepository';
 import { ModuleSettingsRepository } from '../repositories/ModuleSettingsRepository';
+import { AuditLogRepository } from '../repositories/AuditLogRepository';
 import { resolveEnabledModules } from '@/lib/modules';
 import {
     appendStockTransaction,
@@ -491,6 +492,49 @@ export async function reconcileStockLedger(ctx: RequestContext): Promise<StockCh
             durationMs: Math.round(performance.now() - startMs),
         });
     }
+}
+
+/** A past reconciliation run, reconstructed from its audit row. */
+export interface LedgerReconciliationRun {
+    id: string;
+    /** ISO timestamp of the run. */
+    runAt: string;
+    /** null when the audit row predates the structured payload. */
+    valid: boolean | null;
+    totalEntries: number | null;
+    firstBreakAt: number | null;
+    firstBreakId: string | null;
+    /** Display name (or email) of who ran it; null for system runs. */
+    runBy: string | null;
+}
+
+/**
+ * The reconciliation timeline — every `LEDGER_RECONCILIATION_RUN` audit
+ * row, newest first, reshaped from its `detailsJson.data` into the wire
+ * DTO the admin Ledger Integrity page renders. The audit log IS the
+ * durable record of runs (no separate table), so this is a thin read
+ * over `AuditLogRepository.listByAction` (backed by `[tenantId, action]`).
+ */
+export async function listLedgerReconciliationHistory(
+    ctx: RequestContext,
+    opts: { take?: number } = {},
+): Promise<LedgerReconciliationRun[]> {
+    assertCanRead(ctx);
+    const rows = await runInTenantContext(ctx, (db) =>
+        AuditLogRepository.listByAction(db, ctx, 'LEDGER_RECONCILIATION_RUN', opts.take ?? 50),
+    );
+    return rows.map((r) => {
+        const data = (r.detailsJson as { data?: Record<string, unknown> } | null)?.data ?? {};
+        return {
+            id: r.id,
+            runAt: r.createdAt.toISOString(),
+            valid: typeof data.valid === 'boolean' ? data.valid : null,
+            totalEntries: typeof data.totalEntries === 'number' ? data.totalEntries : null,
+            firstBreakAt: typeof data.firstBreakAt === 'number' ? data.firstBreakAt : null,
+            firstBreakId: typeof data.firstBreakId === 'string' ? data.firstBreakId : null,
+            runBy: r.user?.name ?? r.user?.email ?? null,
+        };
+    });
 }
 
 // ─── Harvest → lot wiring (HARVEST_IN + genealogy) ─────────────────

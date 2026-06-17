@@ -1,0 +1,224 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { ShieldCheck, ShieldAlert, ShieldQuestion, RefreshCw } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { DataTable, createColumns } from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { InlineNotice } from '@/components/ui/inline-notice';
+import { Heading } from '@/components/ui/typography';
+import { useToast } from '@/components/ui/hooks/use-toast';
+import { useTenantApiUrl } from '@/lib/tenant-context-provider';
+import { formatDateTime } from '@/lib/format-date';
+import { cn } from '@/lib/cn';
+
+interface LedgerReconciliationRun {
+    id: string;
+    runAt: string;
+    valid: boolean | null;
+    totalEntries: number | null;
+    firstBreakAt: number | null;
+    firstBreakId: string | null;
+    runBy: string | null;
+}
+
+/**
+ * Interactive island for the Stock Ledger Integrity admin page.
+ *
+ *   • Hero card — the latest reconciliation verdict (intact / drift /
+ *     never-run), entry count, and when + who last ran it.
+ *   • "Run reconciliation" — POSTs the admin route; on success a toast
+ *     fires and `router.refresh()` re-fetches the server-rendered
+ *     history so the hero + timeline reflect the new run.
+ *   • History — every past run, newest first.
+ */
+export function LedgerIntegrityClient({ history }: { history: LedgerReconciliationRun[] }) {
+    const router = useRouter();
+    const apiUrl = useTenantApiUrl();
+    const toast = useToast();
+    const [running, setRunning] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const latest = history[0] ?? null;
+
+    const runReconciliation = useCallback(async () => {
+        setRunning(true);
+        setError(null);
+        try {
+            const res = await fetch(apiUrl('/admin/ledger-reconciliation'), { method: 'POST' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Reconciliation failed' }));
+                const msg = err.error?.message || err.error || err.message || 'Reconciliation failed';
+                setError(msg);
+                toast.error(msg);
+                return;
+            }
+            const report = (await res.json()) as { valid: boolean; totalEntries: number };
+            if (report.valid) {
+                toast.success(`Ledger verified intact across ${report.totalEntries} entries.`);
+            } else {
+                toast.error('Reconciliation found a hash-chain break — review the report below.');
+            }
+            // Re-fetch the server-rendered history so the hero + timeline update.
+            router.refresh();
+        } catch (e) {
+            const msg = (e as Error).message || 'Reconciliation failed';
+            setError(msg);
+            toast.error(msg);
+        } finally {
+            setRunning(false);
+        }
+    }, [apiUrl, router, toast]);
+
+    return (
+        <div className="space-y-section">
+            {error && <InlineNotice variant="error">{error}</InlineNotice>}
+
+            {/* ── Hero status ── */}
+            <Card className="p-6">
+                <div className="flex items-start justify-between gap-default flex-wrap">
+                    <StatusHero latest={latest} />
+                    <Button
+                        variant="primary"
+                        icon={<RefreshCw className={cn('w-4 h-4', running && 'animate-spin')} />}
+                        onClick={runReconciliation}
+                        disabled={running}
+                        id="run-reconciliation-btn"
+                    >
+                        {running ? 'Running…' : 'Run reconciliation'}
+                    </Button>
+                </div>
+            </Card>
+
+            {/* ── History ── */}
+            <div className="space-y-default">
+                <Heading level={2}>History</Heading>
+                <DataTable<LedgerReconciliationRun>
+                    data={history}
+                    getRowId={(r) => r.id}
+                    columns={createColumns<LedgerReconciliationRun>([
+                        {
+                            accessorKey: 'runAt',
+                            header: 'Run at',
+                            cell: ({ row }) => (
+                                <span className="text-sm text-content-default">
+                                    {formatDateTime(row.original.runAt)}
+                                </span>
+                            ),
+                        },
+                        {
+                            accessorKey: 'valid',
+                            header: 'Result',
+                            cell: ({ row }) => <ResultBadge valid={row.original.valid} />,
+                        },
+                        {
+                            accessorKey: 'totalEntries',
+                            header: 'Entries',
+                            cell: ({ row }) => (
+                                <span className="text-sm tabular-nums text-content-muted">
+                                    {row.original.totalEntries ?? '—'}
+                                </span>
+                            ),
+                        },
+                        {
+                            accessorKey: 'firstBreakAt',
+                            header: 'Break',
+                            cell: ({ row }) => {
+                                const { valid, firstBreakAt } = row.original;
+                                if (valid !== false) return <span className="text-content-subtle">—</span>;
+                                return (
+                                    <span className="text-sm text-content-error">
+                                        entry #{firstBreakAt ?? '?'}
+                                    </span>
+                                );
+                            },
+                        },
+                        {
+                            accessorKey: 'runBy',
+                            header: 'Run by',
+                            cell: ({ row }) => (
+                                <span className="text-sm text-content-muted">{row.original.runBy ?? 'System'}</span>
+                            ),
+                        },
+                    ])}
+                    emptyState={
+                        <div className="py-8 text-center text-sm text-content-muted">
+                            No reconciliation runs yet. Run one to verify the stock ledger.
+                        </div>
+                    }
+                />
+            </div>
+        </div>
+    );
+}
+
+/** The big verdict block on the left of the hero card. */
+function StatusHero({ latest }: { latest: LedgerReconciliationRun | null }) {
+    if (!latest) {
+        return (
+            <HeroLayout
+                icon={<ShieldQuestion className="w-8 h-8 text-content-muted" />}
+                title="Never run"
+                subtitle="Run a reconciliation to verify the append-only stock ledger's hash chain."
+            />
+        );
+    }
+    const when = `${formatDateTime(latest.runAt)}${latest.runBy ? ` by ${latest.runBy}` : ''}`;
+    if (latest.valid === false) {
+        return (
+            <HeroLayout
+                icon={<ShieldAlert className="w-8 h-8 text-content-error" />}
+                title="Drift detected"
+                titleClassName="text-content-error"
+                subtitle={`Hash-chain break at entry #${latest.firstBreakAt ?? '?'}. Do not mutate the ledger — see the runbook. Last run ${when}.`}
+            />
+        );
+    }
+    if (latest.valid === true) {
+        return (
+            <HeroLayout
+                icon={<ShieldCheck className="w-8 h-8 text-content-success" />}
+                title="Ledger verified intact"
+                titleClassName="text-content-success"
+                subtitle={`${latest.totalEntries ?? 0} entries checked. Last run ${when}.`}
+            />
+        );
+    }
+    return (
+        <HeroLayout
+            icon={<ShieldQuestion className="w-8 h-8 text-content-muted" />}
+            title="Last run recorded"
+            subtitle={`Verdict unavailable for this run. Last run ${when}.`}
+        />
+    );
+}
+
+function HeroLayout({
+    icon,
+    title,
+    subtitle,
+    titleClassName,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    subtitle: string;
+    titleClassName?: string;
+}) {
+    return (
+        <div className="flex items-start gap-default min-w-0">
+            <div className="shrink-0">{icon}</div>
+            <div className="min-w-0">
+                <div className={cn('text-lg font-semibold text-content-default', titleClassName)}>{title}</div>
+                <p className="text-sm text-content-muted mt-1">{subtitle}</p>
+            </div>
+        </div>
+    );
+}
+
+function ResultBadge({ valid }: { valid: boolean | null }) {
+    if (valid === true) return <StatusBadge variant="success" size="sm">Intact</StatusBadge>;
+    if (valid === false) return <StatusBadge variant="error" size="sm">Drift</StatusBadge>;
+    return <StatusBadge variant="neutral" size="sm">Unknown</StatusBadge>;
+}
