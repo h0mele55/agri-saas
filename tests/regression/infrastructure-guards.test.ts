@@ -74,8 +74,8 @@ describe('Infrastructure Regression Guards', () => {
             }
         });
 
-        test('exactly 22 scheduled jobs exist', () => {
-            expect(SCHEDULED_JOBS).toHaveLength(22);
+        test('exactly 23 scheduled jobs exist', () => {
+            expect(SCHEDULED_JOBS).toHaveLength(23);
         });
 
         test('scheduled job names match expected set', () => {
@@ -104,6 +104,10 @@ describe('Infrastructure Regression Guards', () => {
                 'low-stock-monitor',
                 'notification-dispatch',
                 'policy-review-reminder',
+                // Data-integrity — daily cross-tenant stock-ledger
+                // reconciliation (hash chain + lot quantityOnHand vs
+                // SUM(transactions)); logs + alerts on drift.
+                'reconcile-inventory-ledgers',
                 // RQ-10 — daily cross-tenant scheduled-report delivery.
                 'report-delivery',
                 'retention-sweep',
