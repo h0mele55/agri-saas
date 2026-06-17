@@ -23,6 +23,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Map, { Layer, Source, type MapLayerMouseEvent, type MapRef } from 'react-map-gl/maplibre';
 import type { Feature, FeatureCollection, Geometry, LineString, Polygon } from 'geojson';
+import { validatePolygonGeometry, type PolygonValidity } from '@/lib/geo/polygon-validity';
 
 export interface MapParcel {
     id: string;
@@ -51,6 +52,16 @@ export interface MapCanvasProps {
     onUpdateGeometry?: (parcelId: string, geometry: Polygon) => void;
     /** Fired when a split line is drawn across a parcel (split mode). */
     onCreateSplitLine?: (line: LineString) => void;
+    /**
+     * Optimistic client-side topology feedback. Whenever a polygon is
+     * drawn (draw mode) or reshaped (edit mode), the freshly-edited
+     * geometry is run through `validatePolygonGeometry` and the result is
+     * handed back here — letting the host page show a NON-BLOCKING hint
+     * ("shape looks invalid — it will be auto-repaired on save"). This is
+     * purely a UX preview: drawing is never blocked, and the server's
+     * PostGIS `ST_MakeValid`/`ST_IsValid` remain the authority on persist.
+     */
+    onGeometryValidity?: (validity: PolygonValidity) => void;
     /**
      * NDVI raster overlay (Agro-intel). When `showNdvi` is true AND an
      * XYZ `{z}/{x}/{y}` template `ndviTileUrl` is supplied, a raster
@@ -89,6 +100,7 @@ export function MapCanvas({
     onCreateGeometry,
     onUpdateGeometry,
     onCreateSplitLine,
+    onGeometryValidity,
     showNdvi = false,
     ndviTileUrl,
     vectorTileUrl,
@@ -188,7 +200,11 @@ export function MapCanvas({
                     if (context.action !== 'draw') return;
                     const f = draw.getSnapshotFeature(id);
                     if (f && f.geometry.type === 'Polygon') {
-                        onCreateGeometry?.(f.geometry as Polygon);
+                        const geometry = f.geometry as Polygon;
+                        // Optimistic preview: flag obvious topology problems
+                        // for a non-blocking host hint. Never gates the draw.
+                        onGeometryValidity?.(validatePolygonGeometry(geometry));
+                        onCreateGeometry?.(geometry);
                         draw.clear();
                     }
                 });
@@ -231,7 +247,10 @@ export function MapCanvas({
                             const f = draw.getSnapshotFeature(id);
                             const parcelId = f?.properties?.parcelId as string | undefined;
                             if (parcelId && f?.geometry?.type === 'Polygon') {
-                                onUpdateGeometry?.(parcelId, f.geometry as Polygon);
+                                const geometry = f.geometry as Polygon;
+                                // Optimistic preview on reshape (see draw mode).
+                                onGeometryValidity?.(validatePolygonGeometry(geometry));
+                                onUpdateGeometry?.(parcelId, geometry);
                             }
                         }
                     }, 700);

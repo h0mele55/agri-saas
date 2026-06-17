@@ -3,7 +3,9 @@ import { PrismaTx } from '@/lib/db-context';
 import { RequestContext } from '../types';
 import {
     geometrySql,
+    repairedGeometrySql,
     areaHectaresSql,
+    areaHectaresNonNullSql,
     asGeoJsonSql,
     simplifiedGeoJsonSql,
     mvtTileSql,
@@ -68,8 +70,8 @@ export class ParcelRepository {
             // expression so it lands in one statement.
             await db.$executeRaw(
                 Prisma.sql`UPDATE "Parcel"
-                    SET "geometry" = ${geometrySql(p.geometry)},
-                        "areaHa" = ${areaHectaresSql(geometrySql(p.geometry))}
+                    SET "geometry" = ${repairedGeometrySql(p.geometry)},
+                        "areaHa" = ${areaHectaresNonNullSql(repairedGeometrySql(p.geometry))}
                     WHERE "id" = ${row.id} AND "tenantId" = ${ctx.tenantId}`,
             );
         }
@@ -173,8 +175,8 @@ export class ParcelRepository {
         });
         await db.$executeRaw(
             Prisma.sql`UPDATE "Parcel"
-                SET "geometry" = ${geometrySql(input.geometry)},
-                    "areaHa" = ${areaHectaresSql(geometrySql(input.geometry))}
+                SET "geometry" = ${repairedGeometrySql(input.geometry)},
+                    "areaHa" = ${areaHectaresNonNullSql(repairedGeometrySql(input.geometry))}
                 WHERE "id" = ${row.id} AND "tenantId" = ${ctx.tenantId}`,
         );
         return { id: row.id, areaHa: await ParcelRepository.areaHaFor(db, ctx, row.id) };
@@ -200,8 +202,8 @@ export class ParcelRepository {
         if (input.geometry) {
             await db.$executeRaw(
                 Prisma.sql`UPDATE "Parcel"
-                    SET "geometry" = ${geometrySql(input.geometry)},
-                        "areaHa" = ${areaHectaresSql(geometrySql(input.geometry))}
+                    SET "geometry" = ${repairedGeometrySql(input.geometry)},
+                        "areaHa" = ${areaHectaresNonNullSql(repairedGeometrySql(input.geometry))}
                     WHERE "id" = ${parcelId} AND "tenantId" = ${ctx.tenantId}`,
             );
         }

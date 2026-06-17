@@ -516,6 +516,14 @@ executorRegistry.register('low-stock-monitor', async (payload) => {
     return result;
 });
 
+// ── reconcile-inventory-ledgers (data-integrity) ─────────────────────
+
+executorRegistry.register('reconcile-inventory-ledgers', async (payload) => {
+    const { runReconcileInventoryLedgers } = await import('./reconcile-inventory-ledgers');
+    const { result } = await runReconcileInventoryLedgers({ tenantId: payload.tenantId });
+    return result;
+});
+
 // ── weather-pull (Agro-intel) ────────────────────────────────────────
 
 executorRegistry.register('weather-pull', async (payload) => {

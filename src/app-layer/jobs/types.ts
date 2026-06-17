@@ -514,6 +514,11 @@ export interface LowStockMonitorPayload {
     tenantId?: string;
 }
 
+/** Data-integrity — daily cross-tenant stock-ledger reconciliation (chain + balances). */
+export interface ReconcileInventoryLedgersPayload {
+    tenantId?: string;
+}
+
 /**
  * Agro-intel — daily cross-tenant weather pull (Open-Meteo) + agro-signal
  * evaluation. Scoped to one tenant when `tenantId` is set, else every
@@ -593,6 +598,7 @@ export interface JobPayloadMap {
     'risk-snapshot': RiskSnapshotPayload;
     'report-delivery': ReportDeliveryPayload;
     'low-stock-monitor': LowStockMonitorPayload;
+    'reconcile-inventory-ledgers': ReconcileInventoryLedgersPayload;
     'weather-pull': WeatherPullPayload;
     'spatial-import': SpatialImportJobPayload;
 }
@@ -729,6 +735,14 @@ export const JOB_DEFAULTS: Record<JobName, {
         removeOnFail: 200,
     },
     'low-stock-monitor': {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+    },
+    'reconcile-inventory-ledgers': {
+        // Read-only integrity sweep; one retry on a transient DB blip.
+        // Fully idempotent (re-running re-verifies, never mutates).
         attempts: 2,
         backoff: { type: 'exponential', delay: 10000 },
         removeOnComplete: 100,

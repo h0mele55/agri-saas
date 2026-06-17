@@ -10,6 +10,7 @@ import { JournalRepository } from '../repositories/JournalRepository';
 import { ModuleSettingsRepository } from '../repositories/ModuleSettingsRepository';
 import { AuditLogRepository } from '../repositories/AuditLogRepository';
 import { resolveEnabledModules } from '@/lib/modules';
+import { applyRate, convert, canConvert, isRateUnit } from '@/lib/units/unit-conversion';
 import {
     appendStockTransaction,
     appendLotLink,
@@ -308,7 +309,7 @@ export interface InputApplicationResult {
     consumed: number;
     deductedFromLotId: string | null;
     /** Why no deduction happened, when applicable. */
-    note?: 'inventory_disabled' | 'no_lot_available' | 'zero_quantity';
+    note?: 'inventory_disabled' | 'no_lot_available' | 'zero_quantity' | 'already_applied';
 }
 
 /**
@@ -341,6 +342,26 @@ async function recordInputApplicationImpl(
         return { journalEntryId: null, consumed: 0, deductedFromLotId: null, note: 'inventory_disabled' };
     }
 
+    // Idempotency guard (layer 1): a spray line is applied at most once.
+    // If an INPUT_APPLICATION journal entry already exists for this
+    // operationParcelId, this is a retry / double-click — return the
+    // existing entry without minting a duplicate record or a second
+    // CONSUMPTION. The race-safe DB backstop is the `spray:<id>` dedup key
+    // on the CONSUMPTION append below (layer 2), serialised by the stock
+    // advisory lock.
+    const existingApplication = await db.logEntry.findFirst({
+        where: { tenantId: ctx.tenantId, operationParcelId: line.id, type: 'INPUT_APPLICATION' },
+        select: { id: true },
+    });
+    if (existingApplication) {
+        return {
+            journalEntryId: existingApplication.id,
+            consumed: 0,
+            deductedFromLotId: null,
+            note: 'already_applied',
+        };
+    }
+
     const [parcel, product] = await Promise.all([
         db.parcel.findFirst({
             where: { id: line.parcelId, tenantId: ctx.tenantId },
@@ -357,17 +378,35 @@ async function recordInputApplicationImpl(
 
     const units = await db.unit.findMany({
         where: { id: { in: [line.doseUnitId, product.defaultUnitId] } },
-        select: { id: true, measure: true, symbol: true },
+        select: { id: true, measure: true, symbol: true, key: true },
     });
     const doseUnit = units.find((u) => u.id === line.doseUnitId);
     const productUnit = units.find((u) => u.id === product.defaultUnitId);
 
-    // RATE dose (e.g. L/ha) is multiplied by parcel area; a flat dose is
-    // taken as-is. Phase-1 simplification: no cross-unit conversion — the
-    // product's default unit is assumed to match the rate's numerator.
+    // Dimensionally-correct consumption via the typed unit layer:
+    //   - a RATE dose (L/ha) applied over the parcel area yields the rate's
+    //     NUMERATOR unit, then converts into the product's stock unit
+    //     (L/ha × ha = L; deducting into an mL lot scales ×1000), and
+    //   - a flat dose converts dose-unit → product-unit when both are known.
+    // Falls back to the legacy "assume the units match" multiply when a unit
+    // isn't in the conversion catalog or the dimensions can't reconcile
+    // (e.g. a volume rate into a weight lot — no density), so unregistered
+    // units keep working exactly as before. The guards (`isRateUnit` /
+    // `canConvert`) ensure the conversion helpers never throw here.
     const areaHa = parcel.areaHa !== null ? toNum(parcel.areaHa) : 0;
     const dose = toNum(line.doseValue);
-    const consumedRaw = doseUnit?.measure === 'RATE' ? dose * areaHa : dose;
+    let consumedRaw: number;
+    if (doseUnit?.measure === 'RATE' && doseUnit.key && isRateUnit(doseUnit.key)) {
+        const applied = applyRate(dose, doseUnit.key, areaHa, 'ha');
+        consumedRaw =
+            productUnit?.key && canConvert(applied.unitKey, productUnit.key)
+                ? convert(applied.value, applied.unitKey, productUnit.key)
+                : applied.value;
+    } else if (doseUnit?.key && productUnit?.key && canConvert(doseUnit.key, productUnit.key)) {
+        consumedRaw = convert(dose, doseUnit.key, productUnit.key);
+    } else {
+        consumedRaw = doseUnit?.measure === 'RATE' ? dose * areaHa : dose;
+    }
     const consumed = Math.round(consumedRaw * 1e4) / 1e4;
 
     // 1 — journal record (the compliant spray record).
@@ -405,6 +444,10 @@ async function recordInputApplicationImpl(
                 unitId: lot.unitId,
                 logEntryId: journalEntryId,
                 actorUserId: ctx.userId ?? null,
+                // Idempotency layer 2 (race-safe DB backstop): keyed on the
+                // STABLE operationParcelId, never the per-call logEntryId, so
+                // a concurrent retry can't double-deduct the lot.
+                idempotencyKey: `spray:${line.id}`,
             });
             deductedFromLotId = lot.id;
         } else {
