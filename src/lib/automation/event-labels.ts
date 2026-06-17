@@ -24,7 +24,7 @@ export interface EventLabel {
     label: string;
     description: string;
     /** Domain group for the trigger picker. */
-    domain: 'Risk' | 'Control testing' | 'Control' | 'Policy' | 'Vendor' | 'Evidence' | 'Schedule' | 'Onboarding' | 'Task' | 'Issue';
+    domain: 'Risk' | 'Control testing' | 'Control' | 'Policy' | 'Vendor' | 'Evidence' | 'Schedule' | 'Onboarding' | 'Task' | 'Issue' | 'Field operations';
     /** Payload fields a condition can filter on. */
     filterFields: ReadonlyArray<FilterFieldDef>;
 }
@@ -265,6 +265,54 @@ export const EVENT_LABELS: Record<AutomationEventName, EventLabel> = {
         description: 'An issue moves between states.',
         domain: 'Issue',
         filterFields: [{ field: 'toStatus', label: 'New status', type: 'string' }],
+    },
+    [AUTOMATION_EVENTS.SPRAY_JOB_STARTED]: {
+        name: AUTOMATION_EVENTS.SPRAY_JOB_STARTED,
+        label: 'Spray job started',
+        description: 'A field operation (spray / fertilise / seed) is created over one or more parcels.',
+        domain: 'Field operations',
+        filterFields: [
+            {
+                field: 'operationType',
+                label: 'Operation type',
+                type: 'enum',
+                options: [
+                    { value: 'SPRAY', label: 'Spray' },
+                    { value: 'FERTILIZE', label: 'Fertilise' },
+                    { value: 'SEED', label: 'Seed' },
+                    { value: 'OTHER', label: 'Other' },
+                ],
+            },
+            { field: 'parcelCount', label: 'Parcel count', type: 'number' },
+        ],
+    },
+    [AUTOMATION_EVENTS.OPERATION_PARCEL_MARKED]: {
+        name: AUTOMATION_EVENTS.OPERATION_PARCEL_MARKED,
+        label: 'Parcel marked',
+        description: 'An operator marks a prescription parcel done, skipped, or back to pending.',
+        domain: 'Field operations',
+        filterFields: [
+            {
+                field: 'status',
+                label: 'Parcel status',
+                type: 'enum',
+                options: [
+                    { value: 'PENDING', label: 'Pending' },
+                    { value: 'DONE', label: 'Done' },
+                    { value: 'SKIPPED', label: 'Skipped' },
+                ],
+            },
+        ],
+    },
+    [AUTOMATION_EVENTS.HARVEST_YIELD_RECORDED]: {
+        name: AUTOMATION_EVENTS.HARVEST_YIELD_RECORDED,
+        label: 'Harvest yield recorded',
+        description: 'A harvest production total is recorded against a planting, field, or season.',
+        domain: 'Field operations',
+        filterFields: [
+            { field: 'commodity', label: 'Commodity', type: 'string' },
+            { field: 'grossTonnes', label: 'Gross tonnes', type: 'number' },
+        ],
     },
 };
 

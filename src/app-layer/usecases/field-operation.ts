@@ -11,6 +11,7 @@ import { recordInputApplication, type InputApplicationResult } from './inventory
 import { attachAutoEvidenceFromLogEntry } from './auto-evidence';
 import { traceAgUsecase } from '@/lib/observability';
 import { trace } from '@opentelemetry/api';
+import { emitAutomationEvent } from '../automation';
 
 type OperationType = 'SPRAY' | 'FERTILIZE' | 'SEED' | 'OTHER';
 type ParcelStatus = 'PENDING' | 'DONE' | 'SKIPPED';
@@ -121,6 +122,26 @@ export async function createFieldOperation(
         });
 
         return input.parcelIds.length;
+    });
+
+    // Field-workflow automation trigger (Epic 60 bus) — fires AFTER the
+    // tx commits so a rule never acts on a rolled-back job. Mirrors the
+    // SPRAY_JOB_STARTED audit action one-to-one.
+    await emitAutomationEvent(ctx, {
+        event: 'SPRAY_JOB_STARTED',
+        entityType: 'Task',
+        entityId: task.id,
+        actorUserId: ctx.userId,
+        stableKey: task.id,
+        data: {
+            taskId: task.id,
+            taskKey: task.key,
+            locationId,
+            operationType: opType,
+            parcelCount,
+            productItemId: input.productItemId,
+            assigneeUserId: input.assigneeUserId,
+        },
     });
 
     return { taskId: task.id, taskKey: task.key, locationId, parcelCount };
@@ -296,6 +317,25 @@ async function markOperationParcelImpl(
         }
 
         trace.getActiveSpan()?.setAttribute('ag.jobResolved', resolved);
+
+        // Field-workflow automation trigger (Epic 60 bus) — emitted at the
+        // tail of the tenant tx, once `resolved` is known. Mirrors the
+        // OPERATION_PARCEL_MARKED audit action.
+        await emitAutomationEvent(ctx, {
+            event: 'OPERATION_PARCEL_MARKED',
+            entityType: 'OperationParcel',
+            entityId: lineId,
+            actorUserId: ctx.userId,
+            stableKey: `${lineId}:${status}`,
+            data: {
+                taskId,
+                operationParcelId: lineId,
+                parcelId: line.parcelId,
+                status,
+                jobResolved: resolved,
+            },
+        });
+
         return { success: true, resolved, application };
     });
 }

@@ -161,6 +161,36 @@ export interface IssueStatusChangedData {
     toStatus: string;
 }
 
+// ─── Ag field workflows ────────────────────────────────────────────────
+export interface SprayJobStartedData {
+    taskId: string;
+    /** Task key; null for legacy tasks that predate keying. */
+    taskKey: string | null;
+    locationId: string;
+    /** SPRAY | FERTILIZE | SEED | OTHER */
+    operationType: string;
+    parcelCount: number;
+    productItemId: string;
+    assigneeUserId: string;
+}
+export interface OperationParcelMarkedData {
+    taskId: string;
+    operationParcelId: string;
+    parcelId: string;
+    /** PENDING | DONE | SKIPPED */
+    status: string;
+    /** True when this mark resolved the whole job (no PENDING parcels left). */
+    jobResolved: boolean;
+}
+export interface HarvestYieldRecordedData {
+    yieldRecordId: string;
+    commodity: string | null;
+    grossTonnes: number | null;
+    areaHa: number | null;
+    plantingId: string | null;
+    seasonId: string | null;
+}
+
 // ─── Discriminated union ───────────────────────────────────────────────
 //
 // The whole point: `event` is the tag; `data` narrows off it. Any
@@ -194,7 +224,10 @@ export type AutomationDomainEvent =
     | (AutomationEventMetadata & { event: 'TASK_CREATED'; data: TaskCreatedData })
     | (AutomationEventMetadata & { event: 'TASK_STATUS_CHANGED'; data: TaskStatusChangedData })
     | (AutomationEventMetadata & { event: 'ISSUE_CREATED'; data: IssueCreatedData })
-    | (AutomationEventMetadata & { event: 'ISSUE_STATUS_CHANGED'; data: IssueStatusChangedData });
+    | (AutomationEventMetadata & { event: 'ISSUE_STATUS_CHANGED'; data: IssueStatusChangedData })
+    | (AutomationEventMetadata & { event: 'SPRAY_JOB_STARTED'; data: SprayJobStartedData })
+    | (AutomationEventMetadata & { event: 'OPERATION_PARCEL_MARKED'; data: OperationParcelMarkedData })
+    | (AutomationEventMetadata & { event: 'HARVEST_YIELD_RECORDED'; data: HarvestYieldRecordedData });
 
 // Compile-time assertion: union membership equals the string catalogue.
 // If a new catalogue entry is added without a contract, this line
