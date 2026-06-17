@@ -38,10 +38,13 @@ describe('parcel areaHa is server-derived', () => {
         expect(/\bareaHa\b/.test(src)).toBe(false);
     });
 
-    it('ParcelRepository derives areaHa from geometry via areaHectaresSql', () => {
+    it('ParcelRepository derives areaHa from geometry via areaHectares(NonNull)Sql', () => {
         const src = read(PARCEL_REPO);
-        // Used in BOTH the create and the update write paths.
-        const count = (src.match(/areaHectaresSql\s*\(/g) ?? []).length;
+        // Used in BOTH the create and the update write paths. The
+        // data-integrity hardening swapped these to `areaHectaresNonNullSql`
+        // (COALESCE→0 so a geometried parcel can never carry a NULL areaHa);
+        // either server-derivation helper satisfies the invariant.
+        const count = (src.match(/areaHectares(?:NonNull)?Sql\s*\(/g) ?? []).length;
         expect(count).toBeGreaterThanOrEqual(2);
     });
 });

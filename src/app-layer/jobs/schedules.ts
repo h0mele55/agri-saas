@@ -104,6 +104,12 @@ export const SCHEDULED_JOBS: ScheduleDefinition[] = [
         defaultPayload: {},
     },
     {
+        name: 'reconcile-inventory-ledgers',
+        pattern: '0 4 * * *',     // daily at 04:00 UTC
+        description: 'Reconcile every tenant\'s stock ledger: hash-chain integrity + lot quantityOnHand vs SUM(transactions); log + alert on drift',
+        defaultPayload: {},
+    },
+    {
         name: 'weather-pull',
         pattern: '0 6 * * *',     // daily at 06:00 UTC
         description: 'Pull daily weather (Open-Meteo) for every farm location, then evaluate spray-window + disease-risk agro-signals',

@@ -25,12 +25,60 @@ export function geometrySql(geometry: Polygon | MultiPolygon): Prisma.Sql {
 }
 
 /**
+ * Like `geometrySql`, but REPAIRS the geometry before it lands:
+ * `ST_MakeValid` resolves self-intersections / ring problems, then
+ * `ST_CollectionExtract(..., 3)` keeps only the POLYGON components (a
+ * bowtie repair can yield a GEOMETRYCOLLECTION), and `ST_Multi` normalises
+ * back to the column's MultiPolygon type. The server's last line of
+ * defence: even if a not-quite-valid geometry slips past the usecase
+ * `ST_IsValid` gate, the persisted value is topologically valid, so
+ * `ST_Area` (and therefore `areaHa`) is always meaningful — never a
+ * garbage value from a self-intersecting polygon. Idempotent on an
+ * already-valid geometry. Lives here so `ST_*` stays contained in geo.ts.
+ */
+export function repairedGeometrySql(geometry: Polygon | MultiPolygon): Prisma.Sql {
+    const json = JSON.stringify(geometry);
+    return Prisma.sql`ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(${json}), 4326)), 3))`;
+}
+
+/**
  * SQL fragment computing the area of a geometry column in hectares,
  * using the geography cast for an accurate on-the-ellipsoid area
  * (m²) divided by 10,000. Returns NULL-safe NUMERIC.
  */
 export function areaHectaresSql(column: Prisma.Sql): Prisma.Sql {
     return Prisma.sql`ROUND((ST_Area(${column}::geography) / 10000.0)::numeric, 4)`;
+}
+
+/**
+ * Like `areaHectaresSql`, but `COALESCE`d to 0 so a parcel that HAS a
+ * geometry can never carry a NULL `areaHa` (a degenerate `ST_MakeValid`
+ * result — e.g. a drawn line collapsing to an empty polygon — yields
+ * area 0, not NULL). Use on every parcel write so `areaHa` is a hard
+ * invariant: geometry present ⇒ areaHa present.
+ */
+export function areaHectaresNonNullSql(column: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`COALESCE(ROUND((ST_Area(${column}::geography) / 10000.0)::numeric, 4), 0)`;
+}
+
+/**
+ * Repair an EXISTING geometry COLUMN in place (the backfill / repair
+ * path): `ST_MakeValid` → keep polygons → `ST_Multi`. The column-input
+ * twin of `repairedGeometrySql` (which takes GeoJSON). Idempotent on an
+ * already-valid geometry. Lives here so `ST_*` stays contained in geo.ts.
+ */
+export function repairedGeometryColumnSql(column: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`ST_Multi(ST_CollectionExtract(ST_MakeValid(${column}), 3))`;
+}
+
+/**
+ * SQL boolean: is an existing geometry COLUMN topologically valid? The
+ * column-input twin of `isValidGeometrySql`. Used by the backfill to
+ * flag (and then repair) stored parcels. Lives here so `ST_*` stays
+ * contained in geo.ts.
+ */
+export function isValidGeometryColumnSql(column: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`ST_IsValid(${column})`;
 }
 
 /** SQL fragment serializing a geometry column back to GeoJSON text. */

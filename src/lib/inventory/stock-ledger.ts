@@ -53,6 +53,15 @@ export interface StockAppendInput {
     costAmount?: number | null;
     costCurrency?: string | null;
     actorUserId?: string | null;
+    /**
+     * Optional dedup key. When set, a second append with the SAME
+     * `(tenantId, idempotencyKey)` is a no-op that returns the original
+     * row (no second movement, no double-deduct) — backed by a partial
+     * unique index, and race-free because the whole append runs under the
+     * per-tenant advisory lock. Use a STABLE source key (e.g.
+     * `spray:<operationParcelId>`), never the per-call `logEntryId`.
+     */
+    idempotencyKey?: string | null;
 }
 
 export interface StockAppendResult {
@@ -60,6 +69,8 @@ export interface StockAppendResult {
     entryHash: string;
     previousHash: string | null;
     quantityOnHand: string;
+    /** True when the append was deduplicated against an existing row. */
+    deduplicated?: boolean;
 }
 
 /**
@@ -77,6 +88,34 @@ export async function appendStockTransaction(
         'SELECT pg_advisory_xact_lock(hashtext($1))',
         `stock:${ctx.tenantId}`,
     );
+
+    // 1b — idempotency: a retried emit carrying the same dedup key is a
+    //      no-op. The check-then-insert is race-free because we already
+    //      hold the per-tenant advisory lock; the partial unique index is
+    //      the DB backstop. Return the ORIGINAL row + the lot's current
+    //      on-hand so the caller sees an identical result on retry.
+    if (input.idempotencyKey) {
+        const existing = await db.stockTransaction.findFirst({
+            where: { tenantId: ctx.tenantId, idempotencyKey: input.idempotencyKey },
+            select: { id: true, entryHash: true, previousHash: true, lotId: true },
+        });
+        if (existing) {
+            const lot = await db.inventoryLot.findFirst({
+                where: { id: existing.lotId, tenantId: ctx.tenantId },
+                select: { quantityOnHand: true },
+            });
+            return {
+                id: existing.id,
+                entryHash: existing.entryHash,
+                previousHash: existing.previousHash,
+                quantityOnHand: decimalToCanonical(
+                    (lot?.quantityOnHand ?? 0) as unknown as { toFixed(n: number): string },
+                    QUANTITY_SCALE,
+                )!,
+                deduplicated: true,
+            };
+        }
+    }
 
     // 2 — the tail of the chain (deterministic total order).
     const last = await db.stockTransaction.findFirst({
@@ -122,6 +161,7 @@ export async function appendStockTransaction(
             actorUserId: input.actorUserId ?? ctx.userId ?? null,
             previousHash,
             entryHash,
+            idempotencyKey: input.idempotencyKey ?? null,
         },
         select: { id: true, entryHash: true, previousHash: true },
     });
@@ -271,4 +311,62 @@ export async function verifyStockChain(
     }
 
     return { tenantId, totalEntries: rows.length, valid, firstBreakAt, firstBreakId };
+}
+
+export interface LotBalanceDrift {
+    lotId: string;
+    lotCode: string;
+    /** The denormalised `InventoryLot.quantityOnHand` cache (canonical 4dp). */
+    cached: string;
+    /** `SUM(StockTransaction.quantityDelta)` for the lot (canonical 4dp). */
+    computed: string;
+}
+
+export interface LotBalanceVerification {
+    tenantId: string;
+    lotsChecked: number;
+    balanced: boolean;
+    /** Lots whose cache disagrees with the ledger sum (empty when balanced). */
+    drift: LotBalanceDrift[];
+}
+
+/**
+ * Reconcile every lot's denormalised `quantityOnHand` cache against the
+ * AUTHORITATIVE ledger sum (`SUM(quantityDelta)`). The cache is refreshed
+ * on every append, but a bug, a partial write, or an out-of-band edit
+ * could drift it — this is the financial-integrity check the daily
+ * reconciliation job runs alongside the hash-chain verification.
+ * Canonical 4dp string comparison avoids Decimal/float equality noise.
+ */
+export async function verifyLotBalances(
+    db: PrismaTx,
+    tenantId: string,
+): Promise<LotBalanceVerification> {
+    const lots = await db.inventoryLot.findMany({
+        where: { tenantId },
+        select: { id: true, lotCode: true, quantityOnHand: true },
+        // guardrail-allow: unbounded — reconciliation must read every lot.
+    });
+    const sums = await db.stockTransaction.groupBy({
+        by: ['lotId'],
+        where: { tenantId },
+        _sum: { quantityDelta: true },
+    });
+    const sumByLot = new Map<string, unknown>(sums.map((s) => [s.lotId, s._sum.quantityDelta ?? 0]));
+
+    const drift: LotBalanceDrift[] = [];
+    for (const lot of lots) {
+        const cached = decimalToCanonical(
+            lot.quantityOnHand as unknown as { toFixed(n: number): string },
+            QUANTITY_SCALE,
+        )!;
+        const computed = decimalToCanonical(
+            (sumByLot.get(lot.id) ?? 0) as { toFixed(n: number): string },
+            QUANTITY_SCALE,
+        )!;
+        if (cached !== computed) {
+            drift.push({ lotId: lot.id, lotCode: lot.lotCode, cached, computed });
+        }
+    }
+    return { tenantId, lotsChecked: lots.length, balanced: drift.length === 0, drift };
 }

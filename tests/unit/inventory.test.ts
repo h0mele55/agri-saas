@@ -14,6 +14,10 @@ const mockDb = {
     parcel: { findFirst: jest.fn() },
     item: { findFirst: jest.fn() },
     unit: { findMany: jest.fn() },
+    // recordInputApplication's idempotency guard checks for an existing
+    // INPUT_APPLICATION journal entry; default to "none" so the happy
+    // paths proceed (a dedicated test overrides this for the retry case).
+    logEntry: { findFirst: jest.fn().mockResolvedValue(null) },
 } as any;
 
 jest.mock('@/lib/db-context', () => ({

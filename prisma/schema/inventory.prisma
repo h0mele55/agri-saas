@@ -118,6 +118,12 @@ model StockTransaction {
   /// AuditLog. previousHash is null for the tenant's first entry.
   previousHash  String?
   entryHash     String
+  /// Optional caller-supplied dedup key (e.g. `spray:<operationParcelId>`)
+  /// so a retried emit can't double-post the same movement. Enforced by a
+  /// PARTIAL unique index `(tenantId, idempotencyKey) WHERE idempotencyKey
+  /// IS NOT NULL` (raw SQL in the migration — Prisma can't express the
+  /// WHERE). NULL for ad-hoc movements (receipts, manual adjustments).
+  idempotencyKey String?
 
   tenant   Tenant       @relation(fields: [tenantId], references: [id])
   lot      InventoryLot @relation(fields: [lotId, tenantId], references: [id, tenantId])
