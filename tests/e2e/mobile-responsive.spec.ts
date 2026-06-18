@@ -17,11 +17,12 @@
  *   3. Key controls remain visible + large enough to tap (the Map-mode
  *      segmented control is bumped to ≥44px touch targets).
  *
- * This spec is tagged `@mobile` and runs ONLY under the `mobile-android`
- * (Pixel 5, 393px) Playwright project — it sits under 768px so the
- * stacking + overflow assertions are meaningful. The desktop `chromium`
- * project skips it via `grepInvert: /@mobile/`. (A WebKit `mobile-ios`
- * project was tried and dropped — see the note in `playwright.config.ts`.)
+ * This spec is tagged `@mobile` and runs under the mobile device matrix —
+ * `mobile-android` (Pixel 5, 393px) + `mobile-iphone` (iPhone 13 viewport,
+ * 390px) — both below 768px so the stacking + overflow assertions are
+ * meaningful, and both on the Chromium engine (see the engine note in
+ * `playwright.config.ts`). The desktop `chromium` project skips it via
+ * `grepInvert: /@mobile/`.
  *
  * No mutation, no `data-testid` additions — scoped to existing `id`s,
  * roles, and seeded copy, with locators bound to `getByRole('main')`
