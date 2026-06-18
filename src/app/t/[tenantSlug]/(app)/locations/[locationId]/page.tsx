@@ -365,9 +365,13 @@ export default function LocationDetailPage() {
                             // for a future read-only farm view.
                             vectorTileUrl={buildUrl(`/locations/${locationId}/tiles/{z}/{x}/{y}.pbf`)}
                         />
-                        {/* Desktop keeps the inline side panel; on phones the
-                            parcel bottom-sheet (below) replaces it. */}
-                        {!isMobile && (mapMode === 'select' ? (
+                        {/* Only the SELECT-mode spray panel is desktop-only —
+                            on phones the parcel bottom-sheet replaces it. The
+                            draw/edit/split contextual panels (instructions +
+                            errors) still render on mobile so authoring has
+                            feedback there too. */}
+                        {mapMode === 'select' ? (
+                            !isMobile && (
                             <div className="rounded-lg border border-border-subtle p-4">
                                 <Heading level={3} className="mb-3">New spray job</Heading>
                                 <PrescriptionPanel
@@ -382,6 +386,7 @@ export default function LocationDetailPage() {
                                     </p>
                                 )}
                             </div>
+                            )
                         ) : mapMode === 'split' ? (
                             <div className="space-y-default rounded-lg border border-border-subtle p-4">
                                 <Heading level={3}>Split parcel</Heading>
@@ -405,7 +410,7 @@ export default function LocationDetailPage() {
                                     ? 'Draw a polygon on the map. You’ll name it before it’s saved.'
                                     : 'Reshape parcels by dragging their vertices. Switch to Select to plan a spray job.'}
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
             )}

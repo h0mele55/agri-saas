@@ -69,6 +69,11 @@ export function ParcelDetailSheet({ open, onOpenChange, parcel, onStartOperation
             open={open}
             onOpenChange={onOpenChange}
             direction="bottom"
+            // Non-modal: the sheet sits over the map while the map-mode
+            // toolbar (Select/Draw/Edit/Split + Merge) above it stays
+            // reachable — tapping a parcel to inspect it must not lock the
+            // operator out of switching modes or merging.
+            modal={false}
             title={parcel?.name ?? 'Parcel'}
             description="Parcel detail and apply-rate calculator"
         >
