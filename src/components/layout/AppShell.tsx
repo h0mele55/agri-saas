@@ -10,6 +10,7 @@ import { useLocalStorage } from '@/components/ui/hooks';
 import { cn } from '@/lib/cn';
 import { BreadcrumbsProvider } from './breadcrumbs-store';
 import { TopChrome } from './TopChrome';
+import { BottomTabBar } from './BottomTabBar';
 
 // ─── Types ───
 
@@ -238,9 +239,25 @@ export function AppShell({
                     measure. */}
                 <div className="p-4 md:p-6 max-w-7xl 2xl:max-w-screen-2xl 3xl:max-w-none mx-auto md:flex md:flex-col md:flex-1 md:min-h-0 md:overflow-y-auto md:w-full">
                     {children}
+                    {/* Spacer so page content can scroll clear of the fixed
+                        mobile bottom-tab bar (≈56px) + the device safe area.
+                        Tenant variant + <md only; a no-op everywhere else. */}
+                    {variant === 'tenant' && (
+                        <div
+                            aria-hidden="true"
+                            data-testid="bottom-tab-spacer"
+                            className="md:hidden h-[calc(3.5rem+env(safe-area-inset-bottom))]"
+                        />
+                    )}
                 </div>
                 </BreadcrumbsProvider>
             </main>
+
+            {/* One-thumb mobile navigation — a fixed bottom-tab bar for the
+                five most-used field surfaces (md:hidden). The hamburger
+                MobileDrawer above keeps the long tail. Tenant variant only:
+                the bar resolves its tabs from the tenant nav. */}
+            {variant === 'tenant' && <BottomTabBar />}
         </div>
     );
 }

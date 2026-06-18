@@ -47,32 +47,40 @@ export default defineConfig({
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
-            // The `@mobile` responsive spec asserts phone-viewport layout;
-            // it would be meaningless at the desktop 1280px viewport, so the
-            // desktop project skips it (the mobile project below owns it).
+            // The `@mobile` specs assert phone-viewport layout + the mobile
+            // bottom-tab nav; they'd be meaningless at the desktop 1280px
+            // viewport, so the desktop project skips them (the mobile
+            // projects below own them).
             grepInvert: /@mobile/,
         },
-        // Mobile viewport — the WCAG/responsive pass
-        // (`mobile-responsive.spec.ts`) is tagged `@mobile` and runs here.
-        // `Pixel 5` (Android Chrome, 393px) sits under the `md:` (768px)
-        // stacking threshold so the location detail map + parcel list verify
-        // their single-column mobile layout. Desktop specs aren't re-run here
-        // — `grep: /@mobile/` scopes the project to the responsive spec only,
-        // so the serial suite doesn't balloon.
+        // ── Mobile device matrix ──────────────────────────────────────
+        // Runs every `@mobile`-tagged spec — the responsive pass
+        // (`mobile-responsive.spec.ts`) AND the bottom-tab nav smoke
+        // (`tests/e2e/mobile/**`). Both phones sit under the `md:` (768px)
+        // breakpoint so the single-column stacking + the `md:hidden`
+        // bottom-tab bar are exercised. `grep: /@mobile/` keeps desktop
+        // specs from re-running here, so the serial suite doesn't balloon.
         //
-        // An `iPhone 13` (Mobile Safari → WebKit) project was tried and
-        // dropped: the Linux WebKit build in CI never hydrates the
+        // Both run on the CHROMIUM engine. `Pixel 5` is Chromium-native.
+        // `iPhone 13` uses the REAL iPhone viewport / touch / deviceScale /
+        // UA from the device descriptor but overrides the engine to
+        // chromium: the Linux WebKit build in CI can't hydrate the
         // client-rendered `/login` page (its credentials form is gated on a
-        // post-hydration effect), so `loginAndGetTenant` times out before any
-        // responsive assertion runs. The layout under test is pure CSS grid /
-        // flex stacking at the `md:` breakpoint — engine-agnostic and fully
-        // exercised at the Pixel 5 viewport. Real iOS Safari over HTTPS is
-        // unaffected; this is a CI-harness limitation, not a product bug. To
-        // restore WebKit coverage later: fix `/login` hydration under the
-        // Linux WebKit build, re-add the project, and install `webkit` in CI.
+        // post-hydration effect resolving the provider list), so NO e2e can
+        // authenticate under WebKit. Running the iPhone-13 *profile* on
+        // Chromium verifies one-thumb nav at exact iPhone metrics while
+        // keeping CI green; `isMobile` / `hasTouch` are Chromium-supported.
+        // Real-Safari coverage is deferred to the `/login`-hydration fix
+        // (mobile-hardening), at which point this override + a `webkit`
+        // install in CI restore it.
         {
             name: 'mobile-android',
             use: { ...devices['Pixel 5'] },
+            grep: /@mobile/,
+        },
+        {
+            name: 'mobile-iphone',
+            use: { ...devices['iPhone 13'], browserName: 'chromium' },
             grep: /@mobile/,
         },
     ],
