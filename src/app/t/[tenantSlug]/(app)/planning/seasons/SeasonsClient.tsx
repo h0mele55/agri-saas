@@ -9,7 +9,7 @@ import { Plus } from '@/components/ui/icons/nucleo';
 import { createColumns } from '@/components/ui/table';
 import { EntityListPage } from '@/components/layout/EntityListPage';
 import { EmptyState } from '@/components/ui/empty-state';
-import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
@@ -32,11 +32,6 @@ interface SeasonsClientProps {
     permissions: { canWrite: boolean };
 }
 
-const STATUS_BADGE: Record<string, StatusBadgeVariant> = {
-    PLANNING: 'neutral',
-    ACTIVE: 'info',
-    CLOSED: 'success',
-};
 const STATUS_OPTIONS: ComboboxOption[] = [
     { value: 'PLANNING', label: 'Planning' },
     { value: 'ACTIVE', label: 'Active' },
@@ -86,9 +81,7 @@ export function SeasonsClient({ initialSeasons, tenantSlug, permissions }: Seaso
                     accessorKey: 'status',
                     header: 'Status',
                     cell: ({ row }) => (
-                        <StatusBadge variant={STATUS_BADGE[row.original.status] ?? 'neutral'} size="sm">
-                            {row.original.status}
-                        </StatusBadge>
+                        <AgStatusBadge entity="season" status={row.original.status} />
                     ),
                 },
             ]),

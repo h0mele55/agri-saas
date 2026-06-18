@@ -524,6 +524,31 @@ executorRegistry.register('reconcile-inventory-ledgers', async (payload) => {
     return result;
 });
 
+// ── agronomy-copilot (AI — on-demand AgroSignal explanation) ─────────
+
+executorRegistry.register('agronomy-copilot', async (payload) => {
+    const { runAgronomyCopilot } = await import('./agronomy-copilot');
+    const { result } = await runAgronomyCopilot({
+        tenantId: payload.tenantId,
+        locationId: payload.locationId,
+        kind: payload.kind,
+        signalDateIso: payload.signalDateIso,
+    });
+    return result;
+});
+
+// ── photo-pest-id (AI — on-demand LogEntry photo vision) ─────────────
+
+executorRegistry.register('photo-pest-id', async (payload) => {
+    const { runPhotoPestId } = await import('./photo-pest-id');
+    const { result } = await runPhotoPestId({
+        tenantId: payload.tenantId,
+        logEntryId: payload.logEntryId,
+        fileRecordId: payload.fileRecordId,
+    });
+    return result;
+});
+
 // ── weather-pull (Agro-intel) ────────────────────────────────────────
 
 executorRegistry.register('weather-pull', async (payload) => {

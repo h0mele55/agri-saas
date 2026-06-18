@@ -504,5 +504,59 @@
             "required": "Required",
             "invalid": "Invalid"
         }
+    },
+    "ag": {
+        "ai": {
+            "disclaimer": "AI suggestion — verify with an agronomist.",
+            "copilotTitle": "Agronomy copilot",
+            "photoIdTitle": "Photo identification",
+            "analyzing": "Analyzing…",
+            "confidence": {
+                "low": "Low confidence",
+                "medium": "Medium confidence",
+                "high": "High confidence"
+            }
+        },
+        "status": {
+            "cropPlan": {
+                "DRAFT": "Draft",
+                "ACTIVE": "Active",
+                "COMPLETED": "Completed",
+                "CANCELLED": "Cancelled"
+            },
+            "season": {
+                "PLANNING": "Planning",
+                "ACTIVE": "Active",
+                "CLOSED": "Closed"
+            },
+            "planting": {
+                "PLANNED": "Planned",
+                "SOWN": "Sown",
+                "TRANSPLANTED": "Transplanted",
+                "HARVESTING": "Harvesting",
+                "HARVESTED": "Harvested",
+                "TERMINATED": "Terminated"
+            },
+            "operationParcel": {
+                "PENDING": "Pending",
+                "DONE": "Done",
+                "SKIPPED": "Skipped"
+            },
+            "bin": {
+                "BIN": "Bin",
+                "STORAGE": "Storage"
+            },
+            "contract": {
+                "DRAFT": "Draft",
+                "ACTIVE": "Active",
+                "DELIVERED": "Delivered",
+                "SETTLED": "Settled",
+                "CANCELLED": "Cancelled"
+            },
+            "contractType": {
+                "SALE": "Sale",
+                "PURCHASE": "Purchase"
+            }
+        }
     }
 }

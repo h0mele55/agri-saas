@@ -519,6 +519,21 @@ export interface ReconcileInventoryLedgersPayload {
     tenantId?: string;
 }
 
+/** AI — on-demand agronomy-copilot explanation for a fired AgroSignal. */
+export interface AgronomyCopilotPayload {
+    tenantId: string;
+    locationId: string;
+    kind: 'SPRAY_WINDOW' | 'DISEASE_RISK';
+    signalDateIso: string;
+}
+
+/** AI — on-demand pest/disease identification for a LogEntry photo. */
+export interface PhotoPestIdPayload {
+    tenantId: string;
+    logEntryId: string;
+    fileRecordId: string;
+}
+
 /**
  * Agro-intel — daily cross-tenant weather pull (Open-Meteo) + agro-signal
  * evaluation. Scoped to one tenant when `tenantId` is set, else every
@@ -599,6 +614,8 @@ export interface JobPayloadMap {
     'report-delivery': ReportDeliveryPayload;
     'low-stock-monitor': LowStockMonitorPayload;
     'reconcile-inventory-ledgers': ReconcileInventoryLedgersPayload;
+    'agronomy-copilot': AgronomyCopilotPayload;
+    'photo-pest-id': PhotoPestIdPayload;
     'weather-pull': WeatherPullPayload;
     'spatial-import': SpatialImportJobPayload;
 }
@@ -745,6 +762,23 @@ export const JOB_DEFAULTS: Record<JobName, {
         // Fully idempotent (re-running re-verifies, never mutates).
         attempts: 2,
         backoff: { type: 'exponential', delay: 10000 },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+    },
+    'agronomy-copilot': {
+        // On-demand AI enrichment; one retry. Idempotent — re-running
+        // re-generates and overwrites detailsJson.copilot; the
+        // notification dedupeKey prevents a double-notify.
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 15000 },
+        removeOnComplete: 100,
+        removeOnFail: 200,
+    },
+    'photo-pest-id': {
+        // On-demand AI vision; one retry. Idempotent — overwrites
+        // attributesJson.pestId; notification dedupeKey prevents re-notify.
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 15000 },
         removeOnComplete: 100,
         removeOnFail: 200,
     },

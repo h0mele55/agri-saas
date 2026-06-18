@@ -95,7 +95,11 @@ test('operator completes a spray job offline and it syncs on reconnect', async (
     await authedPage.context().setOffline(true);
     await expect(authedPage.getByText('Offline', { exact: true })).toBeVisible();
     await authedPage.getByRole('button', { name: 'Done' }).click();
-    await expect(authedPage.getByText('DONE', { exact: true })).toBeVisible(); // optimistic
+    // Optimistic: the PENDING line flips to the DONE status pill. The panel
+    // renders <AgStatusBadge>, whose label is the title-case "Done" (the raw
+    // "DONE" enum is no longer shown). The mark-Done *button* is gone in this
+    // state (replaced by "Reopen"), so the only "Done" text is the pill.
+    await expect(authedPage.getByText('Done', { exact: true })).toBeVisible();
     await expect(authedPage.getByText('1 queued')).toBeVisible(); // outbox
 
     // 5 — Reconnect. The `online` event drains the outbox; the queue clears.
@@ -106,6 +110,8 @@ test('operator completes a spray job offline and it syncs on reconnect', async (
     //     the optimistic/snapshot copy) — the offline mark really synced.
     await authedPage.reload();
     await expect(authedPage.getByText('North 40')).toBeVisible();
-    await expect(authedPage.getByText('DONE', { exact: true })).toBeVisible();
+    // The DONE status pill ("Done") comes from the SERVER now, not the
+    // optimistic copy — the offline mark really synced.
+    await expect(authedPage.getByText('Done', { exact: true })).toBeVisible();
     await expect(authedPage.getByRole('button', { name: 'Done' })).toHaveCount(0);
 });

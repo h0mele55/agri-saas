@@ -14,7 +14,7 @@ import {
 import { EntityListPage } from '@/components/layout/EntityListPage';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
-import { StatusBadge, type StatusBadgeVariant } from '@/components/ui/status-badge';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { BinFormModal } from './BinFormModal';
 
@@ -38,15 +38,6 @@ interface BinsClientProps {
     tenantSlug: string;
     permissions: { canWrite: boolean };
 }
-
-const KIND_BADGE: Record<string, StatusBadgeVariant> = {
-    BIN: 'info',
-    STORAGE: 'neutral',
-};
-const KIND_LABELS: Record<string, string> = {
-    BIN: 'Bin',
-    STORAGE: 'Storage',
-};
 
 function fmtNum(v: number | null): string {
     if (v == null) return '—';
@@ -135,12 +126,7 @@ function BinsPageInner({ initialBins, tenantSlug, permissions }: BinsClientProps
                     accessorKey: 'kind',
                     header: 'Kind',
                     cell: ({ row }) => (
-                        <StatusBadge
-                            variant={KIND_BADGE[row.original.kind] ?? 'neutral'}
-                            size="sm"
-                        >
-                            {KIND_LABELS[row.original.kind] ?? row.original.kind}
-                        </StatusBadge>
+                        <AgStatusBadge entity="bin" status={row.original.kind} />
                     ),
                 },
                 {

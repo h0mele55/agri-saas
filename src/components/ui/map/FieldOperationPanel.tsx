@@ -13,6 +13,7 @@ import dynamic from 'next/dynamic';
 import { useMemo, useState } from 'react';
 import type { Geometry } from 'geojson';
 import { Button } from '@/components/ui/button';
+import { AgStatusBadge } from '@/components/ag/ag-status';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { apiPatch } from '@/lib/api-client';
@@ -96,7 +97,7 @@ export function FieldOperationPanel({ taskId }: FieldOperationPanelProps) {
                             </div>
                         </div>
                         <div className="flex items-center gap-tight">
-                            <span className="text-xs font-medium">{l.status}</span>
+                            <AgStatusBadge entity="operationParcel" status={l.status} />
                             {l.status === 'PENDING' ? (
                                 <>
                                     <Button size="sm" variant="primary" disabled={busyId === l.id} onClick={() => mark(l.id, 'DONE')}>Done</Button>

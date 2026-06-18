@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import Map, { Layer, Source, type MapLayerMouseEvent, type MapRef } from 'react-map-gl/maplibre';
 import type { Feature, FeatureCollection, Geometry, LineString, Polygon } from 'geojson';
 import { validatePolygonGeometry, type PolygonValidity } from '@/lib/geo/polygon-validity';
+import { cn } from '@/lib/cn';
 
 export interface MapParcel {
     id: string;
@@ -274,8 +275,39 @@ export function MapCanvas({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode, drawing]);
 
+    // Human-readable description of what the map is doing right now, so
+    // screen-reader users get the same context the sighted toolbar hint
+    // gives. Mirrors the per-mode copy on the Location detail Map tab.
+    const modeLabel =
+        mode === 'draw'
+            ? 'drawing a new parcel'
+            : mode === 'edit'
+              ? 'editing parcel vertices'
+              : mode === 'split'
+                ? 'splitting a parcel'
+                : interactive
+                  ? 'selecting parcels'
+                  : 'read-only view';
+
     return (
-        <div className={className ?? 'h-[480px] w-full overflow-hidden rounded-lg border border-border-subtle'}>
+        // Keyboard-focusable, labelled map region. MapLibre's own canvas
+        // handles arrow-key panning once focused; `tabIndex={0}` + the
+        // group role surface it to keyboard + AT users (the bare
+        // <Map> wrapper is otherwise an unlabelled, un-focusable div).
+        <div
+            role="group"
+            aria-label={`Parcel map — ${modeLabel}`}
+            tabIndex={0}
+            className={cn(
+                // Focusable region always carries a visible focus ring
+                // (keyboard affordance must survive a custom className too).
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                // Default size/skin is responsive (360px on phones, 480px
+                // from md: up); a passed className overrides the sizing/skin.
+                className ??
+                    'h-[360px] w-full overflow-hidden rounded-lg border border-border-subtle md:h-[480px]',
+            )}
+        >
             <Map
                 ref={mapRef}
                 initialViewState={initialViewState}

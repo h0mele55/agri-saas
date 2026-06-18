@@ -504,5 +504,59 @@
             "required": "Задължително",
             "invalid": "Невалидно"
         }
+    },
+    "ag": {
+        "ai": {
+            "disclaimer": "Предложение от ИИ — потвърдете с агроном.",
+            "copilotTitle": "Агрономски асистент",
+            "photoIdTitle": "Разпознаване по снимка",
+            "analyzing": "Анализиране…",
+            "confidence": {
+                "low": "Ниска увереност",
+                "medium": "Средна увереност",
+                "high": "Висока увереност"
+            }
+        },
+        "status": {
+            "cropPlan": {
+                "DRAFT": "Чернова",
+                "ACTIVE": "Активен",
+                "COMPLETED": "Завършен",
+                "CANCELLED": "Отменен"
+            },
+            "season": {
+                "PLANNING": "Планиране",
+                "ACTIVE": "Активен",
+                "CLOSED": "Приключен"
+            },
+            "planting": {
+                "PLANNED": "Планирано",
+                "SOWN": "Засято",
+                "TRANSPLANTED": "Разсадено",
+                "HARVESTING": "Прибиране",
+                "HARVESTED": "Прибрано",
+                "TERMINATED": "Прекратено"
+            },
+            "operationParcel": {
+                "PENDING": "Чакащо",
+                "DONE": "Готово",
+                "SKIPPED": "Пропуснато"
+            },
+            "bin": {
+                "BIN": "Силоз",
+                "STORAGE": "Склад"
+            },
+            "contract": {
+                "DRAFT": "Чернова",
+                "ACTIVE": "Активен",
+                "DELIVERED": "Доставен",
+                "SETTLED": "Уреден",
+                "CANCELLED": "Отменен"
+            },
+            "contractType": {
+                "SALE": "Продажба",
+                "PURCHASE": "Покупка"
+            }
+        }
     }
 }

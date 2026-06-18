@@ -48,6 +48,10 @@ model LogEntry {
   /// cost of this field event, for per-activity costing later.
   costAmount        Decimal?       @db.Decimal(14, 2)
   costCurrency      String?
+  /// Free-form structured attributes (e.g. the async photo pest/disease
+  /// ID result under `pestId`). Distinct from `conditionsJson` (spray
+  /// compliance fields).
+  attributesJson    Json?
   createdByUserId   String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt

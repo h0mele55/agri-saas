@@ -24,7 +24,9 @@ import {
     FILE_MAX_SIZE_BYTES,
 } from '@/lib/storage';
 import { env } from '@/env';
-import { traceAgUsecase } from '@/lib/observability';
+import { traceAgUsecase, logger } from '@/lib/observability';
+import { enqueue } from '../jobs/queue';
+import { isLlmConfigured } from '../ai/llm-client';
 import { trace } from '@opentelemetry/api';
 
 /**
@@ -455,7 +457,7 @@ export async function uploadLogEntryPhoto(
 
     const cleanCaption = caption != null ? sanitizePlainText(caption) || null : null;
 
-    return runInTenantContext(ctx, async (db) => {
+    const { link, fileRecordId, isImage } = await runInTenantContext(ctx, async (db) => {
         const entry = await JournalRepository.getById(db, ctx, logEntryId);
         if (!entry) throw notFound('Journal entry not found');
 
@@ -499,8 +501,26 @@ export async function uploadLogEntryPhoto(
             },
         });
 
-        return link;
+        return { link, fileRecordId, isImage: mimeType.startsWith('image/') };
     });
+
+    // Photo pest/disease ID — async Claude vision (fail-safe, gated).
+    // Only for image uploads, only when an LLM key is configured; a queue
+    // failure must never fail the upload.
+    if (isImage && isLlmConfigured()) {
+        try {
+            await enqueue('photo-pest-id', { tenantId: ctx.tenantId, logEntryId, fileRecordId });
+        } catch (err) {
+            logger.warn('journal: photo-pest-id enqueue failed', {
+                component: 'journal',
+                tenantId: ctx.tenantId,
+                logEntryId,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
+    return link;
 }
 
 /** Attach an already-uploaded FileRecord to a journal entry. */

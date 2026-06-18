@@ -34,6 +34,17 @@ jest.mock('@/lib/tenant-context-provider', () => ({
     useTenantApiUrl: () => (p: string) => `/api/t/acme${p}`,
 }));
 jest.mock('@/components/ui/map/MapCanvas', () => ({ MapCanvas: () => null }));
+// OfflineFieldPanel now renders <AgStatusBadge> (→ next-intl). Mock it so
+// the ESM module isn't parsed and the label falls back to the English
+// default ("Done"/"Pending"/…) via t.has()===false.
+jest.mock('next-intl', () => ({
+    useTranslations: () => {
+        const t = (k: string) => k;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (t as any).has = () => false;
+        return t;
+    },
+}));
 
 import * as outbox from '@/lib/offline/outbox';
 import { OfflineFieldPanel } from '@/components/offline/OfflineFieldPanel';
@@ -107,7 +118,8 @@ describe('OfflineFieldPanel — offline operator flow', () => {
         expect((global as any).fetch).not.toHaveBeenCalled();
         expect(await store.all()).toHaveLength(1);
         await waitFor(() => expect(screen.getByText('1 queued')).toBeInTheDocument());
-        expect(screen.getByText('DONE')).toBeInTheDocument();
+        // AgStatusBadge renders the title-case label ("Done"), not the raw enum.
+        expect(screen.getByText('Done')).toBeInTheDocument();
 
         // The snapshot persisted the optimistic DONE (survives a cold reload).
         const snap = JSON.parse(localStorage.getItem('agri.offline.fieldop.v1.task-1')!);
