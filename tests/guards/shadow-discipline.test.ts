@@ -62,6 +62,10 @@ const ALLOWLIST: AllowlistEntry[] = [
         reason: 'mobile-forms PR-3 — the FAB is a floating action button (Material elevation); shadow-lg communicates its lift above the page + bottom-tab bar.',
     },
     {
+        file: 'src/components/ui/map/MapCanvas.tsx',
+        reason: 'feat/mobile-map — floating on-map controls (zoom/locate/track) + the geolocation "blue dot" marker float over arbitrary basemap imagery; shadow-md gives the lift that keeps them legible against a busy map (same floating-control class as the FAB/popover/tooltip entries).',
+    },
+    {
         file: 'src/components/ui/popover.tsx',
         reason: 'Popover is a floating overlay — drop-shadow + shadow paint the lift.',
     },

@@ -34,11 +34,15 @@ interface RootProps {
     open?: boolean;
     onOpenChange?: (open: boolean) => void;
     children?: React.ReactNode;
+    // Mirror vaul's `modal` prop onto Radix so a non-modal Sheet
+    // (`modal={false}`) doesn't inert/aria-hide the page beneath it in
+    // rendered tests — matching the real non-modal drawer.
+    modal?: boolean;
 }
 
-function Root({ open, onOpenChange, children }: RootProps) {
+function Root({ open, onOpenChange, children, modal }: RootProps) {
     return (
-        <Dialog.Root open={open} onOpenChange={onOpenChange}>
+        <Dialog.Root open={open} onOpenChange={onOpenChange} modal={modal}>
             {children}
         </Dialog.Root>
     );

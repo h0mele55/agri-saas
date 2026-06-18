@@ -109,13 +109,23 @@ function SheetRoot({
         ...rest,
     } as DialogProps;
 
+    // Non-modal sheets (`modal={false}`) coexist with the page beneath them —
+    // they neither inert the background (so the page's controls stay
+    // operable + in the a11y tree) nor paint a blocking backdrop. Used by the
+    // operator parcel sheet, which sits over the map while the map-mode
+    // toolbar above it stays reachable. Default (undefined) keeps the modal
+    // overlay exactly as before.
+    const isModal = (rest as { modal?: boolean }).modal !== false;
+
     return (
         <RootComponent {...rootProps}>
             <Drawer.Portal>
-                <Drawer.Overlay
-                    className="fixed inset-0 z-40 bg-bg-overlay backdrop-blur-sm"
-                    data-sheet-overlay
-                />
+                {isModal && (
+                    <Drawer.Overlay
+                        className="fixed inset-0 z-40 bg-bg-overlay backdrop-blur-sm"
+                        data-sheet-overlay
+                    />
+                )}
                 <Drawer.Content
                     {...contentProps}
                     onPointerDownOutside={(e) => {
