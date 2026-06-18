@@ -78,7 +78,20 @@ onto serialized HTML risks corrupting ProseMirror state. Deferred.
 - **StepWizard offline via `onFinish` → `{ queued }`**, not coupled to
   `useOfflineSync` — the consumer wires it (SprayJobWizard does). The
   primitive's queued/nav behaviour is unit-tested; the full product/rate
-  chain isn't E2E'd (needs seeded Items + RATE units the shared tenant
-  lacks + fragile Combobox steps) — the E2E proves launch + step nav.
+  chain isn't E2E'd (needs seeded Items + RATE units + fragile Combobox
+  steps) — the E2E proves launch + step nav.
+- **The @mobile E2E seeds its OWN tenant (isolated/mutating), not the
+  shared seed.** The launcher is `disabled={parcels.length === 0}`, fed by
+  a client SWR fetch. A first cut logged into the shared "Home Farm — Demo"
+  tenant and relied on its three seeded parcels — but those come from a seed
+  spatial-import side effect (`importLocationSpatialFile`) wrapped in a
+  try/catch; when it is skipped in CI the location has zero parcels, the
+  button never enables, and the click auto-waits the full 3-min test timeout
+  (×2 retries ×2 mobile projects ≈ 18 min) until the whole E2E job times
+  out. The spec now seeds location + parcel via the authenticated API
+  (mirroring `offline-field-sync.spec.ts`) so the button enables
+  deterministically, and runs with `retries:0` + a 90 s cap + explicit
+  per-action timeouts so any future regression fails fast and can never
+  again exhaust the 40-min E2E budget.
 - **Budgets bumped:** `step-wizard.tsx` (Next/Finish are mutually exclusive
   primaries) and the location detail (+1 for the Spray job launcher).
