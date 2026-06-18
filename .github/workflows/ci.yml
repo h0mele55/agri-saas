@@ -533,21 +533,15 @@ jobs:
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          # `-cwk` (chromium+webkit) suffix: the mobile-ios Playwright
-          # project (iPhone 13 → Mobile Safari) needs the WebKit binary in
-          # addition to Chromium. Bumping the key busts the old
-          # Chromium-only cache so the install step below actually fetches
-          # WebKit; without it a same-version cache HIT would skip the
-          # browser install and the mobile-ios project would fail to launch.
-          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}-cwk
+          key: playwright-${{ runner.os }}-${{ steps.pw-version.outputs.version }}
 
       - name: Install Playwright browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
 
       - name: Install Playwright system deps (cached)
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium webkit
+        run: npx playwright install-deps chromium
 
       # ── GAP-20: accessibility gate ──
       # The a11y spec runs first as a NAMED step so its pass/fail

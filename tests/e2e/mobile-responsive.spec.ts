@@ -18,9 +18,10 @@
  *      segmented control is bumped to ≥44px touch targets).
  *
  * This spec is tagged `@mobile` and runs ONLY under the `mobile-android`
- * (Pixel 5) + `mobile-ios` (iPhone 13) Playwright projects — both sit
- * under 768px so the stacking + overflow assertions are meaningful. The
- * desktop `chromium` project skips it via `grepInvert: /@mobile/`.
+ * (Pixel 5, 393px) Playwright project — it sits under 768px so the
+ * stacking + overflow assertions are meaningful. The desktop `chromium`
+ * project skips it via `grepInvert: /@mobile/`. (A WebKit `mobile-ios`
+ * project was tried and dropped — see the note in `playwright.config.ts`.)
  *
  * No mutation, no `data-testid` additions — scoped to existing `id`s,
  * roles, and seeded copy, with locators bound to `getByRole('main')`
