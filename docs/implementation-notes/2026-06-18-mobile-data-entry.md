@@ -66,6 +66,15 @@ onto serialized HTML risks corrupting ProseMirror state. Deferred.
 
 - **inputMode on the Input primitive, not per-field.** One change covers
   every `<Input type="number">` call site; overridable.
+- **SprayJobWizard honours the app-page structural ratchets.** The parcel
+  multi-select is a `<div role="group" aria-label>` (a checkbox set), NOT
+  `<fieldset>/<legend>` — the form-drift ratchet reserves that shape for
+  `<RadioGroup>`, and a multi-select isn't a radio group anyway (same
+  sr-only announcement, correct ARIA grouping). The dose field uses
+  `<Input inputMode="decimal">` rather than `<Input type="number">`: it
+  still raises the mobile number pad, keeps the epic-60 raw-number ratchet
+  at its floor (4), and sidesteps `type=number`'s wheel-scroll /
+  locale-separator footguns for a free-decimal rate (JS validates).
 - **StepWizard offline via `onFinish` → `{ queued }`**, not coupled to
   `useOfflineSync` — the consumer wires it (SprayJobWizard does). The
   primitive's queued/nav behaviour is unit-tested; the full product/rate

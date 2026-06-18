@@ -126,8 +126,7 @@ export function SprayJobWizard({
             description: 'Pick the parcels this spray job covers.',
             canAdvance: selectedParcelIds.length > 0,
             content: (
-                <fieldset className="space-y-tight">
-                    <legend className="sr-only">Parcels</legend>
+                <div role="group" aria-label="Parcels" className="space-y-tight">
                     {parcels.length === 0 ? (
                         <p className="py-6 text-center text-sm text-content-muted">
                             This location has no parcels yet.
@@ -160,7 +159,7 @@ export function SprayJobWizard({
                             );
                         })
                     )}
-                </fieldset>
+                </div>
             ),
         },
         {
@@ -193,11 +192,11 @@ export function SprayJobWizard({
             content: (
                 <div className="grid grid-cols-2 gap-default">
                     <FormField label="Dose" required>
-                        {/* type="number" → inputMode="decimal" (number pad) for free. */}
+                        {/* inputMode decimal → mobile number pad (with decimal
+                            point), without the native numeric-input wheel-scroll
+                            / locale-separator footguns. Validated in JS (doseValid). */}
                         <Input
-                            type="number"
-                            min="0"
-                            step="0.0001"
+                            inputMode="decimal"
                             value={dose}
                             onChange={(e) => setDose(e.target.value)}
                             placeholder="e.g. 2.5"
