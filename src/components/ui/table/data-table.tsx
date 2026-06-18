@@ -31,6 +31,7 @@ import { cn } from "./table-utils";
 import type { UseTableProps } from "./types";
 import { VirtualTable } from "./virtual-table-body";
 import { MobileCardList } from "./mobile-card-list";
+import { useMediaQuery } from "../hooks";
 
 // ── Public Column Helper ────────────────────────────────────────────
 
@@ -363,6 +364,11 @@ export function DataTable<T>({
   // visual-affordance-only path; selection mutation flows through
   // the explicit `onRowSelectionChange` prop when wired.
   const [internalSelection] = useState<RowSelectionState>({});
+  // Drives the `mobileFallback="card"` swap. Read unconditionally (rules of
+  // hooks); only consulted in the card branch below. `isMobile` is <sm,
+  // matching the card breakpoint. SSR/first render = false (desktop) so the
+  // table is the SSR markup; the swap to cards happens post-hydration.
+  const { isMobile } = useMediaQuery();
   const hasExplicitSelection = !!onRowSelectionChange || !!selectionControls;
   const hasBatchActions = batchActions && batchActions.length > 0;
 
@@ -481,24 +487,28 @@ export function DataTable<T>({
     <Table {...rest} table={table} data={data} />
   );
 
-  // Card fallback (<sm): render the tappable card list alongside the
-  // table. The table is wrapped in `hidden sm:contents` so it's gone
-  // below sm (cards take over) but at sm+ the wrapper collapses to
-  // `display: contents` — vanishing from layout so the table's own
-  // fillBody flex chain is untouched. When `mobileFallback` is unset
-  // (scroll mode) NO extra wrapper is added, preserving legacy behaviour.
+  // Card fallback (<sm): render ONLY ONE of the card list / table — never
+  // both behind CSS. A hidden card copy would still live in the DOM and
+  // duplicate every row's text, making `getByText(rowText)` match twice
+  // (strict-mode break) and `.first()` resolve to the hidden copy — which
+  // broke existing desktop assertions. Branching on `isMobile` keeps a
+  // single copy in the DOM; the table branch is identical to scroll mode so
+  // its `fillBody` flex chain is untouched. SSR/first paint renders the
+  // table (isMobile=false) and swaps to cards post-hydration on phones.
   if (mobileFallback === "card") {
     return (
       <div id={dataTestId} data-testid={dataTestId} className={wrapperClassName}>
-        <MobileCardList<T>
-          table={table}
-          onRowClick={onRowClick}
-          loading={loading}
-          error={error}
-          emptyState={emptyState}
-          className="sm:hidden"
-        />
-        <div className="hidden sm:contents">{tableEl}</div>
+        {isMobile ? (
+          <MobileCardList<T>
+            table={table}
+            onRowClick={onRowClick}
+            loading={loading}
+            error={error}
+            emptyState={emptyState}
+          />
+        ) : (
+          tableEl
+        )}
       </div>
     );
   }
