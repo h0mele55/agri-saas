@@ -41,7 +41,8 @@ import { cn } from "./table-utils";
 // `meta`. Global augmentation — importing this module (DataTable does)
 // makes the typed `meta.mobileCard` available everywhere.
 declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- generic signature must match TanStack's ColumnMeta
+  // The generic signature must match TanStack's own `ColumnMeta<TData, TValue>`
+  // for the augmentation to merge; the params are unused by this member.
   interface ColumnMeta<TData extends RowData, TValue> {
     /**
      * Placement of this column inside the mobile (<sm) fallback card.
@@ -151,19 +152,32 @@ export function MobileCardList<T>({
 
         return (
           <li key={row.id}>
-            <button
-              type="button"
-              // Not clickable ⇒ a plain, non-interactive card (still a
-              // <button> for DOM consistency but disabled-looking is
-              // avoided; pages always pass onRowClick for these lists).
+            {/* A clickable card is a `<div role="button">`, NOT a real
+                <button>: some title cells embed a same-destination <Link>
+                (Tasks/Journal), and `<button><a>` is invalid HTML. A div
+                can legally contain a link; Enter/Space are wired manually
+                for keyboard parity. Non-clickable rows (no detail route)
+                render a plain, non-interactive card. */}
+            <div
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
               onClick={clickable ? (e) => onRowClick!(row, e) : undefined}
-              aria-disabled={clickable ? undefined : true}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onRowClick!(row, e as unknown as MouseEvent);
+                      }
+                    }
+                  : undefined
+              }
               data-testid="mobile-card"
               className={cn(
                 "flex w-full flex-col gap-tight rounded-lg border border-border-default bg-bg-default p-4 text-left",
                 clickable
-                  ? "min-h-[44px] transition-colors hover:bg-bg-muted active:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset"
-                  : "cursor-default",
+                  ? "min-h-[44px] cursor-pointer transition-colors hover:bg-bg-muted active:bg-bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-inset"
+                  : "",
               )}
             >
               <div className="flex items-start justify-between gap-default">
@@ -211,7 +225,7 @@ export function MobileCardList<T>({
                   ))}
                 </dl>
               ) : null}
-            </button>
+            </div>
           </li>
         );
       })}
