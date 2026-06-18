@@ -30,6 +30,7 @@ import { Table, useTable } from "./table";
 import { cn } from "./table-utils";
 import type { UseTableProps } from "./types";
 import { VirtualTable } from "./virtual-table-body";
+import { MobileCardList } from "./mobile-card-list";
 
 // ── Public Column Helper ────────────────────────────────────────────
 
@@ -197,6 +198,21 @@ export interface DataTableProps<T> {
    */
   fillBody?: boolean;
 
+  /**
+   * Phone (<sm) rendering strategy. A horizontally-scrolling table is
+   * unusable on a 390px phone.
+   *
+   *   - `'scroll'` (default) — keep the table; it scrolls horizontally.
+   *     Correct for dense / financial tables where the columns ARE the
+   *     point (cost rollups, ledgers).
+   *   - `'card'` — below `sm`, render each row as a full-width tappable
+   *     CARD instead (title + optional subtitle + status pill + a few
+   *     key/value rows), tapping through to detail via `onRowClick`. The
+   *     card fields are driven by `column.meta.mobileCard` — see
+   *     `mobile-card-list.tsx`. At `sm`+ the normal table renders.
+   */
+  mobileFallback?: "card" | "scroll";
+
   /** Test ID for automated testing. */
   "data-testid"?: string;
 
@@ -299,6 +315,7 @@ export function DataTable<T>({
   className,
   scrollWrapperClassName,
   fillBody,
+  mobileFallback,
   "data-testid": dataTestId,
   virtualize,
   virtualRowHeight,
@@ -446,33 +463,49 @@ export function DataTable<T>({
   //     <Table>'s richer empty/error chrome is the correct surface.
   const useVirtual = willVirtualizeEarly;
 
-  if (useVirtual) {
+  const tableEl = useVirtual ? (
+    <VirtualTable<T>
+      table={table}
+      rowHeight={virtualRowHeight}
+      height={virtualHeight}
+      onRowClick={onRowClick}
+      selectionEnabled={selectionEnabled}
+      sortableColumns={sortableColumns}
+      sortBy={sortBy}
+      sortOrder={sortOrder}
+      onSortChange={onSortChange}
+      containerClassName={filledContainerClassName}
+      scrollWrapperClassName={filledScrollWrapperClassName}
+    />
+  ) : (
+    <Table {...rest} table={table} data={data} />
+  );
+
+  // Card fallback (<sm): render the tappable card list alongside the
+  // table. The table is wrapped in `hidden sm:contents` so it's gone
+  // below sm (cards take over) but at sm+ the wrapper collapses to
+  // `display: contents` — vanishing from layout so the table's own
+  // fillBody flex chain is untouched. When `mobileFallback` is unset
+  // (scroll mode) NO extra wrapper is added, preserving legacy behaviour.
+  if (mobileFallback === "card") {
     return (
       <div id={dataTestId} data-testid={dataTestId} className={wrapperClassName}>
-        <VirtualTable<T>
+        <MobileCardList<T>
           table={table}
-          rowHeight={virtualRowHeight}
-          height={virtualHeight}
           onRowClick={onRowClick}
-          selectionEnabled={selectionEnabled}
-          sortableColumns={sortableColumns}
-          sortBy={sortBy}
-          sortOrder={sortOrder}
-          onSortChange={onSortChange}
-          containerClassName={filledContainerClassName}
-          scrollWrapperClassName={filledScrollWrapperClassName}
+          loading={loading}
+          error={error}
+          emptyState={emptyState}
+          className="sm:hidden"
         />
+        <div className="hidden sm:contents">{tableEl}</div>
       </div>
     );
   }
 
   return (
     <div id={dataTestId} data-testid={dataTestId} className={wrapperClassName}>
-      <Table
-        {...rest}
-        table={table}
-        data={data}
-      />
+      {tableEl}
     </div>
   );
 }
