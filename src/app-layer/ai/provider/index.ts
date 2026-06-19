@@ -20,14 +20,18 @@ import type { AiBackend, AiProvider } from './types';
 export function inferBackend(baseURL: string): AiBackend {
     let host: string;
     try {
-        host = new URL(baseURL).host.toLowerCase();
+        host = new URL(baseURL).hostname.toLowerCase();
     } catch {
         return 'openai-compatible';
     }
-    if (host.includes('openrouter.ai')) return 'openrouter';
-    if (host.includes('groq.com')) return 'groq';
-    if (host.includes('together.ai') || host.includes('together.xyz')) return 'together';
-    if (host.includes('localhost') || host.includes('127.0.0.1') || host.includes('ollama')) return 'ollama';
+    // Exact host OR a subdomain of it — NOT a substring match (a substring
+    // check would treat e.g. `evilgroq.com` / `groq.com.attacker.net` as Groq;
+    // CodeQL's js/incomplete-url-substring-sanitization flags that).
+    const isHost = (domain: string) => host === domain || host.endsWith(`.${domain}`);
+    if (isHost('openrouter.ai')) return 'openrouter';
+    if (isHost('groq.com')) return 'groq';
+    if (isHost('together.ai') || isHost('together.xyz')) return 'together';
+    if (host === 'localhost' || host === '127.0.0.1' || isHost('ollama')) return 'ollama';
     return 'openai-compatible';
 }
 
