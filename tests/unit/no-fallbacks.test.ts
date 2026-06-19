@@ -118,6 +118,10 @@ describe('Static Analysis: No process.env fallbacks', () => {
             // Next inlines it at build time (same rationale as ClientProviders
             // / swr-devtools above — env.ts would break the inlining).
             if (file.endsWith('pwa/PushOptIn.tsx')) continue;
+            // InstallPrompt suppresses itself under NEXT_PUBLIC_TEST_MODE
+            // (promotional chrome, like the onboarding tour) — read via
+            // process.env for build-time inlining (same as ClientProviders).
+            if (file.endsWith('pwa/InstallPrompt.tsx')) continue;
             // DeferredOnMobile reads process.env.NODE_ENV to render heavy
             // children eagerly under jest (jsdom resolves to "mobile"); a
             // client test-env gate must read NODE_ENV directly, same as the

@@ -96,6 +96,12 @@ export function InstallPrompt() {
         setDeferred(null);
     }, [deferred]);
 
+    // Suppressed under e2e/test mode — the install banner/hint is promotional
+    // chrome (like the onboarding tour) that would otherwise overlay the
+    // viewport (e.g. intercept the bottom-right FAB) and pollute mobile specs.
+    // NEXT_PUBLIC_* must be read via process.env for build-time inlining.
+    if (process.env.NEXT_PUBLIC_TEST_MODE === '1') return null;
+
     // Mobile-only; hidden once dismissed/installed.
     if (!isMobile || dismissed) return null;
 
