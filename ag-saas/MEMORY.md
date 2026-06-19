@@ -865,3 +865,66 @@ type-only → no prisma in the client bundle).
 - **Shared-file merge with #57** — MapCanvas + the location detail page are
   edited by both this branch and the onboarding branch; additive but reconcile
   at merge.
+
+## Phase 18 — Shareables: keepsakes + solid field actions (feat/delight-shareables)
+
+Give farmers something satisfying to keep/show, and make field actions feel
+solid. Branch off `main` (has #58 smart-defaults merged); **independent of #57
+(Phase 15) + #59 (Phase 17)** — gap 16→18, reconcile MEMORY.md at merge.
+**Pushed, NOT merged.** This is the FINAL delight phase. Four parts:
+
+- **Shareable summary cards (html-to-image, 2× crisp PNG).** `exportShareCard`
+  (`src/lib/share-card.ts`) renders a DOM card to a retina PNG and opens the
+  native Web Share sheet with the image FILE (mobile) or downloads it
+  (desktop). `ShareableStatCard` (`components/ui/shareable-stat-card.tsx`) is
+  the reusable branded chrome + Save/share button (captures a token-bg surface
+  so the image is self-contained). Three instances: **SeasonRecapCard** (on the
+  AgDashboardStrip — total area / yield / avg t/ha / cost-per-ha + top fields),
+  **FieldReportCard** (location overview — parcels / area / crops),
+  **SprayJobCompletionCard** (shown in FieldOperationPanel when every parcel is
+  done). Each self-hides until there's data.
+- **"Year on the farm" PDF (pdfkit, delegated).** `season-recap.ts`
+  (`getSeasonRecap`, tenant-wide aggregate over existing rows — yields,
+  parcel-area, journal `costAmount`÷area for an HONEST cost-per-ha, top-3
+  fields; no cost data → costPerHa null) + `reports/pdf/year-on-farm.ts`
+  reusing the `src/lib/pdf/*` factory (cover + recap metrics + top-fields table
+  + certification line + activity story). Routes: `GET .../reports/season-recap`
+  (JSON for the card) + `POST .../reports/year-on-farm` (application/pdf,
+  download from the recap card). Read-only, `assertCanRead` in the usecase (no
+  route-permissions entry — matches the existing reports routes).
+- **QR codes for parcels & lots.** Zero-dep `qrcode-generator` (MIT; prod audit
+  clean, no THIRD_PARTY_NOTICES needed for bundled npm). `<QrCode>`
+  (`components/ui/qr-code.tsx`) renders the matrix as an SVG of coalesced rects
+  (black-on-white literals — a QR must stay scannable regardless of theme; not
+  tokens). Deep-links resolve via NEW query-param entry points read on mount:
+  `locations/[id]?parcelId=…&tab=map` opens the parcel sheet; `inventory?lotId=…`
+  opens the lot modal. QR mounts in `ParcelDetailSheet` + the inventory lot
+  modal (absolute URL from `window.location.origin`).
+- **Sensory confirmation — sound + haptic on mark-done.** `playSound`
+  (`src/lib/sound.ts`, Web Audio tone — no asset, offline-safe) paired with the
+  existing `haptic()` at both mark-done sites (online FieldOperationPanel +
+  OFFLINE OfflineFieldPanel — fires on queued, not just sent, so an offline
+  "done" feels solid). Both gated by a user toggle (`feedback-prefs.ts`
+  localStorage readers; `haptic()`/`playSound()` read at call time) exposed as a
+  "Sound & haptics" card on the account profile (`useLocalStorage` switches).
+  Capability-gating (Vibration / Web Audio absent → silent) still applies on top.
+
+**Verified:** tsc 0; full static guard sweep (597 suites / 8087 tests) green —
+fixed three my changes tripped: the `:\s*any` ratchet false-matching a
+"Best-effort: any failure" comment in sound.ts (reworded); radius-scale
+(`rounded-xl`→`rounded-lg`, plain `rounded`→`rounded-md`); border-tone budget
+(FeedbackPrefsCard demoted to `border-border-subtle` — a quiet settings panel —
+keeping `border-border-default` at its existing cap). Season-recap unit test
+green; `next build` clean (card/QR/sound are client; app-layer imports are
+type-only).
+
+### Remaining gaps (Phase 18)
+- **cost-per-ha is journal `costAmount`÷area** — the only cost signal in the
+  data; null when no journal carries a cost. True input-cost tracking
+  (fertiliser/fuel/labour) would need a costs model.
+- **QR uses `window.location.origin`** for the absolute link — correct for the
+  browser the operator shares from; a server-rendered QR would need `APP_URL`.
+- **Share cards capture the active theme** — a dark-theme user shares a dark
+  card (still legible); a forced-light "postcard" variant is a follow-up.
+- **PDF has no QR/charts embedded** — `qrcode-generator`'s GIF data-URL isn't a
+  pdfkit-supported image format; QR stayed UI-only.
