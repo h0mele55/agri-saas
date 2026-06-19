@@ -8,36 +8,12 @@
  */
 import { RequestContext } from '../types';
 import { runInTenantContext } from '@/lib/db-context';
-import type { MilestoneKey } from '@/lib/celebrations';
-
-export interface AchievementItem {
-    key: MilestoneKey;
-    earned: boolean;
-    /** ISO timestamp the milestone was earned, when derivable. */
-    earnedAt: string | null;
-}
-
-export interface JournalStreak {
-    /** Consecutive days (ending today or yesterday) with a journal entry. */
-    current: number;
-    /** Longest run ever. */
-    best: number;
-}
-
-export interface AchievementsResult {
-    milestones: AchievementItem[];
-    streak: JournalStreak;
-}
-
-/** The ag milestones surfaced on the achievements card, in display order. */
-export const AG_MILESTONE_ORDER: MilestoneKey[] = [
-    'first-field-mapped',
-    'spray-job-complete',
-    'first-harvest',
-    'season-closed',
-    'inspection-passed',
-    'sop-100-ack',
-];
+// The derived-state types + the display order live in celebrations.ts
+// (client-safe) so the dashboard CARD can import them without dragging this
+// prisma-backed usecase into the browser bundle. Re-exported for server
+// callers (ag-dashboard) + tests that import them from here.
+import { AG_MILESTONE_ORDER, type AchievementItem, type AchievementsResult, type JournalStreak } from '@/lib/celebrations';
+export { AG_MILESTONE_ORDER, type AchievementItem, type AchievementsResult, type JournalStreak };
 
 const DAY_MS = 86_400_000;
 

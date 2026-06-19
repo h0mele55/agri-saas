@@ -231,6 +231,39 @@ export function markAchievementsCelebrated(keys: string[]): void {
     }
 }
 
+// ─── Achievements (derived milestone state — CLIENT-SAFE) ──────────
+//
+// These live here (not in the achievements usecase) because the usecase
+// imports prisma — a client component importing its VALUES (the order array)
+// would drag prisma into the browser bundle. The usecase re-exports them.
+
+export interface AchievementItem {
+    key: MilestoneKey;
+    earned: boolean;
+    /** ISO timestamp the milestone was earned, when derivable. */
+    earnedAt: string | null;
+}
+
+export interface JournalStreak {
+    current: number;
+    best: number;
+}
+
+export interface AchievementsResult {
+    milestones: AchievementItem[];
+    streak: JournalStreak;
+}
+
+/** The ag milestones surfaced on the achievements card, in display order. */
+export const AG_MILESTONE_ORDER: MilestoneKey[] = [
+    'first-field-mapped',
+    'spray-job-complete',
+    'first-harvest',
+    'season-closed',
+    'inspection-passed',
+    'sop-100-ack',
+];
+
 // ─── Hook-input types (consumed by `useCelebration`) ───────────────
 //
 // Lifted out of the hook file so the pure-data builder

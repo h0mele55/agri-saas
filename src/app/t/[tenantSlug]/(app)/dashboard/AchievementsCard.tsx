@@ -5,11 +5,19 @@ import { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Heading } from '@/components/ui/typography';
 import { Button } from '@/components/ui/button';
+import { CircleCheckFill, CircleDotted } from '@/components/ui/icons/nucleo';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/cn';
 import { useCelebration, useLocalStorage } from '@/components/ui/hooks';
-import { MILESTONES, readCelebratedAchievements, markAchievementsCelebrated, type CelebrationPreset } from '@/lib/celebrations';
-import { AG_MILESTONE_ORDER, type AchievementItem, type AchievementsResult } from '@/app-layer/usecases/achievements';
+import {
+    MILESTONES,
+    readCelebratedAchievements,
+    markAchievementsCelebrated,
+    AG_MILESTONE_ORDER,
+    type CelebrationPreset,
+    type AchievementItem,
+    type AchievementsResult,
+} from '@/lib/celebrations';
 
 /**
  * Achievements card — the milestones that matter, surfaced on the ag
@@ -64,7 +72,11 @@ export default function AchievementsCard({ achievements }: { achievements: Achie
                         key={m.key}
                         className={cn('flex items-baseline gap-tight text-xs', m.earned ? 'text-content-default' : 'text-content-subtle')}
                     >
-                        <span aria-hidden="true">{m.earned ? '🏅' : '🔒'}</span>
+                        {m.earned ? (
+                            <CircleCheckFill className="size-3.5 shrink-0 text-content-emphasis" aria-hidden="true" />
+                        ) : (
+                            <CircleDotted className="size-3.5 shrink-0 text-content-subtle" aria-hidden="true" />
+                        )}
                         <span className={cn('truncate', m.earned && 'font-medium')}>{MILESTONES[m.key].message}</span>
                         {m.earned && m.earnedAt && (
                             <span className="ml-auto whitespace-nowrap text-content-muted">{formatDate(m.earnedAt)}</span>
@@ -78,7 +90,7 @@ export default function AchievementsCard({ achievements }: { achievements: Achie
                 {streakOptIn ? (
                     <p className="text-xs text-content-secondary">
                         {current > 0
-                            ? `🔥 ${current}-day journaling streak${best > current ? ` · best ${best}` : ''}.`
+                            ? `${current}-day journaling streak${best > current ? ` · best ${best}` : ''}.`
                             : `Log an entry to begin a streak${best > 0 ? ` — your best is ${best} ${best === 1 ? 'day' : 'days'}` : ''}.`}{' '}
                         <button type="button" onClick={toggleStreak} className="text-content-muted underline">Hide</button>
                     </p>

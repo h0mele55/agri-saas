@@ -5,8 +5,7 @@
  * and the ag achievements order so a renamed/missing milestone fails CI
  * instead of silently shipping a celebration with no copy.
  */
-import { MILESTONES, type MilestoneKey } from '@/lib/celebrations';
-import { AG_MILESTONE_ORDER } from '@/app-layer/usecases/achievements';
+import { MILESTONES, AG_MILESTONE_ORDER, type MilestoneKey } from '@/lib/celebrations';
 
 const VALID_PRESETS = ['burst', 'rain', 'fireworks'];
 

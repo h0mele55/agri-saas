@@ -49,7 +49,14 @@ describe('MILESTONES registry', () => {
             'audit-pack-complete',
             'evidence-all-current',
             'first-control-mapped',
+            // feat/delight-celebrations — agriculture milestones.
+            'first-field-mapped',
+            'first-harvest',
             'framework-100',
+            'inspection-passed',
+            'season-closed',
+            'sop-100-ack',
+            'spray-job-complete',
         ]);
     });
 });
