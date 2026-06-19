@@ -742,3 +742,60 @@ guard ratchet bump.
 - **60fps / no-CLS is by construction** (opacity/transform only, GPU layers) —
   not yet asserted by an automated perf test; the Lighthouse CLS budget (Phase
   12) is the nearest gate.
+
+## Phase 14 — Achievements + milestone celebrations (feat/delight-celebrations)
+
+Mark the moments that matter. Branch off `main`; **independent of #55**
+(disjoint files except MEMORY.md — reconcile that at merge). NO new schema —
+everything derived from existing rows.
+
+- **celebrations.ts extended** with 6 ag MilestoneKeys + definitions:
+  first-field-mapped, spray-job-complete, first-harvest (burst), season-closed,
+  inspection-passed (fireworks), sop-100-ack (rain). Routine saves are never in
+  the registry.
+- **`getAchievements(ctx)`** (`usecases/achievements.ts`) derives each milestone
+  from existing rows (all bounded, parallel): Location (first-field),
+  Task type=FIELD_OPERATION status=RESOLVED (spray-complete),
+  LogEntry HARVEST/DONE (first-harvest), Season status=CLOSED (season-closed),
+  AuditPack status=FROZEN (inspection-passed — closest existing signal; no
+  explicit PASSED status), and a Policy whose current version is acknowledged by
+  ALL active members (sop-100-ack, via a bounded groupBy). Returns
+  `{milestones:[{key,earned,earnedAt}], streak}`. `computeStreak()` is a pure,
+  unit-tested fn (consecutive UTC-day runs from LogEntry.occurredAt; `current`
+  has a 1-day grace, `best` = longest run).
+- **Dashboard surface:** `getAgDashboard` now returns `achievements`
+  (gated to ag tenants — null for pure-GRC). New `AchievementsCard` on the
+  AgDashboardStrip shows earned 🏅 + locked 🔒 milestones (earnedAt date) + the
+  earned/total count.
+- **Fire-once celebration:** the card fires ONE celebration per dashboard visit
+  for the highest-weight newly-earned milestone (fireworks>burst>rain), then
+  marks ALL newly-earned in localStorage (`agri.achievements.celebrated.v1`) — so
+  a rollout backlog doesn't confetti-storm, and each genuinely-new milestone
+  thereafter fires exactly once. Reduced-motion is respected by
+  useCelebration → canvas-confetti `disableForReducedMotion` (the toast still
+  shows). "Fires once" is per-browser (localStorage), schema-free.
+- **Opt-in streak:** off by default; "Track my journaling streak" toggle stores
+  the opt-in in localStorage (`agri.journalStreak.optIn.v1`, the only
+  zero-migration option). Encouraging copy, never guilt-trippy — a broken streak
+  shows "log an entry to begin… your best is N", no shaming.
+- **Ratchet added:** `tests/guards/celebrations-coverage.test.ts` locks the
+  MilestoneKey↔MILESTONES↔AG_MILESTONE_ORDER contract (every key has copy + a
+  valid preset; the 6 ag milestones present + unique).
+
+**Verified:** tsc 0; achievements unit (streak math + milestone derivation,
+mocked db) + celebrations ratchet + usecase-test-coverage + query-shape +
+no-explicit-any green; ag-dashboard usecase test updated (mock getAchievements)
++ green; full static guard sweep. No new API route (rides /dashboard/ag), no new
+model.
+
+### Remaining gaps (Phase 14)
+- **inspection-passed = a FROZEN AuditPack** — the closest existing "an
+  inspection happened" signal; there's no explicit PASSED status. Revisit when a
+  scheme-native inspection-cycle lands (Phase 8 gap).
+- **Streak opt-in is per-browser** (localStorage) — not synced across devices;
+  durable cross-device opt-in would need a preferences table (deferred, no
+  schema this phase).
+- **Achievements only surface on the dashboard card** — a dedicated
+  `/achievements` page (history, locked-milestone hints) is a follow-up.
+- **sop-100-ack has no earnedAt** (the groupBy doesn't carry a timestamp
+  cheaply) — shows earned without a date.
