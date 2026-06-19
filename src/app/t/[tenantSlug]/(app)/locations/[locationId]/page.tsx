@@ -20,8 +20,11 @@ import { PrescriptionPanel } from '@/components/ui/map/PrescriptionPanel';
 import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
 import { ParcelDetailSheet, type ParcelSheetData } from '@/components/ui/map/ParcelDetailSheet';
 import { SprayJobWizard } from './SprayJobWizard';
+import { SmartDefaultsBanner } from './SmartDefaultsBanner';
+import type { LocationSmartDefaults } from '@/app-layer/usecases/smart-defaults';
 import { Plus } from '@/components/ui/icons/nucleo';
-import { useMediaQuery } from '@/components/ui/hooks';
+import { useMediaQuery, useToast } from '@/components/ui/hooks';
+import { nearestParcel } from '@/lib/spatial/nearest';
 import { cn } from '@/lib/cn';
 import type { MapParcel, MapMode } from '@/components/ui/map/MapCanvas';
 
@@ -55,6 +58,7 @@ export default function LocationDetailPage() {
     const { tenantSlug, locationId } = useParams<{ tenantSlug: string; locationId: string }>();
     const buildUrl = useTenantApiUrl();
     const { isMobile } = useMediaQuery();
+    const toast = useToast();
     const [tab, setTab] = useState<Tab>('overview');
     const [selected, setSelected] = useState<string[]>([]);
     // Mobile: the tapped parcel surfaced in the bottom-sheet (vaul). The
@@ -82,6 +86,9 @@ export default function LocationDetailPage() {
     const locQ = useTenantSWR<LocationDetail>(`/locations/${locationId}`);
     const parcelsQ = useTenantSWR<ParcelsResp>(`/locations/${locationId}/parcels`);
     const opsQ = useTenantSWR<OperationItem[]>(tab === 'operations' ? `/locations/${locationId}/operations` : null);
+    // Recall + weather + crop-plan suggestions for this field (editable;
+    // powers the spray-window/next-task banner + the wizard prefills).
+    const smartQ = useTenantSWR<LocationSmartDefaults>(`/locations/${locationId}/smart-defaults`);
     // NDVI tile source (Agro-intel) — fetched only when the Map tab is open.
     const ndviQ = useTenantSWR<{ configured: boolean; tileUrl: string }>(
         tab === 'map' ? '/agro/ndvi-config' : null,
@@ -255,6 +262,7 @@ export default function LocationDetailPage() {
         >
             {tab === 'overview' && (
                 <div className="space-y-default">
+                    <SmartDefaultsBanner data={smartQ.data} />
                     <dl className="grid grid-cols-2 gap-default text-sm sm:grid-cols-3">
                         <div><dt className="text-content-secondary">Status</dt><dd className="font-medium">{loc?.status ?? '—'}</dd></div>
                         <div><dt className="text-content-secondary">Parcels</dt><dd className="font-medium">{loc?._count?.parcels ?? parcels.length}</dd></div>
@@ -271,6 +279,7 @@ export default function LocationDetailPage() {
 
             {tab === 'map' && (
                 <div className="space-y-default">
+                    <SmartDefaultsBanner data={smartQ.data} />
                     <div className="flex flex-wrap items-center gap-compact">
                         <ToggleGroup
                             ariaLabel="Map mode"
@@ -337,6 +346,17 @@ export default function LocationDetailPage() {
                             bounds={bounds}
                             selectedIds={selected}
                             onSelectionChange={handleMapSelection}
+                            // GPS-aware: a Locate-me tap auto-selects the
+                            // nearest field (a suggestion — tap another to
+                            // override). Reuses the same locate-me fix.
+                            onLocationChange={(loc) => {
+                                const hit = nearestParcel(mapParcels, loc);
+                                if (!hit) return;
+                                setSelected([hit.parcel.id]);
+                                toast.success(`Nearest field: ${hit.parcel.name}`, {
+                                    description: 'Auto-selected from your location — tap another to change.',
+                                });
+                            }}
                             mode={mapMode}
                             // Phone-native: thumb-reachable zoom + locate-me
                             // (with live-tracking), lifted clear of the fixed
@@ -477,6 +497,7 @@ export default function LocationDetailPage() {
                 locationId={locationId}
                 parcels={parcels.map((p) => ({ id: p.id, name: p.name, areaHa: p.areaHa ?? null }))}
                 initialParcelIds={wizardParcelIds}
+                smartDefaults={smartQ.data}
                 onCreated={() => { setTab('operations'); void opsQ.mutate(); }}
             />
 

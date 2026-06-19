@@ -26,6 +26,7 @@ import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { useOfflineSync } from '@/lib/offline/use-offline-sync';
 import { apiGet } from '@/lib/api-client';
+import type { LocationSmartDefaults } from '@/app-layer/usecases/smart-defaults';
 
 // Mirror the DTOs PrescriptionPanel uses for /items + /units?measure=RATE.
 interface ItemDTO {
@@ -66,6 +67,12 @@ export interface SprayJobWizardProps {
     initialParcelIds?: string[];
     /** Fired after a successful (or queued) create so the page can refresh. */
     onCreated?: (result: { queued: boolean }) => void;
+    /**
+     * Recall over this location's past jobs (recency/frequency, no ML) —
+     * powers "Repeat last job" + the dose/unit prefills. Every applied value
+     * is an editable SUGGESTION; the operator can override any field.
+     */
+    smartDefaults?: LocationSmartDefaults | null;
 }
 
 export function SprayJobWizard({
@@ -75,6 +82,7 @@ export function SprayJobWizard({
     parcels,
     initialParcelIds,
     onCreated,
+    smartDefaults,
 }: SprayJobWizardProps) {
     const buildUrl = useTenantApiUrl();
     const { submit } = useOfflineSync();
@@ -119,6 +127,63 @@ export function SprayJobWizard({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- seed on open only
     }, [open, seedKey]);
 
+    // ── Smart defaults (editable suggestions) ──────────────────────────
+    const repeatLast = smartDefaults?.repeatLast ?? null;
+
+    // Prefill the default unit on open (the location's most-recently-used
+    // RATE unit) — only when the operator hasn't picked one.
+    useEffect(() => {
+        if (!open) return;
+        if (!doseUnitId && smartDefaults?.defaultUnitId) setDoseUnitId(smartDefaults.defaultUnitId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill on open only
+    }, [open, smartDefaults?.defaultUnitId]);
+
+    // The dose last used for the chosen product on this location (recency).
+    const recalledForProduct = useMemo(() => {
+        if (!productItemId) return null;
+        if (repeatLast?.productItemId === productItemId) {
+            return { doseValue: repeatLast.doseValue, doseUnitId: repeatLast.doseUnitId };
+        }
+        return (
+            Object.values(smartDefaults?.byParcel ?? {}).find(
+                (d) => d.productItemId === productItemId,
+            ) ?? null
+        );
+    }, [productItemId, repeatLast, smartDefaults]);
+
+    // Suggest that dose when a product with history is picked and the operator
+    // hasn't typed one — editable, never forced.
+    useEffect(() => {
+        if (!recalledForProduct || dose.trim() !== '') return;
+        setDose(String(recalledForProduct.doseValue));
+        if (!doseUnitId) setDoseUnitId(recalledForProduct.doseUnitId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- suggest on product pick only
+    }, [recalledForProduct]);
+
+    // One-tap "Repeat last job": apply the whole prior job (parcels still on
+    // this location + product + dose + unit). The operator can then edit any
+    // step before confirming.
+    const applyRepeatLast = () => {
+        if (!repeatLast) return;
+        setSelectedParcelIds(repeatLast.parcelIds.filter((id) => parcels.some((p) => p.id === id)));
+        setProductItemId(repeatLast.productItemId);
+        setDose(String(repeatLast.doseValue));
+        setDoseUnitId(repeatLast.doseUnitId);
+    };
+
+    const repeatLabel = repeatLast
+        ? [
+              items?.find((i) => i.id === repeatLast.productItemId)?.name,
+              `${repeatLast.doseValue} ${units?.find((u) => u.id === repeatLast.doseUnitId)?.symbol ?? ''}`.trim(),
+          ]
+              .filter(Boolean)
+              .join(' · ')
+        : null;
+
+    const recalledUnitSymbol = recalledForProduct
+        ? units?.find((u) => u.id === recalledForProduct.doseUnitId)?.symbol ?? ''
+        : '';
+
     const toggleParcel = (id: string) =>
         setSelectedParcelIds((prev) =>
             prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
@@ -144,6 +209,22 @@ export function SprayJobWizard({
             canAdvance: selectedParcelIds.length > 0,
             content: (
                 <div role="group" aria-label="Parcels" className="space-y-tight">
+                    {repeatLast && (
+                        <button
+                            type="button"
+                            onClick={applyRepeatLast}
+                            className="flex min-h-[44px] w-full items-center gap-default rounded-lg border border-border-emphasis bg-bg-muted/40 px-3 py-2 text-left hover:bg-bg-muted"
+                        >
+                            <span className="flex-1">
+                                <span className="block text-sm font-medium">Repeat last job</span>
+                                {repeatLabel && (
+                                    <span className="block text-xs text-content-secondary">
+                                        {repeatLabel}
+                                    </span>
+                                )}
+                            </span>
+                        </button>
+                    )}
                     {parcels.length === 0 ? (
                         <p className="py-6 text-center text-sm text-content-muted">
                             This location has no parcels yet.
@@ -207,6 +288,7 @@ export function SprayJobWizard({
             description: 'Set the dose and unit.',
             canAdvance: doseValid && Boolean(doseUnitId),
             content: (
+                <div className="space-y-tight">
                 <div className="grid grid-cols-2 gap-default">
                     <FormField label="Dose" required>
                         {/* inputMode decimal → mobile number pad (with decimal
@@ -233,6 +315,12 @@ export function SprayJobWizard({
                             caret
                         />
                     </FormField>
+                </div>
+                {recalledForProduct && (
+                    <p className="text-xs text-content-secondary">
+                        Last time: {recalledForProduct.doseValue} {recalledUnitSymbol} — edit if it&rsquo;s changed.
+                    </p>
+                )}
                 </div>
             ),
         },

@@ -132,6 +132,7 @@ export const CACHE_KEYS = {
         ...makeResource('locations'),
         parcels: (id: string) => `/locations/${id}/parcels` as const,
         operations: (id: string) => `/locations/${id}/operations` as const,
+        smartDefaults: (id: string) => `/locations/${id}/smart-defaults` as const,
     },
     fieldOperations: {
         detail: (taskId: string) => `/field-operations/${taskId}` as const,

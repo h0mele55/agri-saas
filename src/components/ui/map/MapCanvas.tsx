@@ -99,6 +99,14 @@ export interface MapCanvasProps {
      */
     liveTracking?: boolean;
     /**
+     * Fired with the device's `{ lon, lat }` when the locate-me button gets
+     * a fresh GPS fix (NOT on every live-tracking update — a deliberate tap,
+     * so GPS-aware behaviour doesn't fight the user). Lets the host page run
+     * logic like auto-selecting the nearest field without MapCanvas owning
+     * it. Requires `showControls` for the locate button to exist.
+     */
+    onLocationChange?: (loc: { lon: number; lat: number }) => void;
+    /**
      * Ease the camera to frame a parcel when it becomes the sole selection
      * (operator focus). Opt-in so multi-select authoring (merge) on the
      * desktop Map tab isn't disrupted. Honors prefers-reduced-motion
@@ -139,6 +147,7 @@ export function MapCanvas({
     showControls = false,
     controlsBottomInset = 12,
     liveTracking = false,
+    onLocationChange,
     flyToOnSelect = false,
     vectorTileUrl,
     className,
@@ -220,13 +229,14 @@ export function MapCanvas({
             (pos) => {
                 const { longitude, latitude } = pos.coords;
                 setUserLoc({ lon: longitude, lat: latitude });
+                onLocationChange?.({ lon: longitude, lat: latitude });
                 mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 16, duration: reducedMotion ? 0 : 1200 });
                 setLocating(false);
             },
             (err) => { setGeoError(geoErrMessage(err)); setLocating(false); },
             { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
         );
-    }, [geoAvailable, geoErrMessage, reducedMotion]);
+    }, [geoAvailable, geoErrMessage, reducedMotion, onLocationChange]);
 
     // Ease the camera to frame the sole selected parcel (operator focus).
     // Only fires for a single selection so multi-select authoring isn't
