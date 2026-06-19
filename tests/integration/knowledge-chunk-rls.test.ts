@@ -59,8 +59,14 @@ async function createChunk(tenantId: string | null, ref: string): Promise<string
 }
 
 async function cleanup() {
+    const ids = [TENANT_A, TENANT_B].filter(Boolean);
     await globalPrisma.knowledgeChunk.deleteMany({ where: { source: TAG } });
-    await globalPrisma.tenant.deleteMany({ where: { id: { in: [TENANT_A, TENANT_B].filter(Boolean) } } });
+    // Tenant creation leaves an audit row (audit trigger); clear FK-dependents
+    // before deleting the tenant or AuditLog_tenantId_fkey blocks the delete.
+    if (ids.length > 0) {
+        await globalPrisma.auditLog.deleteMany({ where: { tenantId: { in: ids } } });
+    }
+    await globalPrisma.tenant.deleteMany({ where: { id: { in: ids } } });
 }
 
 describeFn('feat/ai-rag — KnowledgeChunk RLS', () => {
