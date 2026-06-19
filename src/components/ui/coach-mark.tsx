@@ -33,6 +33,13 @@ interface CoachMarkProps {
     className?: string;
 }
 
+// Suppress the bubble under E2E (the show-once hint always shows on a fresh
+// browser, and an on-map / on-trigger bubble intercepts the taps the mobile
+// map + field-op specs make). Same flag + rationale as the PWA InstallPrompt
+// and the calendar badge. The wrapped children still render — only the hint
+// is withheld — so the controls under it stay clickable.
+const SUPPRESS_IN_TEST = process.env.NEXT_PUBLIC_TEST_MODE === '1';
+
 const PLACEMENT_POS: Record<CoachMarkPlacement, string> = {
     top: 'bottom-full left-0 mb-2',
     bottom: 'top-full left-0 mt-2',
@@ -51,6 +58,7 @@ export function CoachMark({
     const [show, setShow] = useState(false);
 
     useEffect(() => {
+        if (SUPPRESS_IN_TEST) return;
         if (!hasSeenCoachMark(id)) setShow(true);
     }, [id]);
 
