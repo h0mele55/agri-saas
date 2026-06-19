@@ -800,6 +800,72 @@ model.
 - **sop-100-ack has no earnedAt** (the groupBy doesn't carry a timestamp
   cheaply) — shows earned without a date.
 
+## Phase 16 — Smart defaults: near-zero-typing field entry (feat/delight-smart-defaults)
+
+Anticipate the next action so field entry is near-zero-typing — all SUGGESTIONS
+(recency/frequency + existing data, NO ML, NO new schema), one tap to accept,
+everything editable. Branch off `main`; **independent of #57 (Phase 15
+onboarding)** — there's a gap 14→16 because Phase 15 lives on the unmerged
+onboarding branch; reconcile MEMORY.md + the shared files (MapCanvas,
+location detail page) at merge. **Pushed, NOT merged** (no merge instruction).
+
+- **Recall usecase** (`usecases/smart-defaults.ts`, delegated build) —
+  `getLocationSmartDefaults(ctx, locationId)` derives, over EXISTING rows
+  (assertCanRead + runInTenantContext, all bounded, NO N+1 — one cross-parcel
+  `OperationParcel.findMany` reduced in memory):
+    - `repeatLast` — the latest field operation on this location's parcels,
+      regrouped into one repeatable job (parcelIds + product + dose + unit).
+    - `byParcel` — last-used product+dose+unit per parcel (recency).
+    - `defaultUnitId` — the most-recently-used RATE unit.
+    - `sprayWindow` — today's suitability from the latest `WeatherObservation`
+      run through the EXISTING `evaluateSprayWindow()` (src/lib/agro/rules.ts →
+      GOOD/CAUTION/UNSUITABLE + reasons).
+    - `nextPlanting` — soonest future sow/transplant/harvest among this
+      location's not-finished `Planting` rows (statuses
+      PLANNED/SOWN/TRANSPLANTED/HARVESTING; `Planting.locationId` is real).
+  GET route `/api/t/{slug}/locations/{id}/smart-defaults` (read; no
+  requirePermission — assertCanRead in usecase, not under a privileged root).
+  CACHE_KEYS `locations.smartDefaults(id)`.
+- **No catalog dose defaults exist** (Item.defaultUnitId is an inventory unit,
+  not a RATE dose; no product→dose catalog rule). So "prefill dose from catalog
+  defaults" is delivered as RECALL-derived defaults — the last dose used for
+  that product on this field — which is exactly the sanctioned recency approach.
+- **SprayJobWizard prefills** (all editable): a one-tap **"Repeat last job"**
+  button on the parcels step (applies parcels still on the location + product +
+  dose + unit); **default unit** prefilled on open; **dose** suggested when a
+  product with history is picked (+ a "Last time: N unit — edit if it's
+  changed" hint on the rate step). Wizard takes `smartDefaults` as a prop from
+  the page (single fetch).
+- **GPS nearest-field auto-select** — MapCanvas gained an `onLocationChange`
+  callback (fires on the deliberate locate-me tap, NOT continuous tracking, so
+  it doesn't fight manual selection). The location page computes the nearest
+  parcel via `src/lib/spatial/nearest.ts` (`@turf/bbox` centre + a plain
+  haversine — NO new turf deps; centroid/distance packages aren't installed)
+  and auto-selects it with a "Nearest field: X — tap another to change" toast.
+- **Spray-window + next-task surfacing** — `SmartDefaultsBanner` (on the
+  location overview + map tabs) shows today's spray-window status (token-
+  coloured text, not a hand-rolled badge) + the next crop-plan milestone.
+  Renders nothing when neither signal exists.
+
+**Verified:** tsc 0; full static guard sweep (599 suites / 8078 tests) green
+(fixed one: the Repeat-last-job button used off-recipe `hover:bg-bg-muted/70` →
+`hover:bg-bg-muted`, the click-target recipe); unit tests for the recall usecase
+(`smart-defaults.test.ts` — recency ranking, repeatLast regroup, byParcel
+no-N+1, spray-window passthrough, nextPlanting) + nearest-field ranking
+(`nearest-parcel.test.ts`); `next build` clean (all app-layer imports are
+type-only → no prisma in the client bundle).
+
+### Remaining gaps (Phase 16)
+- **No catalog dose defaults** — dose suggestions are recall-only; a first-ever
+  job for a product on a never-sprayed field gets no dose prefill. A
+  `CropProductDefault` catalog (per crop+product default rate) would fill the
+  cold-start gap but needs schema — deferred.
+- **nextPlanting needs `Planting.locationId` set** — plantings not tied to a
+  location won't surface on that field's banner.
+- **Shared-file merge with #57** — MapCanvas + the location detail page are
+  edited by both this branch and the onboarding branch; additive but reconcile
+  at merge.
+
 ## Phase 17 — Personality: a home that greets like a colleague (feat/delight-personality)
 
 A home screen that greets the farmer like a helpful colleague, in their
