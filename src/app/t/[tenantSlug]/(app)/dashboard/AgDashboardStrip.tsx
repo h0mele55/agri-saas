@@ -5,6 +5,7 @@ import { useTenantHref } from '@/lib/tenant-context-provider';
 import { CACHE_KEYS } from '@/lib/swr-keys';
 import type { AgDashboardPayload } from '@/app-layer/usecases/ag-dashboard';
 
+import SeasonRecapCard from './SeasonRecapCard';
 import RecentJournalCard from './RecentJournalCard';
 import LowStockCard from './LowStockCard';
 import MyFarmTasksCard from './MyFarmTasksCard';
@@ -51,10 +52,14 @@ export default function AgDashboardStrip() {
     if (!journalOn && !inventoryOn && !certificationOn && !data.achievements) return null;
 
     return (
-        <div
-            id="ag-dashboard-strip"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-default"
-        >
+        <div className="space-y-default">
+            {/* Shareable season recap + "Year on the farm" PDF — self-hides
+                until there's something to recap. */}
+            <SeasonRecapCard />
+            <div
+                id="ag-dashboard-strip"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-default"
+            >
             {journalOn && (
                 <RecentJournalCard href={href('/journal')} items={data.recentJournal} />
             )}
@@ -66,6 +71,7 @@ export default function AgDashboardStrip() {
             )}
             <MyFarmTasksCard href={href('/farm-tasks')} items={data.myTasks} />
             {data.achievements && <AchievementsCard achievements={data.achievements} />}
+            </div>
         </div>
     );
 }
