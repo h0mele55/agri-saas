@@ -266,3 +266,92 @@ export function filterStepsForCurrentPage(
         return findAnchor(step.selector) !== null;
     });
 }
+
+// ─── Guided first-run flow (feat/delight-onboarding) ────────────────────
+//
+// A brand-new farmer lands on a near-empty dashboard. This flow gives them
+// two concrete next steps — "map your first field → log your first job" —
+// surfaced as a dashboard progress ring that DISAPPEARS once the operation
+// is set up. It is deliberately distinct from both the Driver.js product
+// tour above (a sidebar walkthrough) and the DB-backed OnboardingWizard:
+// the ring is a lightweight, data-derived nudge, not a config flow.
+//
+// Completion is DERIVED from real tenant data (see `firstRunProgress`),
+// never a checkbox the user ticks — so the ring can't lie, and it vanishes
+// the moment the underlying work is actually done.
+
+/** The two first-run steps, also used as their completion-signal keys. */
+export type FirstRunSignal = 'first-field-mapped' | 'first-job-logged';
+
+export interface FirstRunStep {
+    /** Stable id — doubles as the completion-signal key. */
+    id: FirstRunSignal;
+    /** Imperative step label ("Map your first field"). */
+    label: string;
+    /** One-line reason it matters. */
+    hint: string;
+    /** Tenant-relative path the CTA opens (joined with the tenant base). */
+    href: string;
+    /** CTA button label. */
+    cta: string;
+}
+
+export const FIRST_RUN_STEPS: ReadonlyArray<FirstRunStep> = [
+    {
+        id: 'first-field-mapped',
+        label: 'Map your first field',
+        hint: 'Draw or import a parcel — every journal entry, job, and claim hangs off a location.',
+        href: '/locations',
+        cta: 'Map a field',
+    },
+    {
+        id: 'first-job-logged',
+        label: 'Log your first job',
+        hint: 'Plan a field operation or log an activity — the field record behind every claim.',
+        href: '/farm-tasks',
+        cta: 'Plan a job',
+    },
+];
+
+/**
+ * Per-tenant localStorage key for dismissing the first-run card. Tenant-
+ * scoped (not per-user) because "this farm is set up" is a tenant-level
+ * fact — once any operator dismisses it, the farm is past onboarding.
+ */
+export function firstRunDismissKey(tenantId: string): string {
+    return `inflect:onboarding-firstrun:dismissed:${tenantId}`;
+}
+
+/** Real-data signals the card reads from the existing `/dashboard/ag` payload. */
+export interface FirstRunSignals {
+    fieldMapped: boolean;
+    jobLogged: boolean;
+}
+
+export interface FirstRunProgress {
+    steps: ReadonlyArray<{ step: FirstRunStep; done: boolean }>;
+    completedCount: number;
+    total: number;
+    allComplete: boolean;
+}
+
+/**
+ * Derive first-run progress from real tenant signals. Pure — no storage,
+ * no React, no fetch — so the card adds zero network cost (it reads the
+ * payload the dashboard strip already loaded) and the logic unit-tests in
+ * isolation.
+ */
+export function firstRunProgress(signals: FirstRunSignals): FirstRunProgress {
+    const doneById: Record<FirstRunSignal, boolean> = {
+        'first-field-mapped': signals.fieldMapped,
+        'first-job-logged': signals.jobLogged,
+    };
+    const steps = FIRST_RUN_STEPS.map((step) => ({ step, done: doneById[step.id] }));
+    const completedCount = steps.filter((s) => s.done).length;
+    return {
+        steps,
+        completedCount,
+        total: steps.length,
+        allComplete: completedCount === steps.length,
+    };
+}

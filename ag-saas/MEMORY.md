@@ -799,3 +799,82 @@ model.
   `/achievements` page (history, locked-milestone hints) is a follow-up.
 - **sop-100-ack has no earnedAt** (the groupBy doesn't carry a timestamp
   cheaply) — shows earned without a date.
+
+## Phase 15 — Guided onboarding (feat/delight-onboarding)
+
+A new farmer's first five minutes feel guided, never a blank slate. Branch
+`feat/delight-onboarding` off `main` — **pushed, NOT merged** (no merge
+instruction this phase). Four parts:
+
+- **Friendly empty states on all 5 key surfaces** — Locations, Journal,
+  Inventory, Tasks (farm-tasks), Certification (schemes) all render an
+  `<EmptyState>` (the sanctioned icon-based primitive — it has no
+  illustration slot, so "illustrated" = a friendly variant icon + warm copy)
+  with a one-line "why" + a one-tap primary action. Most already had this from
+  earlier phases; the two gaps closed here were **Locations** (added
+  `primaryAction` → New location) and **Inventory** (added `primaryAction` →
+  New product). No raw blank screens remain. Empty-state copy/tone/coverage
+  ratchets + action-label-vocabulary all stay green.
+- **Guided first-run flow + progress ring** — `FIRST_RUN_STEPS` (+ pure
+  `firstRunProgress()` and `firstRunDismissKey(tenantId)`) added to
+  `src/lib/onboarding-steps.ts` (the SAME file as the Driver.js tour, as
+  asked; the structural ratchet only locks tour↔wizard separation, untouched).
+  Two steps: "Map your first field" (→ /locations) and "Log your first job"
+  (→ /farm-tasks). New `dashboard/FirstRunCard.tsx` mounts ABOVE the
+  AgDashboardStrip grid, rendering the sanctioned `<ProgressCircle>` ring
+  (NOT raw SVG — clears dashboard-chart-bypass). **Completion is DERIVED from
+  the existing `/dashboard/ag` payload** (field = `first-field-mapped`
+  achievement earned; job = any recentJournal OR myTasks row), so the ring
+  adds ZERO network cost and can't lie. It self-hides once both steps are done
+  or the operator dismisses it (`useLocalStorage`, per-tenant key).
+- **"Try it with sample data" — tenant-scoped + reversible** (backend built by
+  a delegated agent). New `isSampleData Boolean @default(false)` on `Location`,
+  `Parcel`, `LogEntry`, `InventoryLot` (migration
+  `20260619120000_add_is_sample_data`; additive, RLS-safe, no index — a
+  low-selectivity boolean rides the existing tenantId-leading indexes).
+  `usecases/sample-data.ts`: `hasSampleData` / `loadSampleData` (idempotent
+  no-op if present) / `clearSampleData` (soft-deletes only `isSampleData &&
+  deletedAt null` rows). It writes **directly via prisma inside
+  `runInTenantContext`** (NOT the create usecases) on purpose: `createLocation`
+  runs the FREE-plan entitlement gate (sample data must never be plan-blocked),
+  `createParcel` demands real PostGIS geometry, `createLot` routes the
+  hash-chained ledger — none fit demo rows. Every insert carries explicit
+  `tenantId` + `isSampleData:true`, gated by `assertCanWrite`, audited via
+  `logEvent`. API `…/sample-data` GET→`{hasSampleData}`, POST→`{created}`,
+  DELETE→`{cleared}`, gated `tasks.view`/`tasks.create` (closest farmer-facing
+  read/write pair; no ROUTE_PERMISSIONS entry — the route isn't under the
+  privileged roots api-permission-coverage scans, so a rule there would read as
+  an orphan; `requirePermission` still enforces). The FirstRunCard surfaces the
+  controls AND **stays visible in a "you're exploring with sample data" state
+  whenever sample data exists** (even after dismiss/completion) — otherwise
+  loading sample rows makes the farm look set up and hides the only Clear
+  button.
+- **First-time-only coach-marks** — new `src/lib/coach-marks.ts`
+  (show-once localStorage dedupe, mirrors celebrations.ts; raw localStorage is
+  fine in the lib layer) + `components/ui/coach-mark.tsx` (`<CoachMark>` wraps a
+  target, decides show AFTER mount to avoid SSR mismatch + returning-user
+  flash). Deliberately **no shadow + no entrance animation** so it clears the
+  shadow-discipline + motion-language ratchets and is reduced-motion-safe by
+  construction. Wired onto the **map locate control** (MapCanvas, id
+  `map-locate`) and the **field-op wizard trigger** (location-detail "Spray
+  job" button, id `field-op-wizard`; anchored on the trigger, not inside the
+  modal, to avoid clipping).
+
+**Verified:** tsc 0; full static guard sweep (597 suites / 8074 tests) green;
+new unit tests (first-run-onboarding, coach-marks, sample-data) + achievements
++ ag-dashboard + celebrations + onboarding-tour-structural all green;
+`next build` (client/server boundary — the thing tsc misses) clean.
+
+### Remaining gaps (Phase 15)
+- **EmptyState has no real illustration slot** — "illustrated" was delivered as
+  the icon-based primitive + warm copy. A genuine SVG illustration set would
+  need a new `illustration?` prop on EmptyState (+ its tone ratchets re-checked)
+  and is deferred.
+- **First-run "log a job" signal is a proxy** — any journal entry OR assigned
+  farm task counts; it doesn't require a *completed* operation. Good enough for
+  a nudge, intentionally loose.
+- **Sample-data clear is hard soft-delete, not undoable** — there's no "restore
+  sample data" beyond re-loading; the rows are tagged + soft-deleted, so a
+  restore verb could be added later, but reload is the intended path.
+- **First-run dismiss is per-tenant, per-browser** (localStorage) — not synced;
+  a durable flag would need a preferences table (same deferral as Phase 14).

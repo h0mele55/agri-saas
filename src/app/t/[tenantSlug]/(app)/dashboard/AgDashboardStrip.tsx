@@ -5,6 +5,7 @@ import { useTenantHref } from '@/lib/tenant-context-provider';
 import { CACHE_KEYS } from '@/lib/swr-keys';
 import type { AgDashboardPayload } from '@/app-layer/usecases/ag-dashboard';
 
+import FirstRunCard from './FirstRunCard';
 import RecentJournalCard from './RecentJournalCard';
 import LowStockCard from './LowStockCard';
 import MyFarmTasksCard from './MyFarmTasksCard';
@@ -30,7 +31,7 @@ import AchievementsCard from './AchievementsCard';
  */
 export default function AgDashboardStrip() {
     const href = useTenantHref();
-    const { data } = useTenantSWR<AgDashboardPayload>(CACHE_KEYS.dashboard.ag());
+    const { data, mutate } = useTenantSWR<AgDashboardPayload>(CACHE_KEYS.dashboard.ag());
 
     if (!data) return null;
 
@@ -51,10 +52,14 @@ export default function AgDashboardStrip() {
     if (!journalOn && !inventoryOn && !certificationOn && !data.achievements) return null;
 
     return (
-        <div
-            id="ag-dashboard-strip"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-default"
-        >
+        <div className="space-y-default">
+            {/* Guided first-run ring — self-hides once the farm is set up
+                or the operator dismisses it (see FirstRunCard). */}
+            <FirstRunCard payload={data} onChanged={() => { void mutate(); }} />
+            <div
+                id="ag-dashboard-strip"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-default"
+            >
             {journalOn && (
                 <RecentJournalCard href={href('/journal')} items={data.recentJournal} />
             )}
@@ -66,6 +71,7 @@ export default function AgDashboardStrip() {
             )}
             <MyFarmTasksCard href={href('/farm-tasks')} items={data.myTasks} />
             {data.achievements && <AchievementsCard achievements={data.achievements} />}
+            </div>
         </div>
     );
 }

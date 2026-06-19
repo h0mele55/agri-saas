@@ -7,6 +7,7 @@ import type { Geometry, LineString, Polygon } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { CoachMark } from '@/components/ui/coach-mark';
 import { Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
@@ -237,16 +238,23 @@ export default function LocationDetailPage() {
             actions={
                 <div className="flex items-center gap-compact">
                     <Button variant="secondary" size="sm" onClick={() => setShowImport(true)}>Import parcels</Button>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<Plus className="size-4" />}
-                        onClick={() => { setWizardParcelIds([]); setShowSprayWizard(true); }}
-                        disabled={parcels.length === 0}
-                        data-testid="new-spray-job"
+                    <CoachMark
+                        id="field-op-wizard"
+                        title="Plan a field job"
+                        body="Start here to record a spray or other operation — pick the parcels, the product, and the rate, and it becomes a tracked job."
+                        placement="bottom"
                     >
-                        Spray job
-                    </Button>
+                        <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Plus className="size-4" />}
+                            onClick={() => { setWizardParcelIds([]); setShowSprayWizard(true); }}
+                            disabled={parcels.length === 0}
+                            data-testid="new-spray-job"
+                        >
+                            Spray job
+                        </Button>
+                    </CoachMark>
                 </div>
             }
             tabs={tabs}
