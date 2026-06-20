@@ -292,6 +292,7 @@ export function InventoryClient({ tenantSlug }: { tenantSlug: string }) {
                             variant="no-records"
                             title="No stock yet"
                             description="Create a product, then add a lot to start tracking stock. Completing a spray job deducts from the matching lot automatically."
+                            primaryAction={{ label: 'New product', onClick: () => setShowProduct(true) }}
                         />
                     }
                 />

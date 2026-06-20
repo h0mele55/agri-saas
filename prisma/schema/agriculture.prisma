@@ -113,6 +113,11 @@ model Location {
   /// [west, south, east, north] in WGS84, for initial map fit.
   boundsJson      Json?
   createdByUserId String?
+  /// "Try it with sample data": rows seeded into the tenant's own
+  /// workspace, tagged so a one-tap "Clear sample data" can remove
+  /// exactly them (and nothing else). Plain boolean, default-false —
+  /// additive + RLS-safe; no index (low-selectivity flag).
+  isSampleData    Boolean        @default(false)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?
@@ -154,6 +159,8 @@ model Parcel {
   geometry        Unsupported("geometry(MultiPolygon, 4326)")?
   areaHa          Decimal?                                     @db.Decimal(12, 4)
   propertiesJson  Json?
+  /// "Try it with sample data" tag — see Location.isSampleData.
+  isSampleData    Boolean                                      @default(false)
   createdAt       DateTime                                     @default(now())
   updatedAt       DateTime                                     @updatedAt
   deletedAt       DateTime?

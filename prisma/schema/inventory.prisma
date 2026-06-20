@@ -62,6 +62,9 @@ model InventoryLot {
   /// Per-unit acquisition cost (valuation snapshot source).
   unitCostAmount   Decimal?  @db.Decimal(14, 4)
   unitCostCurrency String?
+  /// "Try it with sample data" tag — see Location.isSampleData
+  /// (agriculture.prisma). Default-false; reversible via clearSampleData.
+  isSampleData     Boolean   @default(false)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   deletedAt        DateTime?

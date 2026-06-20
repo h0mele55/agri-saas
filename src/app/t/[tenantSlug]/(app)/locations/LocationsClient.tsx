@@ -104,7 +104,8 @@ export function LocationsClient({ tenantSlug }: { tenantSlug: string }) {
                             size="sm"
                             variant="no-records"
                             title="No locations yet"
-                            description="Create one, then import a shapefile, KML, or GeoJSON to populate parcels."
+                            description="Map your first field — every journal entry, spray job, and traceability claim hangs off a location."
+                            primaryAction={{ label: 'New location', onClick: () => setShowNew(true) }}
                         />
                     )}
                 />

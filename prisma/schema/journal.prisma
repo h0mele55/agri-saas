@@ -52,6 +52,9 @@ model LogEntry {
   /// ID result under `pestId`). Distinct from `conditionsJson` (spray
   /// compliance fields).
   attributesJson    Json?
+  /// "Try it with sample data" tag — see Location.isSampleData
+  /// (agriculture.prisma). Default-false; reversible via clearSampleData.
+  isSampleData      Boolean        @default(false)
   createdByUserId   String?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt

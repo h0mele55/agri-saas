@@ -27,6 +27,7 @@ import { validatePolygonGeometry, type PolygonValidity } from '@/lib/geo/polygon
 import bbox from '@turf/bbox';
 import { Crosshairs3, MapPosition, Minus, Plus } from '@/components/ui/icons/nucleo';
 import { useReducedMotion } from '@/components/ui/hooks';
+import { CoachMark } from '@/components/ui/coach-mark';
 import { cn } from '@/lib/cn';
 
 export interface MapParcel {
@@ -584,20 +585,27 @@ export function MapCanvas({
                         style={{ bottom: controlsBottomInset }}
                     >
                         {geoAvailable && (
-                            <button
-                                type="button"
-                                onClick={handleLocate}
-                                aria-label="Locate me"
-                                aria-busy={locating}
-                                data-testid="map-locate"
-                                className={cn(controlBtn, 'rounded-lg border border-border-subtle shadow-md')}
+                            <CoachMark
+                                id="map-locate"
+                                title="Find your fields"
+                                body="Tap to centre the map on where you are — handy when you're standing in the paddock."
+                                placement="left"
                             >
-                                {locating ? (
-                                    <span className="size-5 animate-spin rounded-full border-2 border-border-emphasis border-t-transparent" />
-                                ) : (
-                                    <Crosshairs3 className="size-5" aria-hidden="true" />
-                                )}
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={handleLocate}
+                                    aria-label="Locate me"
+                                    aria-busy={locating}
+                                    data-testid="map-locate"
+                                    className={cn(controlBtn, 'rounded-lg border border-border-subtle shadow-md')}
+                                >
+                                    {locating ? (
+                                        <span className="size-5 animate-spin rounded-full border-2 border-border-emphasis border-t-transparent" />
+                                    ) : (
+                                        <Crosshairs3 className="size-5" aria-hidden="true" />
+                                    )}
+                                </button>
+                            </CoachMark>
                         )}
                         {liveTracking && geoAvailable && (
                             <button

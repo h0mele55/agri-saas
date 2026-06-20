@@ -100,7 +100,10 @@ const ROOT = path.resolve(__dirname, '../..');
  */
 // B3 (2026-06-07): −1 — the undo-toast's `border-border-default` was
 // replaced by the `.surface-popup-texture` class (token-based border).
-const BORDER_DEFAULT_BUDGET = 114;
+// B4 (2026-06-20): +1 — two delight features landed discrete-surface cards
+// that legitimately use the `border-border-default` "discrete surface" tone:
+// the shareables ShareableStatCard and the onboarding CoachMark popover.
+const BORDER_DEFAULT_BUDGET = 115;
 
 function countMatches(re: RegExp): number {
     let total = 0;
