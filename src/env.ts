@@ -384,6 +384,23 @@ export const env = createEnv({
         // subscribe via PushManager. Mirror of VAPID_PUBLIC_KEY; absent →
         // the push opt-in UI stays hidden (feature-detected + key-gated).
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
+
+        // MapTiler basemap (parcel map). The key is fetched by MapLibre
+        // in the browser, so it is necessarily public — restrict it by
+        // HTTP referrer in the MapTiler dashboard rather than treating it
+        // as a secret. Absent → MapCanvas falls back to the bare
+        // `demotiles.maplibre.org` style (no imagery), so the map keeps
+        // working without any signup.
+        NEXT_PUBLIC_MAPTILER_KEY: z.string().optional(),
+
+        // Which MapTiler style id to render. Defaults to `hybrid`
+        // (satellite imagery + road/place labels) — the best fit for an
+        // agriculture product, where operators navigate by what their
+        // land looks like. Only consulted when NEXT_PUBLIC_MAPTILER_KEY
+        // is set.
+        NEXT_PUBLIC_MAP_BASEMAP_STYLE: z
+            .enum(['hybrid', 'satellite', 'streets-v2', 'outdoor-v2', 'basic-v2'])
+            .default('hybrid'),
     },
 
     /**
@@ -480,6 +497,8 @@ export const env = createEnv({
 
         NEXT_PUBLIC_NOTIFICATIONS_SSE: process.env.NEXT_PUBLIC_NOTIFICATIONS_SSE,
         NEXT_PUBLIC_VAPID_PUBLIC_KEY: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        NEXT_PUBLIC_MAPTILER_KEY: process.env.NEXT_PUBLIC_MAPTILER_KEY,
+        NEXT_PUBLIC_MAP_BASEMAP_STYLE: process.env.NEXT_PUBLIC_MAP_BASEMAP_STYLE,
     },
     /**
      * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation.
