@@ -150,7 +150,13 @@ describe('RBAC Guardrail Scans', () => {
         test('SidebarNav filters hidden items by permission', () => {
             const content = readFile('components/layout/SidebarNav.tsx');
             expect(content).toMatch(/usePermissions/);
-            expect(content).toMatch(/visible.*perms\./);
+            // Nav items are gated by `visible:` flags derived from the
+            // tenant's permitted modules (certAvailable / grainAvailable),
+            // and the admin section is gated by a `perms.<area>.<action>`
+            // permission path. Both mechanisms must remain present so the
+            // sidebar never renders wide-open.
+            expect(content).toMatch(/visible:\s*\w*Available/);
+            expect(content).toMatch(/perms\.\w+\.\w+/);
             expect(content).toMatch(/\.filter\(/);
         });
     });
