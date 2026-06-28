@@ -16,8 +16,10 @@
  * behaviour and never loads terra-draw, so the read-only/operator and
  * spray-prescription paths are untouched.
  *
- * MapLibre GL (BSD-3) + react-map-gl (MIT) + terra-draw (MIT). No API key
- * (public demo basemap). Geometry is GeoJSON in WGS84.
+ * MapLibre GL (BSD-3) + react-map-gl (MIT) + terra-draw (MIT). Basemap is
+ * MapTiler (satellite `hybrid` by default) when NEXT_PUBLIC_MAPTILER_KEY
+ * is set, else the bare MapLibre demo style — see `resolveBasemapStyle`.
+ * Geometry is GeoJSON in WGS84.
  */
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -29,6 +31,7 @@ import { Crosshairs3, MapPosition, Minus, Plus } from '@/components/ui/icons/nuc
 import { useReducedMotion } from '@/components/ui/hooks';
 import { CoachMark } from '@/components/ui/coach-mark';
 import { cn } from '@/lib/cn';
+import { env } from '@/env';
 
 export interface MapParcel {
     id: string;
@@ -129,7 +132,25 @@ export interface MapCanvasProps {
     className?: string;
 }
 
+// Bare outline-only basemap (no imagery). Used as the fallback when no
+// MapTiler key is configured, so the map still renders without signup.
 const DEMO_STYLE = 'https://demotiles.maplibre.org/style.json';
+
+/**
+ * Resolve the basemap style URL. With a MapTiler key (referrer-restricted
+ * in the dashboard — it's fetched in the browser, so necessarily public)
+ * we render a real basemap; `hybrid` (satellite imagery + labels) is the
+ * default and the best fit for an agriculture product. Without a key we
+ * fall back to the bare MapLibre demo style.
+ */
+function resolveBasemapStyle(): string {
+    const key = env.NEXT_PUBLIC_MAPTILER_KEY;
+    if (!key) return DEMO_STYLE;
+    const style = env.NEXT_PUBLIC_MAP_BASEMAP_STYLE;
+    return `https://api.maptiler.com/maps/${style}/style.json?key=${key}`;
+}
+
+const BASEMAP_STYLE = resolveBasemapStyle();
 
 export function MapCanvas({
     parcels,
@@ -462,7 +483,7 @@ export function MapCanvas({
             <Map
                 ref={mapRef}
                 initialViewState={initialViewState}
-                mapStyle={DEMO_STYLE}
+                mapStyle={BASEMAP_STYLE}
                 interactiveLayerIds={interactive && !drawing ? ['parcel-fill'] : []}
                 onClick={handleClick}
                 style={{ width: '100%', height: '100%' }}
