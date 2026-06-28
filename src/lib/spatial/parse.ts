@@ -33,7 +33,7 @@ export interface ParsedParcel {
     name: string;
     /** Always a MultiPolygon in WGS84 (Polygon inputs are wrapped). */
     geometry: MultiPolygon;
-    /** Original source-feature properties, preserved verbatim. */
+    /** Source-feature properties, JSON-sanitised (Dates→ISO, NaN→null). */
     properties: Record<string, unknown>;
 }
 
@@ -53,15 +53,60 @@ export class SpatialParseError extends Error {
     }
 }
 
-const NAME_KEYS = ['name', 'Name', 'NAME', 'title', 'label', 'parcel', 'PARCEL', 'field', 'FIELD', 'id', 'ID'];
+/**
+ * Coerce a parsed source value into something that survives JSON
+ * serialization into `Parcel.propertiesJson`. DBF parsers (shpjs) emit
+ * native `Date` objects for date columns — blank cells become
+ * `new Date('Invalid Date')` — and numeric columns can yield `NaN`.
+ * Prisma rejects BOTH inside a JSON value, which previously failed the
+ * whole import. We normalize: valid Date → ISO string, invalid Date →
+ * null, non-finite number → null, recursing through arrays/objects.
+ */
+function toJsonSafe(value: unknown): unknown {
+    if (value === null || value === undefined) return null;
+    if (value instanceof Date) {
+        const t = value.getTime();
+        return Number.isNaN(t) ? null : value.toISOString();
+    }
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === 'bigint') return value.toString();
+    if (typeof value === 'string' || typeof value === 'boolean') return value;
+    if (Array.isArray(value)) return value.map(toJsonSafe);
+    if (typeof value === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            out[k] = toJsonSafe(v);
+        }
+        return out;
+    }
+    // functions / symbols → drop
+    return null;
+}
 
-function pickName(properties: Record<string, unknown>, index: number): string {
-    for (const key of NAME_KEYS) {
+const NAME_KEYS = ['name', 'Name', 'NAME', 'title', 'label', 'parcel', 'PARCEL', 'field', 'FIELD', 'id', 'ID'];
+// Cadastral / area-code keys. When one is present alongside a NAME_KEYS value it
+// PREFIXES the name (EKATTE 15655 + NAME 3 → "15655-3"), so cadastral exports
+// get a unique, human-meaningful label instead of a bare block number. The
+// composition is Unicode-safe — a Cyrillic name is preserved verbatim.
+const CODE_KEYS = ['EKATTE', 'ekatte', 'CADASTRE', 'cadastre', 'KVS', 'kvs', 'REGION', 'region', 'BLOCK', 'block', 'ZONE', 'zone'];
+
+/** First non-empty string/number value among `keys`, trimmed; else null. */
+function pickValue(properties: Record<string, unknown>, keys: readonly string[]): string | null {
+    for (const key of keys) {
         const v = properties[key];
         if (typeof v === 'string' && v.trim()) return v.trim();
-        if (typeof v === 'number') return String(v);
+        if (typeof v === 'number' && Number.isFinite(v)) return String(v);
     }
-    return `Parcel ${index + 1}`;
+    return null;
+}
+
+function pickName(properties: Record<string, unknown>, index: number): string {
+    const name = pickValue(properties, NAME_KEYS);
+    const code = pickValue(properties, CODE_KEYS);
+    if (code && name && code !== name) return `${code}-${name}`;
+    return name ?? code ?? `Parcel ${index + 1}`;
 }
 
 /** Coerce a Polygon or MultiPolygon into MultiPolygon; reject anything else. */
@@ -85,17 +130,28 @@ function toMultiPolygon(geometry: Geometry | null | undefined): MultiPolygon | n
     return null;
 }
 
-/** Normalize a GeoJSON FeatureCollection / Feature / geometry into parcels. */
-export function normalizeToParcels(input: unknown): ParsedParcel[] {
+/**
+ * Normalize a GeoJSON FeatureCollection / Feature / geometry into parcels,
+ * counting features dropped for lacking polygonal geometry (`skipped`) so the
+ * caller can tell the user a partial import happened instead of silently
+ * losing points/lines.
+ */
+export function normalizeToParcels(input: unknown): { parcels: ParsedParcel[]; skipped: number } {
     const features: Feature[] = collectFeatures(input);
     const parcels: ParsedParcel[] = [];
-    features.forEach((feature, index) => {
+    let skipped = 0;
+    for (const feature of features) {
         const mp = toMultiPolygon(feature.geometry);
-        if (!mp) return;
-        const properties = (feature.properties ?? {}) as Record<string, unknown>;
+        if (!mp) {
+            skipped++;
+            continue;
+        }
+        const properties = toJsonSafe(
+            (feature.properties ?? {}) as Record<string, unknown>,
+        ) as Record<string, unknown>;
         parcels.push({ name: pickName(properties, parcels.length), geometry: mp, properties });
-    });
-    return parcels;
+    }
+    return { parcels, skipped };
 }
 
 function collectFeatures(input: unknown): Feature[] {
@@ -143,7 +199,7 @@ export function detectFormat(filename: string, mimeType?: string): SpatialFormat
     return null;
 }
 
-export function parseGeoJson(text: string): ParsedParcel[] {
+export function parseGeoJson(text: string): { parcels: ParsedParcel[]; skipped: number } {
     let json: unknown;
     try {
         json = JSON.parse(text);
@@ -153,7 +209,7 @@ export function parseGeoJson(text: string): ParsedParcel[] {
     return normalizeToParcels(json);
 }
 
-export function parseKml(text: string): ParsedParcel[] {
+export function parseKml(text: string): { parcels: ParsedParcel[]; skipped: number } {
     // togeojson needs a DOM Document; @xmldom/xmldom provides one in Node.
     const doc = new DOMParser().parseFromString(text, 'text/xml');
     // Lazy require keeps the CJS build out of the module's static graph.
@@ -163,7 +219,9 @@ export function parseKml(text: string): ParsedParcel[] {
     return normalizeToParcels(fc);
 }
 
-export async function parseShapefileZip(buffer: Buffer): Promise<ParsedParcel[]> {
+export async function parseShapefileZip(
+    buffer: Buffer,
+): Promise<{ parcels: ParsedParcel[]; skipped: number }> {
     // shpjs is a browser-oriented bundle that references the `self`
     // global; polyfill it before loading so it runs server-side. Dynamic
     // import (after the polyfill) avoids static-hoisting the reference.
@@ -194,18 +252,34 @@ export async function parseSpatialFile(args: {
         );
     }
 
-    let parcels: ParsedParcel[];
+    let extraction: { parcels: ParsedParcel[]; skipped: number };
     if (format === 'geojson') {
-        parcels = parseGeoJson(args.buffer.toString('utf8'));
+        extraction = parseGeoJson(args.buffer.toString('utf8'));
     } else if (format === 'kml') {
-        parcels = parseKml(args.buffer.toString('utf8'));
+        extraction = parseKml(args.buffer.toString('utf8'));
     } else {
-        parcels = await parseShapefileZip(args.buffer);
+        extraction = await parseShapefileZip(args.buffer);
     }
+    const { parcels, skipped } = extraction;
 
     if (!parcels.length) {
         throw new SpatialParseError('No polygon parcels found in the uploaded file.');
     }
 
-    return { format, parcels, bounds: computeBounds(parcels), skipped: 0 };
+    const bounds = computeBounds(parcels);
+    // Coordinate-range guard: if shpjs (or a malformed/unsupported .prj) failed
+    // to reproject, coordinates stay in the source CRS (e.g. UTM metres) and
+    // would otherwise be stored as garbage lat/lon. Reject with an actionable
+    // message — every WGS84 coordinate must fall within lon ±180 / lat ±90.
+    if (bounds) {
+        const [w, s, e, n] = bounds;
+        if (w < -180 || e > 180 || s < -90 || n > 90) {
+            throw new SpatialParseError(
+                `Coordinates fall outside the valid WGS84 range (bounds [${w.toFixed(1)}, ${s.toFixed(1)}, ${e.toFixed(1)}, ${n.toFixed(1)}]; expected longitude -180..180, latitude -90..90). ` +
+                    `The file's projection could not be reprojected to WGS84. Re-export the layer as WGS84 / EPSG:4326 and upload again.`,
+            );
+        }
+    }
+
+    return { format, parcels, bounds, skipped };
 }
