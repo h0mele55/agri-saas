@@ -345,6 +345,27 @@ export function MapCanvas({
             ] = await Promise.all([import('terra-draw'), import('terra-draw-maplibre-gl-adapter')]);
             if (cancelled) return;
 
+            // terra-draw's adapter registers its sources/layers the instant
+            // draw.start() runs, and maplibre's addSource/addLayer THROW when
+            // the style isn't loaded yet. The tiny demo basemap was ready
+            // instantly; the MapTiler vector style loads async, so on a fresh
+            // map draw.start() raced it and the whole setup rejected silently
+            // — draw/edit/split looked dead. Wait for the style to finish.
+            if (!map.isStyleLoaded()) {
+                await new Promise<void>((resolve) => {
+                    const ready = () => {
+                        if (cancelled || map.isStyleLoaded()) {
+                            map.off('styledata', ready);
+                            map.off('idle', ready);
+                            resolve();
+                        }
+                    };
+                    map.on('styledata', ready);
+                    map.on('idle', ready);
+                });
+                if (cancelled) return;
+            }
+
             const draw = new TerraDraw({
                 adapter: new TerraDrawMapLibreGLAdapter({ map }),
                 modes: [
