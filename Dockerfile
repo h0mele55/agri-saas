@@ -29,6 +29,17 @@ RUN npx prisma generate
 # blocked by script-src-elem. See docs/implementation-notes/2026-06-05-csp-webpack-bundler.md.
 ENV SKIP_ENV_VALIDATION=1
 ENV NEXT_TELEMETRY_DISABLED=1
+# Public build-time env — Next inlines NEXT_PUBLIC_* into the client
+# bundle at `next build`, so the parcel-map basemap key must be present
+# HERE (a runtime env var is too late — the value is already baked).
+# `.dockerignore` excludes `.env*`, so this is the only injection point:
+# pass it with `--build-arg NEXT_PUBLIC_MAPTILER_KEY=…` (or compose
+# `build.args`). Defaults empty ⇒ MapCanvas falls back to the demo
+# basemap, so builds without a key (CI, contributors) still work.
+ARG NEXT_PUBLIC_MAPTILER_KEY=""
+ENV NEXT_PUBLIC_MAPTILER_KEY=$NEXT_PUBLIC_MAPTILER_KEY
+ARG NEXT_PUBLIC_MAP_BASEMAP_STYLE="hybrid"
+ENV NEXT_PUBLIC_MAP_BASEMAP_STYLE=$NEXT_PUBLIC_MAP_BASEMAP_STYLE
 RUN npx next build --webpack
 
 # Build the standalone BullMQ worker + scheduler bundles. esbuild is
