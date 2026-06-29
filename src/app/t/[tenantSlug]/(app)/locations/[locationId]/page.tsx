@@ -387,7 +387,7 @@ export default function LocationDetailPage() {
                                     <span>Low</span>
                                     <span
                                         aria-hidden="true"
-                                        className="h-2 w-28 rounded-full bg-[linear-gradient(to_right,#a50026,#f46d43,#fee08b,#a6d96a,#006837)]"
+                                        className="h-2 w-24 rounded-full bg-[linear-gradient(to_right,#a50026,#f46d43,#fee08b,#a6d96a,#006837)]"
                                     />
                                     <span>High</span>
                                 </>
