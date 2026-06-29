@@ -87,7 +87,6 @@ export default function LocationDetailPage() {
     const [pendingGeometry, setPendingGeometry] = useState<Polygon | null>(null);
     const [newParcelName, setNewParcelName] = useState('');
     const [saving, setSaving] = useState(false);
-    const [showNdvi, setShowNdvi] = useState(false);
     // Merge: name-the-union modal (mirrors the draw → name-parcel flow).
     const [mergeOpen, setMergeOpen] = useState(false);
     const [mergeName, setMergeName] = useState('');
@@ -103,12 +102,6 @@ export default function LocationDetailPage() {
     // Recall + weather + crop-plan suggestions for this field (editable;
     // powers the spray-window/next-task banner + the wizard prefills).
     const smartQ = useTenantSWR<LocationSmartDefaults>(`/locations/${locationId}/smart-defaults`);
-    // NDVI tile source (Agro-intel) — fetched only when the Map tab is open.
-    const ndviQ = useTenantSWR<{ configured: boolean; tileUrl: string }>(
-        tab === 'map' ? '/agro/ndvi-config' : null,
-    );
-    const ndviConfigured = ndviQ.data?.configured ?? false;
-    const ndviTileUrl = ndviQ.data?.tileUrl ?? '';
 
     const loc = locQ.data;
     const parcels = useMemo(() => parcelsQ.data?.parcels ?? [], [parcelsQ.data]);
@@ -327,15 +320,6 @@ export default function LocationDetailPage() {
                                 setMapMode(next);
                             }}
                         />
-                        <span className="text-xs text-content-subtle">
-                            {mapMode === 'draw'
-                                ? 'Click to add vertices; double-click to finish the parcel.'
-                                : mapMode === 'edit'
-                                  ? 'Drag a vertex to reshape; changes save automatically.'
-                                  : mapMode === 'split'
-                                    ? 'Draw a line across the target parcel to split it in two.'
-                                    : 'Click parcels to select them for a spray job.'}
-                        </span>
                         {mapMode === 'select' && selected.length >= 2 && (
                             <Button
                                 variant="secondary"
@@ -345,24 +329,6 @@ export default function LocationDetailPage() {
                                 Merge
                             </Button>
                         )}
-                        <div className="ml-auto flex items-center gap-compact">
-                            <Button
-                                variant={showNdvi && ndviConfigured ? 'primary' : 'secondary'}
-                                size="sm"
-                                // Layer toggle is a field thumb target → ≥44px.
-                                className="min-h-[44px] min-w-[44px]"
-                                onClick={() => setShowNdvi((v) => !v)}
-                                disabled={!ndviConfigured}
-                                aria-pressed={showNdvi && ndviConfigured}
-                            >
-                                NDVI
-                            </Button>
-                            {!ndviConfigured && (
-                                <span className="text-xs text-content-subtle">
-                                    Configure an NDVI tile source to enable the overlay.
-                                </span>
-                            )}
-                        </div>
                     </div>
                     <div className={cn('gap-section', !isMobile && 'grid grid-cols-1 md:grid-cols-[1fr_320px]')}>
                         <MapCanvas
@@ -386,8 +352,6 @@ export default function LocationDetailPage() {
                             onCreateGeometry={(g) => setPendingGeometry(g)}
                             onUpdateGeometry={reshapeParcel}
                             onCreateSplitLine={(line) => { void splitParcel(line); }}
-                            showNdvi={showNdvi && ndviConfigured}
-                            ndviTileUrl={ndviTileUrl}
                             // Read-only vector-tile source (perf at scale). The
                             // {z}/{x}/{y} placeholders are kept literal for
                             // MapLibre to substitute (buildUrl doesn't encode
