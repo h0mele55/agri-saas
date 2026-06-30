@@ -136,7 +136,6 @@ function buildExec(overrides: Partial<ExecutiveDashboardPayload> = {}): Executiv
             overdue: 0,
         },
         vendorSummary: { total: 0, overdueReview: 0 },
-        riskHeatmap: [],
         upcomingExpirations: [],
         // Epic G-5 — exceptions card. All zeros in the baseline so
         // the existing assertions don't have to learn this surface.

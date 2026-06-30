@@ -174,30 +174,14 @@ describe('ExpiryCalendar Widget', () => {
 describe('Dashboard DTO Extensions', () => {
     const repoContent = fs.readFileSync(REPO_FILE, 'utf-8');
 
-    test('RiskHeatmapCell interface exported', () => {
-        expect(repoContent).toContain('export interface RiskHeatmapCell');
-        expect(repoContent).toContain('likelihood: number');
-        expect(repoContent).toContain('impact: number');
-        expect(repoContent).toContain('count: number');
-    });
-
     test('EvidenceExpiryItem interface exported', () => {
         expect(repoContent).toContain('export interface EvidenceExpiryItem');
         expect(repoContent).toContain('nextReviewDate: string');
         expect(repoContent).toContain('daysUntil: number');
     });
 
-    test('ExecutiveDashboardPayload includes riskHeatmap', () => {
-        expect(repoContent).toContain('riskHeatmap: RiskHeatmapCell[]');
-    });
-
     test('ExecutiveDashboardPayload includes upcomingExpirations', () => {
         expect(repoContent).toContain('upcomingExpirations: EvidenceExpiryItem[]');
-    });
-
-    test('getRiskHeatmap uses groupBy on likelihood + impact', () => {
-        expect(repoContent).toContain('getRiskHeatmap');
-        expect(repoContent).toContain("by: ['likelihood', 'impact']");
     });
 
     test('getUpcomingExpirations uses findMany with date filter', () => {
@@ -210,16 +194,8 @@ describe('Dashboard DTO Extensions', () => {
 describe('Dashboard Usecase Updates', () => {
     const usecaseContent = fs.readFileSync(USECASE_FILE, 'utf-8');
 
-    test('fetches riskHeatmap in parallel', () => {
-        expect(usecaseContent).toContain('DashboardRepository.getRiskHeatmap');
-    });
-
     test('fetches upcomingExpirations in parallel', () => {
         expect(usecaseContent).toContain('DashboardRepository.getUpcomingExpirations');
-    });
-
-    test('returns riskHeatmap in payload', () => {
-        expect(usecaseContent).toContain('riskHeatmap,');
     });
 
     test('returns upcomingExpirations in payload', () => {
@@ -235,10 +211,10 @@ describe('Dashboard Page Integration', () => {
         '\n' +
         fs.readFileSync(DASHBOARD_CLIENT_FILE, 'utf-8');
 
-    // The risk-matrix heatmap card was removed from the dashboard UI.
-    // The server `riskHeatmap` payload is UNCHANGED (see the DTO + usecase
-    // describes above) — only the dashboard's RENDER of it was dropped.
-    // The Evidence ExpiryCalendar remains (now full-width).
+    // The risk-matrix heatmap card was removed from the dashboard UI, and
+    // the server `riskHeatmap` payload it consumed was dropped too (the DTO +
+    // usecase no longer compute it). The Evidence ExpiryCalendar remains
+    // (now full-width).
     test('the dashboard no longer renders the RiskMatrix heatmap', () => {
         expect(content).not.toContain("from '@/components/ui/RiskMatrix'");
         expect(content).not.toContain('<RiskMatrix');

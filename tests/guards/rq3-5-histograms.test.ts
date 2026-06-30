@@ -28,8 +28,6 @@ const client = read('src/app/t/[tenantSlug]/(app)/risks/RisksClient.tsx');
 const chart = read('src/components/ui/charts/ale-histogram.tsx');
 const barrel = read('src/components/ui/charts/index.ts');
 const lib = read('src/lib/risk-collisions.ts');
-const matrix = read('src/components/ui/RiskMatrix.tsx');
-const cell = read('src/components/ui/RiskMatrixCell.tsx');
 
 describe('RQ3-5 — the histogram is a peer view', () => {
     test('two views, persisted per tenant (polish #13 pattern)', () => {
@@ -69,16 +67,8 @@ describe('RQ3-5 — cell collisions flag on BOTH views', () => {
         expect(lib).not.toMatch(/prisma|RequestContext|@\/lib\/db/);
     });
 
-    test('the component marker path: matrix threads → cell marks', () => {
-        // The risks page computes collisions for the histogram callouts;
-        // the matrix-cell collision marker lives on in the RiskMatrix
-        // component (still used by the admin matrix-config preview).
+    test('the risks page computes cell collisions for the histogram callouts', () => {
         expect(client).toMatch(/detectCellCollisions\(/);
-        expect(matrix).toMatch(/collisionRatio=\{cell\.collisionRatio\}/);
-        expect(cell).toMatch(/risk-matrix-cell-collision/);
-        // The marker is decorative; the words live in aria + tooltip.
-        expect(cell).toMatch(/same-cell loss estimates differ/);
-        expect(cell).toMatch(/check the histogram view/);
     });
 
     test('the histogram path: the callout list with the drill-down', () => {

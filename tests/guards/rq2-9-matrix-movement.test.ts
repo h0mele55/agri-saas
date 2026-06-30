@@ -22,7 +22,6 @@ const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf-8');
 
 const repo = read('src/app-layer/repositories/RiskRepository.ts');
 const client = read('src/app/t/[tenantSlug]/(app)/risks/RisksClient.tsx');
-const matrix = read('src/components/ui/RiskMatrix.tsx');
 
 describe('RQ2-9 — inherent → residual movement', () => {
     test('the list select ships the decomposed residual dims', () => {
@@ -36,24 +35,5 @@ describe('RQ2-9 — inherent → residual movement', () => {
         // `movements={matrixMovements}` wiring must not reappear.
         expect(client).not.toMatch(/const matrixMovements/);
         expect(client).not.toMatch(/movements=\{matrixMovements\}/);
-    });
-
-    test('the matrix component keeps its movement overlay + zero-cost gate', () => {
-        expect(matrix).toMatch(/hasMovements && \(/);
-        expect(matrix).toMatch(/movementActive && \(/);
-    });
-
-    test('identical paths dedupe into counted arrows; same-cell pairs skipped', () => {
-        expect(matrix).toMatch(/byPath/);
-        expect(matrix).toMatch(/m\.from\.likelihood === m\.to\.likelihood && m\.from\.impact === m\.to\.impact\) continue;/);
-    });
-
-    test('the overlay never intercepts cell clicks', () => {
-        const overlay = matrix.slice(
-            matrix.indexOf('risk-matrix-movement-overlay'),
-            matrix.indexOf('</svg>', matrix.indexOf('risk-matrix-movement-overlay')),
-        );
-        expect(matrix.slice(matrix.indexOf('movementActive && ('), matrix.indexOf('movementArrows.map'))).toMatch(/pointer-events-none/);
-        expect(overlay.length).toBeGreaterThan(0);
     });
 });
