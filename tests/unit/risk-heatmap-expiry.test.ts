@@ -235,26 +235,20 @@ describe('Dashboard Page Integration', () => {
         '\n' +
         fs.readFileSync(DASHBOARD_CLIENT_FILE, 'utf-8');
 
-    // Epic 44 — the dashboard's heatmap migrated from the legacy
-    // hardcoded `<RiskHeatmap>` to the config-driven `<RiskMatrix>`
-    // engine. The page still surfaces a "risk-heatmap" id (E2E
-    // selector preserved); the consuming component is now
-    // `<RiskMatrix>` reading the tenant's `RiskMatrixConfig`.
-    test('imports the config-driven RiskMatrix engine', () => {
-        expect(content).toContain("from '@/components/ui/RiskMatrix'");
-    });
-
-    test('fetches the tenant matrix config server-side', () => {
-        expect(content).toContain('getRiskMatrixConfig');
+    // The risk-matrix heatmap card was removed from the dashboard UI.
+    // The server `riskHeatmap` payload is UNCHANGED (see the DTO + usecase
+    // describes above) — only the dashboard's RENDER of it was dropped.
+    // The Evidence ExpiryCalendar remains (now full-width).
+    test('the dashboard no longer renders the RiskMatrix heatmap', () => {
+        expect(content).not.toContain("from '@/components/ui/RiskMatrix'");
+        expect(content).not.toContain('<RiskMatrix');
+        expect(content).not.toContain('id="risk-heatmap"');
+        // …and no longer fetches the matrix config for the (removed) card.
+        expect(content).not.toContain('getRiskMatrixConfig');
     });
 
     test('imports ExpiryCalendar', () => {
         expect(content).toContain("from '@/components/ui/ExpiryCalendar'");
-    });
-
-    test('renders RiskMatrix with the legacy `risk-heatmap` id (E2E selector preserved)', () => {
-        expect(content).toContain('<RiskMatrix');
-        expect(content).toContain('id="risk-heatmap"');
     });
 
     test('renders ExpiryCalendar with id', () => {
@@ -262,26 +256,8 @@ describe('Dashboard Page Integration', () => {
         expect(content).toContain('id="expiry-calendar"');
     });
 
-    test('passes exec.riskHeatmap data to the matrix', () => {
-        // The data shape (sparse `{ likelihood, impact, count }[]`)
-        // is unchanged; only the consuming component swapped.
-        expect(content).toContain('cells={exec.riskHeatmap}');
-    });
-
-    test('threads the tenant matrix config to the matrix', () => {
-        expect(content).toContain('config={matrixConfig}');
-    });
-
     test('passes exec.upcomingExpirations to ExpiryCalendar', () => {
         expect(content).toContain('items={exec.upcomingExpirations}');
-    });
-
-    test('heatmap and expiry calendar in the same grid row', () => {
-        // Both should be in a lg:grid-cols-2 container
-        const heatmapIdx = content.indexOf('risk-heatmap');
-        const expiryIdx = content.indexOf('expiry-calendar');
-        // They should be close together (same grid block)
-        expect(Math.abs(heatmapIdx - expiryIdx)).toBeLessThan(600);
     });
 });
 

@@ -4,11 +4,14 @@
  * Regression classes guarded:
  *
  *   - the risks list dropping the decomposed residual dims from its
- *     select (the movement view silently starves);
- *   - legacy undecomposed residuals creeping into the movement set
- *     (a score without dims has no destination cell — inventing one
- *     draws a lie);
- *   - the overlay losing its zero-cost gate or its dedupe.
+ *     select;
+ *   - the RiskMatrix component's movement overlay losing its zero-cost
+ *     gate or its dedupe.
+ *
+ * NOTE: the risks-page inline heatmap (which fed `matrixMovements` to the
+ * matrix) was removed, so the client no longer wires movements. The
+ * RiskMatrix *component* keeps its movement-overlay support for the admin
+ * matrix-config surface; this guard protects that + the repo select.
  */
 
 import * as fs from 'fs';
@@ -28,17 +31,14 @@ describe('RQ2-9 — inherent → residual movement', () => {
         }
     });
 
-    test('only decomposed residuals qualify as movements (legacy rows excluded)', () => {
-        const start = client.indexOf('const matrixMovements');
-        const block = client.slice(start, start + 1200);
-        expect(block).toMatch(/residualLikelihood != null/);
-        expect(block).toMatch(/residualImpact != null/);
-        // The rollup score alone must never qualify a row.
-        expect(block).not.toMatch(/residualScore\s*!=/);
+    test('the risks page no longer wires the inline matrix movement overlay', () => {
+        // The 'heatmap' view was removed; its `matrixMovements` memo and
+        // `movements={matrixMovements}` wiring must not reappear.
+        expect(client).not.toMatch(/const matrixMovements/);
+        expect(client).not.toMatch(/movements=\{matrixMovements\}/);
     });
 
-    test('the matrix wires movements and keeps the zero-cost gate', () => {
-        expect(client).toMatch(/movements=\{matrixMovements\}/);
+    test('the matrix component keeps its movement overlay + zero-cost gate', () => {
         expect(matrix).toMatch(/hasMovements && \(/);
         expect(matrix).toMatch(/movementActive && \(/);
     });
