@@ -121,7 +121,7 @@ export function FindingsClient({ initialFindings, tenantSlug, permissions, trans
 
     // Bulk-delete via the table selection action-row.
     const { batchAction: findingBulkDelete, dialog: findingDeleteDialog } =
-        useBulkDelete<any>({
+        useBulkDelete({
             entitySingular: 'finding',
             entityPlural: 'findings',
             onDelete: async (findingIds) => {

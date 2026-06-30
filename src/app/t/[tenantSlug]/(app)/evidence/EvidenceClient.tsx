@@ -194,7 +194,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
 
     // Bulk-delete via the table selection action-row.
     const { batchAction: evidenceBulkDelete, dialog: evidenceDeleteDialog } =
-        useBulkDelete<any>({
+        useBulkDelete({
             entitySingular: 'evidence item',
             entityPlural: 'evidence items',
             onDelete: async (ids) => {

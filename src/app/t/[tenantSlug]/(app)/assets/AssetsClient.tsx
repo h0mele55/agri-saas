@@ -140,7 +140,7 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
 
     // Bulk-delete via the table selection action-row.
     const { batchAction: assetBulkDelete, dialog: assetDeleteDialog } =
-        useBulkDelete<any>({
+        useBulkDelete({
             entitySingular: 'asset',
             entityPlural: 'assets',
             onDelete: async (assetIds) => {

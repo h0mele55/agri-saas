@@ -185,7 +185,7 @@ function PoliciesPageInner({
 
     // Bulk-delete via the table selection action-row.
     const { batchAction: policyBulkDelete, dialog: policyDeleteDialog } =
-        useBulkDelete<any>({
+        useBulkDelete({
             entitySingular: 'policy',
             entityPlural: 'policies',
             onDelete: async (policyIds) => {

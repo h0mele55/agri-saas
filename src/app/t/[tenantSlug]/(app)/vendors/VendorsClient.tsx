@@ -152,7 +152,7 @@ function VendorsPageInner({ initialVendors, initialFilters, tenantSlug, permissi
 
     // Bulk-delete via the table selection action-row.
     const { batchAction: vendorBulkDelete, dialog: vendorDeleteDialog } =
-        useBulkDelete<any>({
+        useBulkDelete({
             entitySingular: 'vendor',
             entityPlural: 'vendors',
             onDelete: async (vendorIds) => {
