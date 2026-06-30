@@ -29,6 +29,16 @@ export class StubRiskSuggestionProvider implements RiskSuggestionProvider {
             (input.existingControls ?? []).map(c => c.toLowerCase())
         );
 
+        // The knowledge base is keyed to information-security asset classes
+        // (APPLICATION, DATASTORE, …). A tenant whose assets are of other
+        // kinds (e.g. agricultural machinery — TRACTOR, HARVESTER, BUILDING)
+        // overlaps with none of them, so asset-type filtering would zero out
+        // every suggestion. Detect that case and fall back to framework-only
+        // matching so the assessment still produces results.
+        const catalogMatchesAnyAssetType = ENRICHED_RISK_CATALOG.some(risk =>
+            risk.assetTypes.some(at => assetTypes.has(at))
+        );
+
         // Filter catalog by matching asset types and frameworks
         const applicable = ENRICHED_RISK_CATALOG.filter(risk => {
             const fwMatch = input.frameworks.length === 0 ||
@@ -37,7 +47,8 @@ export class StubRiskSuggestionProvider implements RiskSuggestionProvider {
                     inputFw.toUpperCase().replace(/\s/g, '').includes(fw.toUpperCase()) ||
                     fw.toUpperCase().includes(inputFw.toUpperCase().replace(/\s/g, ''))
                 ));
-            const typeMatch = risk.assetTypes.length === 0 ||
+            const typeMatch = !catalogMatchesAnyAssetType ||
+                risk.assetTypes.length === 0 ||
                 risk.assetTypes.some(at => assetTypes.has(at));
             return fwMatch && typeMatch;
         });

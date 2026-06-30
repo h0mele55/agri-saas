@@ -4,7 +4,6 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { Providers } from './providers';
 import { ServiceWorkerRegistrar } from '@/components/pwa/ServiceWorkerRegistrar';
-import { ChunkReloadHandler } from '@/components/pwa/ChunkReloadHandler';
 import { WebVitalsReporter } from '@/components/pwa/WebVitalsReporter';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp';
 import './globals.css';
@@ -108,7 +107,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </head>
             <body suppressHydrationWarning nonce={nonce}>
                 <ServiceWorkerRegistrar />
-                <ChunkReloadHandler />
                 <WebVitalsReporter />
                 <Providers>
                     <NextIntlClientProvider messages={messages} locale={locale}>
