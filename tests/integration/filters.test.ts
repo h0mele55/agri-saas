@@ -139,20 +139,22 @@ describe('RiskRepository._buildWhere', () => {
 });
 
 describe('AssetRepository._buildWhere', () => {
-    it('searches name + classification + owner with q', async () => {
+    it('searches name + manufacturer + model + serialNumber + owner with q', async () => {
         const { AssetRepository } = await import('@/app-layer/repositories/AssetRepository');
         const mockFindMany = jest.fn().mockResolvedValue([]);
         const mockDb = { asset: { findMany: mockFindMany } } as unknown as PrismaTx;
         const ctx = { tenantId: 'tenant-1', userId: 'user-1' } as unknown as RequestContext;
 
-        await AssetRepository.list(mockDb, ctx, { q: 'database' });
+        await AssetRepository.list(mockDb, ctx, { q: 'deere' });
 
         const where = mockFindMany.mock.calls[0][0].where;
         expect(where.OR).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ name: { contains: 'database', mode: 'insensitive' } }),
-                expect.objectContaining({ classification: { contains: 'database', mode: 'insensitive' } }),
-                expect.objectContaining({ owner: { contains: 'database', mode: 'insensitive' } }),
+                expect.objectContaining({ name: { contains: 'deere', mode: 'insensitive' } }),
+                expect.objectContaining({ manufacturer: { contains: 'deere', mode: 'insensitive' } }),
+                expect.objectContaining({ model: { contains: 'deere', mode: 'insensitive' } }),
+                expect.objectContaining({ serialNumber: { contains: 'deere', mode: 'insensitive' } }),
+                expect.objectContaining({ owner: { contains: 'deere', mode: 'insensitive' } }),
             ])
         );
     });

@@ -30,11 +30,15 @@ const FRAMEWORK_PACK_KEYS: Record<string, string> = {
 // ─── Asset type inference ───
 
 const ASSET_TYPE_KEYWORDS: Record<string, string[]> = {
-    APPLICATION: ['app', 'application', 'software', 'platform', 'portal', 'saas', 'web', 'mobile', 'api', 'system'],
-    DATASTORE: ['database', 'db', 'data', 'storage', 'warehouse', 'lake', 'backup', 'archive', 'repository'],
-    INFRASTRUCTURE: ['server', 'cloud', 'network', 'firewall', 'infrastructure', 'cluster', 'vpc', 'aws', 'azure', 'gcp', 'kubernetes'],
-    VENDOR: ['vendor', 'partner', 'supplier', 'third-party', 'contractor', 'outsourced'],
-    PROCESS: ['process', 'workflow', 'procedure', 'policy', 'operation', 'hr', 'finance', 'payroll'],
+    TRACTOR: ['tractor'],
+    HARVESTER: ['harvester', 'combine', 'forager'],
+    IMPLEMENT: ['plough', 'plow', 'seeder', 'planter', 'sprayer', 'mower', 'baler', 'tiller', 'cultivator', 'harrow', 'implement', 'spreader'],
+    VEHICLE: ['truck', 'pickup', 'trailer', 'van', 'vehicle', 'loader', 'telehandler', 'utv', 'atv', 'quad'],
+    IRRIGATION: ['irrigation', 'pump', 'pivot', 'drip', 'sprinkler'],
+    BUILDING: ['barn', 'shed', 'silo', 'warehouse', 'greenhouse', 'building', 'stable', 'workshop'],
+    STORAGE: ['tank', 'bin', 'storage', 'granary', 'store'],
+    LIVESTOCK_EQUIPMENT: ['feeder', 'milking', 'livestock', 'trough', 'parlour', 'parlor'],
+    TOOL: ['tool', 'chainsaw', 'drill', 'generator', 'welder'],
 };
 
 function inferAssetType(name: string): string {
@@ -42,7 +46,7 @@ function inferAssetType(name: string): string {
     for (const [type, keywords] of Object.entries(ASSET_TYPE_KEYWORDS)) {
         if (keywords.some(kw => lower.includes(kw))) return type;
     }
-    return 'APPLICATION'; // sensible default
+    return 'OTHER'; // sensible default
 }
 
 // ─── Risk catalog (deterministic rules) ───
@@ -177,7 +181,6 @@ async function executeAssetCreation(ctx: RequestContext, allData: StepData): Pro
                     tenantId: ctx.tenantId,
                     name,
                     type,
-                    classification: 'INTERNAL',
                 },
             });
             created++;
