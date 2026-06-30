@@ -153,7 +153,7 @@ export async function issuePasswordReset(
             to: user.email,
             subject: 'Reset your password',
             text: [
-                'We received a request to reset your Inflect Compliance password.',
+                'We received a request to reset your Agrent password.',
                 '',
                 'Click the link below to choose a new password. The link expires in 1 hour and can only be used once.',
                 '',
@@ -162,7 +162,7 @@ export async function issuePasswordReset(
                 "If you didn't request this, you can safely ignore this message — your password will not change until the link is used.",
             ].join('\n'),
             html: [
-                '<p>We received a request to reset your Inflect Compliance password.</p>',
+                '<p>We received a request to reset your Agrent password.</p>',
                 '<p>Click the link below to choose a new password. The link expires in 1 hour and can only be used once.</p>',
                 `<p><a href="${resetUrl}">Reset password</a></p>`,
                 "<p>If you didn't request this, you can safely ignore this message — your password will not change until the link is used.</p>",

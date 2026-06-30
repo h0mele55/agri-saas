@@ -179,10 +179,10 @@ export function buildOpenApiDoc(opts: BuildOptions = {}): {
     const doc = generator.generateDocument({
         openapi: '3.1.0',
         info: {
-            title: 'Inflect Compliance API',
+            title: 'Agrent API',
             version: pkg.version,
             description:
-                'Multi-tenant compliance-management API. The schema layer in `src/lib/schemas/index.ts` ' +
+                'Multi-tenant agriculture-operations API. The schema layer in `src/lib/schemas/index.ts` ' +
                 '(request bodies) and `src/lib/dto/*.dto.ts` (response shapes) is the single source of ' +
                 'truth — this document is generated from those Zod schemas via `npm run openapi:generate`.',
             license: { name: 'Proprietary' },

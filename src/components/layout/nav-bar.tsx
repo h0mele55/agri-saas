@@ -331,7 +331,7 @@ export const NAV_BAR_SLOT_RIGHT =
  *   (5) `text-content-inverted text-[11px] font-bold` — the
  *       initials text. Inverted-content (dark on yellow METRO,
  *       white on dark PwC). 11px is the smallest size at which
- *       bold "IC" reads clearly at 32×32 without looking cramped.
+ *       bold "AG" reads clearly at 32×32 without looking cramped.
  *
  *   (6) `animate-nav-brand-pulse` — the 6s breath. Tempo
  *       deliberately slower than the band's 4s so the eye reads
@@ -345,8 +345,8 @@ export const NAV_BAR_SLOT_RIGHT =
  *
  * Accessibility:
  *   • `<Link>` with `aria-label` carrying the full product name
- *     + destination ("Inflect Compliance — go to dashboard").
- *   • Visible "IC" initials are `aria-hidden="true"` — they're a
+ *     + destination ("Agrent — go to dashboard").
+ *   • Visible "AG" initials are `aria-hidden="true"` — they're a
  *     visual signature, not the accessible name.
  *   • `focus-visible:ring-2` for keyboard story (same vocabulary
  *     as `<NavItem>` + `<Button>`).
@@ -383,7 +383,7 @@ export const NAV_BAR_BRAND_CLASS = [
 export interface NavBarBrandProps {
     /** Destination href — usually the dashboard root for the current variant. */
     href: string;
-    /** Two-letter initials. Defaults to `IC` (Inflect Compliance). */
+    /** Two-letter initials. Defaults to `AG` (Agrent). */
     initials?: string;
     /** Accessible name. */
     ariaLabel?: string;
@@ -391,8 +391,8 @@ export interface NavBarBrandProps {
 
 export function NavBarBrand({
     href,
-    initials = 'IC',
-    ariaLabel = 'Inflect Compliance — go to dashboard',
+    initials = 'AG',
+    ariaLabel = 'Agrent — go to dashboard',
 }: NavBarBrandProps) {
     return (
         <Link

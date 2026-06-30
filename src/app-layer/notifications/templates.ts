@@ -37,7 +37,7 @@ export function buildTaskAssignedEmail(payload: TaskAssignedPayload): EmailTempl
             '',
             `View your tasks: ${link}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -48,7 +48,7 @@ export function buildTaskAssignedEmail(payload: TaskAssignedPayload): EmailTempl
     <strong>${escapeHtml(keyLabel)}${escapeHtml(taskTitle)}</strong>
   </div>
   <a href="${link}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Tasks</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -81,7 +81,7 @@ export function buildEvidenceExpiringEmail(payload: EvidenceExpiringPayload): Em
             '',
             `View evidence: ${link}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -91,7 +91,7 @@ export function buildEvidenceExpiringEmail(payload: EvidenceExpiringPayload): Em
   ${controlName ? `<p style="color: #666; line-height: 1.5;">Control: <strong>${escapeHtml(controlName)}</strong></p>` : ''}
   <p style="color: #444; line-height: 1.5;">Please upload refreshed evidence or extend the retention date.</p>
   <a href="${link}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Evidence</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -124,7 +124,7 @@ export function buildPolicyApprovalRequestedEmail(payload: PolicyApprovalRequest
             '',
             `View policies: ${link}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -135,7 +135,7 @@ export function buildPolicyApprovalRequestedEmail(payload: PolicyApprovalRequest
     <strong>${escapeHtml(policyTitle)}${escapeHtml(versionLabel)}</strong>
   </div>
   <a href="${link}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Review Policy</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -168,7 +168,7 @@ export function buildPolicyDecisionEmail(payload: PolicyDecisionPayload): EmailT
             '',
             `View policies: ${link}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -177,7 +177,7 @@ export function buildPolicyDecisionEmail(payload: PolicyDecisionPayload): EmailT
   <p style="color: #444; line-height: 1.5;">Your policy <strong>"${escapeHtml(policyTitle)}"</strong> has been <strong>${word}</strong> by ${escapeHtml(deciderName)}.</p>
   ${comment ? `<div style="background: #f4f6fa; border-left: 4px solid ${isApproved ? '#10b981' : '#ef4444'}; padding: 12px 16px; margin: 16px 0; border-radius: 4px;"><em>${escapeHtml(comment)}</em></div>` : ''}
   <a href="${link}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Policies</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -232,7 +232,7 @@ export function buildVendorAssessmentInvitationEmail(
             'This link is single-use and tied to your assessment. Please do',
             'not forward it.',
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -246,7 +246,7 @@ export function buildVendorAssessmentInvitationEmail(
   </table>
   <a href="${escapeHtml(responseUrl)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open questionnaire</a>
   <p style="color: #888; font-size: 12px; line-height: 1.5; margin-top: 16px;">This link is single-use and tied to your assessment. Please do not forward it.</p>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -289,7 +289,7 @@ export function buildVendorAssessmentReminderEmail(
             '',
             `Open the questionnaire: ${responseUrl}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -302,7 +302,7 @@ export function buildVendorAssessmentReminderEmail(
     <tr><td style="color: #888; padding: 4px 0;">Expires</td><td style="color: #444;">${escapeHtml(expiresFormatted)}</td></tr>
   </table>
   <a href="${escapeHtml(responseUrl)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open questionnaire</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -346,7 +346,7 @@ export function buildVendorAssessmentSubmittedEmail(
             '',
             `Review the response: ${reviewUrl}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -358,7 +358,7 @@ export function buildVendorAssessmentSubmittedEmail(
     <tr><td style="color: #888; padding: 4px 0;">Auto-score</td><td style="color: #444;"><strong>${submittedScore}</strong></td></tr>
   </table>
   <a href="${escapeHtml(reviewUrl)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Review response</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -404,7 +404,7 @@ export function buildVendorAssessmentReviewedEmail(
             '',
             `Open the review: ${reviewUrl}`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -417,7 +417,7 @@ export function buildVendorAssessmentReviewedEmail(
     ${finalRating ? `<tr><td style="color: #888; padding: 4px 0;">Risk rating</td><td style="color: #444;"><strong>${escapeHtml(finalRating)}</strong></td></tr>` : ''}
   </table>
   <a href="${escapeHtml(reviewUrl)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open review</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -473,7 +473,7 @@ export function buildAccessReviewReminderEmail(
             '',
             'Until every subject has a CONFIRM, REVOKE, or MODIFY verdict the campaign cannot be closed and the closeout PDF cannot be generated. Auditors will look for this artifact in the next SOC 2 cycle.',
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -486,7 +486,7 @@ export function buildAccessReviewReminderEmail(
   </table>
   <a href="${escapeHtml(link)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open campaign</a>
   <p style="color: #999; font-size: 12px; margin-top: 24px;">Auditors will look for the closeout PDF in the next SOC 2 cycle. Closing the campaign requires every subject to have a CONFIRM, REVOKE, or MODIFY verdict.</p>
-  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -550,7 +550,7 @@ export function buildAccessReviewOverdueEscalationEmail(
             '',
             'Severely overdue campaigns appear in SOC 2 evidence reviews as control failures — closing this out is high-priority.',
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -565,7 +565,7 @@ export function buildAccessReviewOverdueEscalationEmail(
   </table>
   <a href="${escapeHtml(link)}" style="display: inline-block; background: #b91c1c; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open campaign</a>
   <p style="color: #999; font-size: 12px; margin-top: 24px;">Severely overdue campaigns appear in SOC 2 evidence reviews as control failures.</p>
-  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -624,7 +624,7 @@ export function buildExceptionExpiringEmail(
             'expired exception to either have a renewal record or a',
             'closing remediation note.',
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
@@ -638,7 +638,7 @@ export function buildExceptionExpiringEmail(
   </table>
   <a href="${escapeHtml(link)}" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open exception</a>
   <p style="color: #999; font-size: 12px; margin-top: 24px;">Renew the exception or let it lapse — auditors expect every expired exception to have a renewal record or a closing remediation note.</p>
-  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 8px;">— Agrent</p>
 </div>`.trim(),
     };
 }

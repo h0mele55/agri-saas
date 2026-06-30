@@ -47,7 +47,7 @@ export function createPdfDocument(meta: ReportMeta): PDFKit.PDFDocument {
             Title: meta.reportTitle,
             Author: meta.tenantName,
             Subject: meta.reportSubtitle || meta.reportTitle,
-            Creator: 'Inflect Compliance',
+            Creator: 'Agrent',
             Producer: 'PDFKit',
             CreationDate: new Date(meta.generatedAt),
         },

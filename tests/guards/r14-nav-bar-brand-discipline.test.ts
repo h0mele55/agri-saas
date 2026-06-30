@@ -183,7 +183,7 @@ describe('Roadmap-14 PR-3 — NavBar brand mark discipline', () => {
         it('the initials text is `aria-hidden`', () => {
             // The visual "IC" is a signature, not the accessible
             // name. Screen readers should announce the aria-label
-            // ("Inflect Compliance — go to dashboard"), not "IC".
+            // ("Agrent — go to dashboard"), not "AG".
             expect(NAV_BAR_SRC).toMatch(
                 /<span\s+aria-hidden="true">\{initials\}<\/span>/,
             );

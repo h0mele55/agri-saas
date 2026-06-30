@@ -163,7 +163,7 @@ export default function NotificationSettingsPage() {
                             value={settings.defaultFromName}
                             onChange={e => setSettings({ ...settings, defaultFromName: e.target.value })}
                             className="input input-bordered w-full max-w-md"
-                            placeholder="Inflect Compliance"
+                            placeholder="Agrent"
                         />
                     </div>
 

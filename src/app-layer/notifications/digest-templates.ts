@@ -158,7 +158,7 @@ export function buildDeadlineDigestEmail(payload: DeadlineDigestPayload): EmailT
             '',
             `View your dashboard: /t/${tenantSlug}/dashboard`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px;">
@@ -168,7 +168,7 @@ export function buildDeadlineDigestEmail(payload: DeadlineDigestPayload): EmailT
   <p style="color: #444; line-height: 1.5;">You have <strong>${items.length} item(s)</strong> that need your attention:</p>
   ${buildDigestTable(items, tenantSlug)}
   <a href="/t/${escapeHtml(tenantSlug)}/dashboard" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; margin-top: 8px;">View Dashboard</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -199,7 +199,7 @@ export function buildEvidenceExpiryDigestEmail(payload: EvidenceExpiryDigestPayl
             '',
             `View evidence: /t/${tenantSlug}/evidence`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px;">
@@ -209,7 +209,7 @@ export function buildEvidenceExpiryDigestEmail(payload: EvidenceExpiryDigestPayl
   ${buildDigestTable(items, tenantSlug)}
   <p style="color: #444; line-height: 1.5;">Please upload refreshed evidence or extend retention dates.</p>
   <a href="/t/${escapeHtml(tenantSlug)}/evidence" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; margin-top: 8px;">View Evidence</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }
@@ -238,7 +238,7 @@ export function buildVendorRenewalDigestEmail(payload: VendorRenewalDigestPayloa
             '',
             `View vendors: /t/${tenantSlug}/vendors`,
             '',
-            '— Inflect Compliance',
+            '— Agrent',
         ].join('\n'),
         bodyHtml: `
 <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; padding: 24px;">
@@ -247,7 +247,7 @@ export function buildVendorRenewalDigestEmail(payload: VendorRenewalDigestPayloa
   <p style="color: #444; line-height: 1.5;"><strong>${items.length} vendor(s)</strong> have upcoming or overdue reviews/renewals:</p>
   ${buildDigestTable(items, tenantSlug)}
   <a href="/t/${escapeHtml(tenantSlug)}/vendors" style="display: inline-block; background: #4f46e5; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 500; margin-top: 8px;">View Vendors</a>
-  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Inflect Compliance</p>
+  <p style="color: #999; font-size: 12px; margin-top: 24px;">— Agrent</p>
 </div>`.trim(),
     };
 }

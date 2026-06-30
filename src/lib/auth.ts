@@ -1,5 +1,5 @@
 /**
- * Auth utilities for Inflect Compliance.
+ * Auth utilities for Agrent.
  *
  * This module bridges Auth.js v5 sessions to the existing API route
  * interface (getSession, getSessionOrThrow, requireRole, etc.).

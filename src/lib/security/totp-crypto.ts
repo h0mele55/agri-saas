@@ -101,7 +101,7 @@ export function generateTotpSecret(): string {
  * @param email User's email address (used as account label)
  * @param issuer Application name shown in authenticator app
  */
-export function generateTotpUri(secret: string, email: string, issuer: string = 'Inflect'): string {
+export function generateTotpUri(secret: string, email: string, issuer: string = 'Agrent'): string {
     const encodedIssuer = encodeURIComponent(issuer);
     const encodedEmail = encodeURIComponent(email);
     return `otpauth://totp/${encodedIssuer}:${encodedEmail}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;

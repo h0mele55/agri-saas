@@ -90,7 +90,7 @@ describe('TOTP Crypto', () => {
             expect(uri).toMatch(/^otpauth:\/\/totp\//);
             expect(uri).toContain('secret=JBSWY3DPEHPK3PXP');
             expect(uri).toContain('user%40example.com');
-            expect(uri).toContain('issuer=Inflect');
+            expect(uri).toContain('issuer=Agrent');
             expect(uri).toContain('algorithm=SHA1');
             expect(uri).toContain('digits=6');
             expect(uri).toContain('period=30');

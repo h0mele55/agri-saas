@@ -1,6 +1,6 @@
 # DataTable Platform — Developer Guide
 
-> **This is the canonical table system for all list pages in Inflect Compliance.**
+> **This is the canonical table system for all list pages in Agrent.**
 > Do NOT create new `<table>` elements in list-page components.
 > Use `<DataTable>` from `@/components/ui/table` instead.
 

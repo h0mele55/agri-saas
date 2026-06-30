@@ -196,7 +196,7 @@ export function addFooter(doc: PDFKit.PDFDocument, meta: ReportMeta, pageNum: nu
     // auto-pagination (see STAMP_TEXT_HEIGHT comment above).
     const hashSuffix = meta.contentHash ? ` | Hash: ${meta.contentHash.slice(0, 12)}…` : '';
     doc.fontSize(7).fillColor(BRAND.slate)
-        .text(`CONFIDENTIAL — Inflect Compliance${hashSuffix}`, MARGINS.left, y, { lineBreak: false, height: STAMP_TEXT_HEIGHT });
+        .text(`CONFIDENTIAL — Agrent${hashSuffix}`, MARGINS.left, y, { lineBreak: false, height: STAMP_TEXT_HEIGHT });
 
     // Right: page number — second write on the same line; without
     // `height` this is the call that historically triggered the

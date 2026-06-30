@@ -67,10 +67,10 @@ export async function sendInviteEmail(
         ? `${invitedByName.trim()} invited you`
         : `You've been invited`;
     const days = daysUntil(expiresAt, now);
-    const subject = `Invitation to join ${spaceName} on Inflect`;
+    const subject = `Invitation to join ${spaceName} on Agrent`;
 
     const text = [
-        `${inviter} to join the ${kind} "${spaceName}" on Inflect as ${roleLabel}.`,
+        `${inviter} to join the ${kind} "${spaceName}" on Agrent as ${roleLabel}.`,
         '',
         `Accept your invitation:`,
         acceptUrl,
@@ -80,7 +80,7 @@ export async function sendInviteEmail(
     ].join('\n');
 
     const html = [
-        `<p>${inviter} to join the ${kind} <strong>${spaceName}</strong> on Inflect as <strong>${roleLabel}</strong>.</p>`,
+        `<p>${inviter} to join the ${kind} <strong>${spaceName}</strong> on Agrent as <strong>${roleLabel}</strong>.</p>`,
         `<p><a href="${acceptUrl}">Accept your invitation</a></p>`,
         `<p style="color:#667085;font-size:13px">This link expires in ${days} day${days === 1 ? '' : 's'}. If you weren't expecting this, you can ignore this email.</p>`,
     ].join('');

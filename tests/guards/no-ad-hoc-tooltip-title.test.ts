@@ -3,7 +3,7 @@
  *
  * The `<Tooltip>` primitive (`src/components/ui/tooltip.tsx`) is the
  * canonical way to surface a hover/focus hint on an interactive element
- * in Inflect Compliance. The native HTML `title=` attribute is kept for
+ * in Agrent. The native HTML `title=` attribute is kept for
  * three specific escape valves only — documented in
  * `docs/tooltip-and-copy-strategy.md`:
  *

@@ -1,6 +1,6 @@
 {
     "common": {
-        "appName": "Inflect Compliance",
+        "appName": "Agrent",
         "loading": "Зареждане...",
         "save": "Запази",
         "cancel": "Отказ",
@@ -24,8 +24,8 @@
         "details": "Детайли"
     },
     "login": {
-        "title": "Inflect Compliance",
-        "subtitle": "ISO 27001 · SOC 2 · NIS2",
+        "title": "Agrent",
+        "subtitle": "Земеделският агент",
         "signIn": "Влезте в профила си",
         "register": "Създайте вашата организация",
         "email": "Имейл",

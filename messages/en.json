@@ -1,6 +1,6 @@
 {
     "common": {
-        "appName": "Inflect Compliance",
+        "appName": "Agrent",
         "loading": "Loading...",
         "save": "Save",
         "cancel": "Cancel",
@@ -24,8 +24,8 @@
         "details": "Details"
     },
     "login": {
-        "title": "Inflect Compliance",
-        "subtitle": "ISO 27001 · SOC 2 · NIS2",
+        "title": "Agrent",
+        "subtitle": "The agriculture agent",
         "signIn": "Sign in to your account",
         "register": "Create your organization",
         "email": "Email",
