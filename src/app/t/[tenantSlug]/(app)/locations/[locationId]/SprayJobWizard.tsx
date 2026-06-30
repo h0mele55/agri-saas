@@ -11,17 +11,21 @@
  * signal and flushed on reconnect.
  *
  * The wizard OWNS the form, so each step's `content` is FIELDS only (no
- * nested form / submit). `assigneeUserId` is the CURRENT user (the same
- * field PrescriptionPanel POSTs), resolved from `/api/auth/me`.
+ * nested form / submit). The final confirm step carries an "Assign to"
+ * people-picker (`<UserCombobox>`) — defaulted to the CURRENT user
+ * (resolved from `/api/auth/me`) but reassignable to any active member,
+ * so a manager can dispatch the job to the operator who'll run it.
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import { StepWizard, type StepWizardStep } from '@/components/ui/step-wizard';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
+import { UserCombobox } from '@/components/ui/user-combobox';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
 import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { useOfflineSync } from '@/lib/offline/use-offline-sync';
@@ -85,6 +89,10 @@ export function SprayJobWizard({
     smartDefaults,
 }: SprayJobWizardProps) {
     const buildUrl = useTenantApiUrl();
+    // Route slug for the assignee picker's member fetch — read from the URL
+    // params (same source the parent page uses), so it needs no extra
+    // provider wiring in tests that render this wizard.
+    const { tenantSlug } = useParams<{ tenantSlug: string }>();
     const { submit } = useOfflineSync();
 
     // Data sources mirror PrescriptionPanel exactly.
@@ -93,11 +101,12 @@ export function SprayJobWizard({
         revalidateOnFocus: false,
         dedupingInterval: 60_000,
     });
-    // Current user → assigneeUserId (the field PrescriptionPanel sends).
-    // `/api/auth/me` is unscoped, so it uses plain useSWR + apiGet rather
-    // than the tenant-prefixing useTenantSWR (per its docstring guidance).
+    // Current user → the DEFAULT assignee. `/api/auth/me` is unscoped, so it
+    // uses plain useSWR + apiGet rather than the tenant-prefixing
+    // useTenantSWR (per its docstring guidance). The operator can reassign
+    // the job to any active member in the confirm step's "Assign to" picker.
     const { data: me } = useSWR<MeResponse>('/api/auth/me', apiGet);
-    const assigneeUserId = me?.user?.id ?? null;
+    const [assigneeUserId, setAssigneeUserId] = useState<string | null>(null);
 
     const [selectedParcelIds, setSelectedParcelIds] = useState<string[]>(initialParcelIds ?? []);
     const [productItemId, setProductItemId] = useState('');
@@ -126,6 +135,17 @@ export function SprayJobWizard({
         if (open) setSelectedParcelIds(initialParcelIds ?? []);
         // eslint-disable-next-line react-hooks/exhaustive-deps -- seed on open only
     }, [open, seedKey]);
+
+    // Default the assignee to the current operator once the wizard is open
+    // and /api/auth/me has resolved — but never clobber a deliberate
+    // reassignment (only fill when still empty). reset() clears it on close
+    // so the next open re-seeds to whoever is signed in.
+    useEffect(() => {
+        if (open && me?.user?.id) {
+            setAssigneeUserId((prev) => prev ?? me.user?.id ?? null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- seed on open / me-resolve only
+    }, [open, me?.user?.id]);
 
     // ── Smart defaults (editable suggestions) ──────────────────────────
     const repeatLast = smartDefaults?.repeatLast ?? null;
@@ -194,6 +214,7 @@ export function SprayJobWizard({
         setProductItemId('');
         setDose('');
         setDoseUnitId('');
+        setAssigneeUserId(null);
     };
 
     const handleOpenChange = (next: boolean) => {
@@ -332,31 +353,43 @@ export function SprayJobWizard({
             // until /api/auth/me has resolved the current user.
             canAdvance: Boolean(assigneeUserId),
             content: (
-                <dl className="space-y-default text-sm">
-                    <div>
-                        <dt className="text-content-secondary">Parcels</dt>
-                        <dd className="font-medium">
-                            {selectedParcelIds
-                                .map((id) => parcels.find((p) => p.id === id)?.name ?? id)
-                                .join(', ') || '—'}
-                        </dd>
-                    </div>
-                    <div>
-                        <dt className="text-content-secondary">Product</dt>
-                        <dd className="font-medium">{selectedProduct?.label ?? '—'}</dd>
-                    </div>
-                    <div>
-                        <dt className="text-content-secondary">Rate</dt>
-                        <dd className="font-medium">
-                            {doseValid ? doseNumber : '—'} {selectedUnit?.meta?.symbol ?? ''}
-                        </dd>
-                    </div>
-                    {!assigneeUserId && (
-                        <p className="text-xs text-content-muted">
-                            Loading your account…
-                        </p>
-                    )}
-                </dl>
+                <div className="space-y-default">
+                    <dl className="space-y-default text-sm">
+                        <div>
+                            <dt className="text-content-secondary">Parcels</dt>
+                            <dd className="font-medium">
+                                {selectedParcelIds
+                                    .map((id) => parcels.find((p) => p.id === id)?.name ?? id)
+                                    .join(', ') || '—'}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-content-secondary">Product</dt>
+                            <dd className="font-medium">{selectedProduct?.label ?? '—'}</dd>
+                        </div>
+                        <div>
+                            <dt className="text-content-secondary">Rate</dt>
+                            <dd className="font-medium">
+                                {doseValid ? doseNumber : '—'} {selectedUnit?.meta?.symbol ?? ''}
+                            </dd>
+                        </div>
+                    </dl>
+                    {/* Assignee — the LAST field before creating. Defaults to
+                        the current operator; reassignable to any active member
+                        so a manager can dispatch the job. Required (the create
+                        schema rejects an unassigned spray job). */}
+                    <FormField label="Assign to" required>
+                        <UserCombobox
+                            id="spray-assignee-input"
+                            name="assigneeUserId"
+                            tenantSlug={tenantSlug}
+                            selectedId={assigneeUserId}
+                            onChange={(userId) => setAssigneeUserId(userId)}
+                            placeholder="Select an operator…"
+                            matchTriggerWidth
+                        />
+                    </FormField>
+                </div>
             ),
         },
     ];
