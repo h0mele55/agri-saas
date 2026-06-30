@@ -7,6 +7,7 @@ export * from "./edit-columns-button";
 export * from "./pagination-controls";
 export * from "./pagination-utils";
 export * from "./selection-toolbar";
+export * from "./use-bulk-delete";
 export * from "./table";
 export * from "./table-empty-state";
 export * from "./table-utils";

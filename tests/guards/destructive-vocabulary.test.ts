@@ -86,6 +86,19 @@ interface Offence {
     label: string;
 }
 
+// Files whose ConfirmDialog confirmLabel is a DYNAMIC expression
+// (`confirmLabel={verb}`) rather than a literal, BUT where the value is
+// type-constrained to the canonical verbs at the source — so the static
+// literal scan can't read it yet it cannot ship an ambiguous verb.
+// Each entry needs a written reason.
+const DYNAMIC_LABEL_EXEMPT: Record<string, string> = {
+    // Shared bulk-delete action-row hook: `verb` prop is typed
+    // `'Delete' | 'Remove' | 'Revoke' | 'Archive' | 'Discard'` (all
+    // canonical), defaulting to "Delete". Every table reuses this, so the
+    // verb safety is enforced by the union type, not a literal.
+    'src/components/ui/table/use-bulk-delete.tsx': 'verb prop typed to canonical verbs',
+};
+
 describe('Destructive-action vocabulary (Roadmap-4 PR-9)', () => {
     it('every ConfirmDialog tone="danger" carries a canonical confirmLabel verb', () => {
         const offenders: Offence[] = [];
@@ -100,6 +113,7 @@ describe('Destructive-action vocabulary (Roadmap-4 PR-9)', () => {
                 }
                 if (!/\.tsx$/.test(e.name)) continue;
                 const rel = path.relative(ROOT, full);
+                if (DYNAMIC_LABEL_EXEMPT[rel.split(path.sep).join('/')]) continue;
                 const lines = fs.readFileSync(full, 'utf-8').split('\n');
                 lines.forEach((line, i) => {
                     // Hunt the danger-tone marker. When we find

@@ -59,6 +59,7 @@ jest.mock('../../../src/app-layer/events/audit', () => ({
 import {
     createInviteToken,
     revokeInvite,
+    bulkRevokeInvite,
     listPendingInvites,
     previewInviteByToken,
     redeemInvite,
@@ -232,6 +233,61 @@ describe('revokeInvite', () => {
         // Regression: a refactor that revoked by id without the
         // tenantId filter would let admin in A invalidate B's invites.
         expect(fakeDb.tenantInvite.update).not.toHaveBeenCalled();
+    });
+});
+
+describe('bulkRevokeInvite', () => {
+    it('rejects EDITOR (canManageMembers gate)', async () => {
+        await expect(
+            bulkRevokeInvite(makeRequestContext('EDITOR'), { inviteIds: ['i1'] }),
+        ).rejects.toThrow();
+    });
+
+    it('returns { revoked: 0 } and skips updateMany when nothing matches', async () => {
+        const fakeDb = {
+            tenantInvite: {
+                findMany: jest.fn().mockResolvedValue([]),
+                updateMany: jest.fn(),
+            },
+        };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(fakeDb as never));
+
+        const result = await bulkRevokeInvite(makeRequestContext('ADMIN'), {
+            inviteIds: ['gone', 'accepted'],
+        });
+        expect(result).toEqual({ revoked: 0 });
+        expect(fakeDb.tenantInvite.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('revokes matching invites tenant-scoped + audits each + returns count', async () => {
+        const fakeDb = {
+            tenantInvite: {
+                findMany: jest.fn().mockResolvedValue([
+                    { id: 'i1', email: 'a@x.io' },
+                    { id: 'i2', email: 'b@x.io' },
+                ]),
+                updateMany: jest.fn().mockResolvedValue({ count: 2 }),
+            },
+        };
+        mockRunInTx.mockImplementationOnce(async (_ctx, fn) => fn(fakeDb as never));
+
+        const result = await bulkRevokeInvite(makeRequestContext('ADMIN'), {
+            inviteIds: ['i1', 'i2', 'foreign'],
+        });
+
+        expect(result).toEqual({ revoked: 2 });
+        // Tenant + lifecycle filter on the find — a refactor dropping
+        // tenantId would let an admin in A revoke B's invites.
+        const findWhere = fakeDb.tenantInvite.findMany.mock.calls[0][0].where;
+        expect(findWhere.tenantId).toBeDefined();
+        expect(findWhere.acceptedAt).toBeNull();
+        expect(findWhere.revokedAt).toBeNull();
+        // updateMany carries the same tenant + lifecycle guard.
+        const updWhere = fakeDb.tenantInvite.updateMany.mock.calls[0][0].where;
+        expect(updWhere.tenantId).toBeDefined();
+        expect(updWhere.acceptedAt).toBeNull();
+        // One audit row per actually-revoked invite (not per requested id).
+        expect(mockLog).toHaveBeenCalledTimes(2);
     });
 });
 
