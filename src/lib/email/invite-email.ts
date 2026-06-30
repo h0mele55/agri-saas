@@ -16,6 +16,7 @@
  * Mirrors the send shape of `src/lib/auth/email-verification.ts`.
  */
 import { ConsoleEmailProvider, getEmailProvider, sendEmail } from '@/lib/mailer';
+import { env } from '@/env';
 import { logger } from '@/lib/observability/logger';
 
 export interface InviteEmailParams {
@@ -93,7 +94,7 @@ export async function sendInviteEmail(
         // missing SMTP config is discoverable. (The console sink is the
         // intended dev default — only treat it as a non-delivery in prod.)
         if (
-            process.env.NODE_ENV === 'production' &&
+            env.NODE_ENV === 'production' &&
             getEmailProvider() instanceof ConsoleEmailProvider
         ) {
             logger.warn('invite.email_not_delivered_no_smtp', {
