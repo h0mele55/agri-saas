@@ -223,12 +223,15 @@ export default function MembersAdminPage() {
             }
 
             const data = await res.json();
-            const typeMsg = data.type === 'invited'
-                ? `Invitation sent to ${inviteEmail}`
-                : data.type === 'reactivated'
-                    ? `Reactivated ${inviteEmail}`
-                    : `Added ${inviteEmail} as ${inviteRole}`;
-            setSuccess(typeMsg);
+            // The route always creates an invite and reports whether the email
+            // actually went out (emailSent). When it didn't — e.g. SMTP isn't
+            // configured — be honest and surface the acceptance link so the
+            // admin can share it manually instead of a false "emailed" toast.
+            setSuccess(
+                data.emailSent
+                    ? `Invitation emailed to ${inviteEmail}`
+                    : `Invite created for ${inviteEmail}, but the email could not be sent (check SMTP config). Share this link: ${window.location.origin}${data.url ?? ''}`,
+            );
             setInviteEmail('');
             setInviteRole('READER');
             setShowInvite(false);

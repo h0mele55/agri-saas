@@ -15,7 +15,8 @@
  *
  * Mirrors the send shape of `src/lib/auth/email-verification.ts`.
  */
-import { sendEmail } from '@/lib/mailer';
+import { ConsoleEmailProvider, getEmailProvider, sendEmail } from '@/lib/mailer';
+import { env } from '@/env';
 import { logger } from '@/lib/observability/logger';
 
 export interface InviteEmailParams {
@@ -86,6 +87,23 @@ export async function sendInviteEmail(
 
     try {
         await sendEmail({ to, subject, text, html });
+        // The mailer falls back to a console sink when no SMTP is configured;
+        // in production that means the message was LOGGED, not delivered.
+        // Report it as not-sent so the caller surfaces the copy-link fallback
+        // instead of a false "emailed" confirmation, and warn loudly so the
+        // missing SMTP config is discoverable. (The console sink is the
+        // intended dev default — only treat it as a non-delivery in prod.)
+        if (
+            env.NODE_ENV === 'production' &&
+            getEmailProvider() instanceof ConsoleEmailProvider
+        ) {
+            logger.warn('invite.email_not_delivered_no_smtp', {
+                component: 'invite-email',
+                kind,
+                reason: 'no SMTP configured (console sink); set SMTP_HOST/SMTP_USER/SMTP_PASS/SMTP_FROM',
+            });
+            return { sent: false };
+        }
         return { sent: true };
     } catch (err) {
         logger.warn('invite.email_send_failed', {

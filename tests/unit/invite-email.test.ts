@@ -8,9 +8,15 @@
  */
 
 const sendEmailMock = jest.fn();
+// Stand-in for ConsoleEmailProvider so the prod "no SMTP → console sink"
+// branch can be exercised via getEmailProvider() + instanceof.
+class MockConsoleEmailProvider {}
+let mockActiveProvider: object = new MockConsoleEmailProvider();
 
 jest.mock('@/lib/mailer', () => ({
     sendEmail: (...a: unknown[]) => sendEmailMock(...a),
+    ConsoleEmailProvider: MockConsoleEmailProvider,
+    getEmailProvider: () => mockActiveProvider,
 }));
 
 import { sendInviteEmail } from '@/lib/email/invite-email';
@@ -56,5 +62,32 @@ describe('sendInviteEmail', () => {
         await sendInviteEmail({ ...baseParams, invitedByName: null });
         const msg = sendEmailMock.mock.calls[0][0];
         expect(msg.text).toContain("You've been invited");
+    });
+
+    it('reports NOT sent on the console sink in production (no SMTP configured)', async () => {
+        // The console sink "succeeds" but delivers nothing — in prod that is a
+        // misconfiguration, so the result must be { sent: false } so the admin
+        // gets the copy-link fallback instead of a false "emailed" toast.
+        sendEmailMock.mockResolvedValue(undefined);
+        const prev = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+        mockActiveProvider = new MockConsoleEmailProvider();
+        try {
+            await expect(sendInviteEmail(baseParams)).resolves.toEqual({ sent: false });
+        } finally {
+            (process.env as Record<string, string | undefined>).NODE_ENV = prev;
+        }
+    });
+
+    it('reports sent in production when a real (non-console) provider is active', async () => {
+        sendEmailMock.mockResolvedValue(undefined);
+        const prev = process.env.NODE_ENV;
+        (process.env as Record<string, string | undefined>).NODE_ENV = 'production';
+        mockActiveProvider = {}; // not a ConsoleEmailProvider instance → real delivery
+        try {
+            await expect(sendInviteEmail(baseParams)).resolves.toEqual({ sent: true });
+        } finally {
+            (process.env as Record<string, string | undefined>).NODE_ENV = prev;
+        }
     });
 });
