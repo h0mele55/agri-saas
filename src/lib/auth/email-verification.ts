@@ -152,7 +152,7 @@ export async function issueEmailVerification(
             to: identifier,
             subject: 'Verify your email',
             text: [
-                'Welcome to Inflect Compliance.',
+                'Welcome to Agrent.',
                 '',
                 'Click the link below to verify your email address. The link expires in 24 hours.',
                 '',
@@ -161,7 +161,7 @@ export async function issueEmailVerification(
                 "If you didn't request this, you can ignore this message — the link won't do anything until you click it.",
             ].join('\n'),
             html: [
-                '<p>Welcome to Inflect Compliance.</p>',
+                '<p>Welcome to Agrent.</p>',
                 '<p>Click the link below to verify your email address. The link expires in 24 hours.</p>',
                 `<p><a href="${verifyUrl}">Verify email</a></p>`,
                 "<p>If you didn't request this, you can ignore this message — the link won't do anything until you click it.</p>",

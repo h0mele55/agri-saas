@@ -23,7 +23,7 @@ const STAGING_ADMIN_PASSWORD = process.env.STAGING_ADMIN_PASSWORD || 'password12
 
 async function seedStaging() {
     console.log('╔══════════════════════════════════════════╗');
-    console.log('║  Staging Seed — Inflect Compliance       ║');
+    console.log('║  Staging Seed — Agrent                   ║');
     console.log('╚══════════════════════════════════════════╝');
     console.log(`  Tenant: ${STAGING_TENANT_SLUG}`);
     console.log(`  Admin:  ${STAGING_ADMIN_EMAIL}\n`);

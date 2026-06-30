@@ -46,13 +46,13 @@ describe('Settings defaults', () => {
     it('default settings shape has expected fields', () => {
         const defaults = {
             enabled: true,
-            defaultFromName: 'Inflect Compliance',
+            defaultFromName: 'Agrent',
             defaultFromEmail: 'noreply@inflect.app',
             complianceMailbox: null,
         };
 
         expect(defaults.enabled).toBe(true);
-        expect(defaults.defaultFromName).toBe('Inflect Compliance');
+        expect(defaults.defaultFromName).toBe('Agrent');
         expect(defaults.defaultFromEmail).toBe('noreply@inflect.app');
         expect(defaults.complianceMailbox).toBeNull();
     });

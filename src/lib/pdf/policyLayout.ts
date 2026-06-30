@@ -97,7 +97,7 @@ export function addPolicyCoverPage(
     // wordmark sits in a defined header area.
     doc.rect(0, 0, PAGE_WIDTH, 100).fill(BRAND.navy);
 
-    // Brand wordmark "logo" — text-rendered. The dot + "Inflect" is
+    // Brand wordmark "logo" — text-rendered. The dot + "Agrent" is
     // the canonical lockup; the dot is `BRAND.purple` so it tracks
     // the same accent the other cover pages use.
     doc.fontSize(8)
@@ -108,7 +108,7 @@ export function addPolicyCoverPage(
     doc.fontSize(18)
         .fillColor(BRAND.white)
         .font('Helvetica-Bold')
-        .text('● Inflect', MARGINS.left, 50, { width: 200 });
+        .text('● Agrent', MARGINS.left, 50, { width: 200 });
 
     // Tenant name on the right (the policy's "publisher").
     doc.fontSize(10)

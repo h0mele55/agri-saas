@@ -59,7 +59,7 @@ describe('GAP-10 step 3 — generated OpenAPI 3.1 spec', () => {
     });
 
     it('has info.title + info.version + info.description', () => {
-        expect(spec.info?.title).toBe('Inflect Compliance API');
+        expect(spec.info?.title).toBe('Agrent API');
         // version mirrors package.json — match the X.Y.Z shape, not
         // the literal value (which moves with semantic-release).
         expect(spec.info?.version).toMatch(/^\d+\.\d+\.\d+$/);

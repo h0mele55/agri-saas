@@ -82,7 +82,7 @@ describe('<NavBar>', () => {
             // next/link renders an <a> element with the className
             // passed through.
             const link = screen.getByRole('link', {
-                name: /Inflect Compliance/i,
+                name: /Agrent/i,
             });
             expect(link).not.toBeNull();
             const cls = link.className;
@@ -105,22 +105,22 @@ describe('<NavBar>', () => {
                 />,
             );
             const link = screen.getByRole('link', {
-                name: /Inflect Compliance/i,
+                name: /Agrent/i,
             });
             expect(link.getAttribute('href')).toBe('/t/foo/dashboard');
         });
 
-        it('shows the "IC" initials as aria-hidden decoration', () => {
+        it('shows the "AG" initials as aria-hidden decoration', () => {
             render(
                 <NavBar
                     left={<NavBarBrand href="/t/foo/dashboard" />}
                 />,
             );
             const link = screen.getByRole('link', {
-                name: /Inflect Compliance/i,
+                name: /Agrent/i,
             });
             const initials = link.querySelector('span[aria-hidden="true"]');
-            expect(initials?.textContent).toBe('IC');
+            expect(initials?.textContent).toBe('AG');
         });
     });
 

@@ -9,11 +9,11 @@ import { CSP_NONCE_HEADER } from '@/lib/security/csp';
 import './globals.css';
 
 export const metadata: Metadata = {
-    title: 'Inflect Compliance — Платформа за съответствие по ISO 27001',
-    description: 'Цялостно управление на съответствието по ISO 27001:2022 с карти на SOC 2 и NIS2.',
+    title: 'Agrent — The agriculture agent',
+    description: 'Agrent — the agriculture agent: spray prescriptions, parcel maps, and field operations for the farm.',
     // Operator PWA — installable field-ops client (queue-and-sync).
     manifest: '/manifest.webmanifest',
-    appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'AgriSaaS' },
+    appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Agrent' },
 };
 
 /**

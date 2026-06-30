@@ -285,7 +285,7 @@ function renderDigestEmail(data: DigestData, trendDays: number): { subject: stri
         ...(data.policiesOverdueReview === 0 && data.tasksOverdue === 0 && data.evidenceOverdue === 0 && data.risksCritical === 0
             ? ['  ✓ No urgent items.'] : []),
         ``,
-        `— Inflect Compliance`,
+        `— Agrent`,
     ].join('\n');
 
     // HTML version
@@ -357,7 +357,7 @@ function renderDigestEmail(data: DigestData, trendDays: number): { subject: stri
   })()}
 
   <p style="font-size:11px;color:#64748b;text-align:center;margin:0;">
-    Inflect Compliance — automated weekly digest
+    Agrent — automated weekly digest
   </p>
 </div>
 </body>

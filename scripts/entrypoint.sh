@@ -2,7 +2,7 @@
 set -e
 
 echo "╔══════════════════════════════════════════╗"
-echo "║  Inflect Compliance — Container Start    ║"
+echo "║  Agrent — Container Start                ║"
 echo "╚══════════════════════════════════════════╝"
 
 # ── 1. Apply Prisma migrations (idempotent) ──
