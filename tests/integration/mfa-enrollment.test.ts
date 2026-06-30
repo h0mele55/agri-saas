@@ -36,11 +36,11 @@ describe('MFA TOTP Enrollment Integration', () => {
 
         it('generates valid otpauth URI with secret', () => {
             const secret = generateTotpSecret();
-            const uri = generateTotpUri(secret, 'user@example.com', 'Inflect');
+            const uri = generateTotpUri(secret, 'user@example.com', 'Agrent');
 
             expect(uri).toMatch(/^otpauth:\/\/totp\//);
             expect(uri).toContain(`secret=${secret}`);
-            expect(uri).toContain('issuer=Inflect');
+            expect(uri).toContain('issuer=Agrent');
             expect(uri).toContain('user%40example.com');
             expect(uri).toContain('digits=6');
             expect(uri).toContain('period=30');
