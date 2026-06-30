@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import useSWR from 'swr';
 import { StepWizard, type StepWizardStep } from '@/components/ui/step-wizard';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,7 +27,7 @@ import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
 import { UserCombobox } from '@/components/ui/user-combobox';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
-import { useTenantApiUrl, useTenantContext } from '@/lib/tenant-context-provider';
+import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { useOfflineSync } from '@/lib/offline/use-offline-sync';
 import { apiGet } from '@/lib/api-client';
 import type { LocationSmartDefaults } from '@/app-layer/usecases/smart-defaults';
@@ -88,7 +89,10 @@ export function SprayJobWizard({
     smartDefaults,
 }: SprayJobWizardProps) {
     const buildUrl = useTenantApiUrl();
-    const { tenantSlug } = useTenantContext();
+    // Route slug for the assignee picker's member fetch — read from the URL
+    // params (same source the parent page uses), so it needs no extra
+    // provider wiring in tests that render this wizard.
+    const { tenantSlug } = useParams<{ tenantSlug: string }>();
     const { submit } = useOfflineSync();
 
     // Data sources mirror PrescriptionPanel exactly.
