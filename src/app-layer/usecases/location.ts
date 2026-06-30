@@ -171,3 +171,39 @@ export async function deleteLocation(ctx: RequestContext, id: string) {
         return { success: true };
     });
 }
+
+/**
+ * Bulk soft-delete locations — the locations table "Delete selected" action.
+ * Mirrors {@link deleteLocation}: ADMIN-gated, tenant-scoped, reuses
+ * `LocationRepository.softDelete` (Location is NOT in SOFT_DELETE_MODELS, so
+ * the explicit repository soft-delete is the mechanism), one audit row per
+ * deleted location. Ids that don't resolve are skipped (idempotent — a
+ * re-submit deletes nothing rather than throwing). Returns the count deleted.
+ */
+export async function bulkDeleteLocation(
+    ctx: RequestContext,
+    locationIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanAdmin(ctx);
+    return runInTenantContext(ctx, async (db) => {
+        let deleted = 0;
+        for (const id of locationIds) {
+            const ok = await LocationRepository.softDelete(db, ctx, id);
+            if (!ok) continue;
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Location',
+                entityId: id,
+                details: 'Location soft-deleted (bulk)',
+                detailsJson: {
+                    category: 'entity_lifecycle',
+                    entityName: 'Location',
+                    operation: 'deleted',
+                    summary: 'SOFT_DELETE',
+                },
+            });
+            deleted++;
+        }
+        return { deleted };
+    });
+}

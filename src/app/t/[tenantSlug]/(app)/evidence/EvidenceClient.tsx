@@ -25,6 +25,7 @@ import {
     DataTable,
     createColumns,
     useColumnsDropdown,
+    useBulkDelete,
 } from '@/components/ui/table';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -190,6 +191,22 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
         () => evidenceQuery.data?.rows ?? [],
         [evidenceQuery.data],
     );
+
+    // Bulk-delete via the table selection action-row.
+    const { batchAction: evidenceBulkDelete, dialog: evidenceDeleteDialog } =
+        useBulkDelete<any>({
+            entitySingular: 'evidence item',
+            entityPlural: 'evidence items',
+            onDelete: async (ids) => {
+                const res = await fetch(`/api/t/${tenantSlug}/evidence/bulk/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ evidenceIds: ids }),
+                });
+                if (!res.ok) throw new Error('Failed to delete evidence');
+                await evidenceQuery.mutate();
+            },
+        });
 
     const [controls] = useState<any[]>(initialControls);
     const retentionFilter = (filters.tab || 'active') as RetentionFilter;
@@ -1089,6 +1106,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                         data={visibleEvidence}
                         columns={orderColumns(evidenceColumns)}
                         getRowId={(ev: any) => ev.id}
+                        batchActions={permissions.canAdmin ? [evidenceBulkDelete] : undefined}
                         // Column resizing is opt-in per table (disabled
                         // by default since #823). Re-enabled here only —
                         // the Evidence Library's wide title/folder/owner
@@ -1159,6 +1177,7 @@ function EvidencePageInner({ initialEvidence, initialControls, tenantSlug, permi
                     testId="tenant-evidence-load-more"
                 />
             </ListPageShell.Body>
+            {evidenceDeleteDialog}
         </ListPageShell>
     );
 }

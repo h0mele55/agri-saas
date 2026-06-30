@@ -184,6 +184,24 @@ export default function MembersAdminPage() {
             },
         });
 
+    // Bulk-remove (deactivate) for the members table — selection action-row.
+    // The usecase skips your own membership and the last active OWNER/ADMIN.
+    const { batchAction: memberBulkAction, dialog: memberRemoveDialog } =
+        useBulkDelete<Member>({
+            entitySingular: 'member',
+            entityPlural: 'members',
+            verb: 'Remove',
+            onDelete: async (membershipIds) => {
+                const res = await fetch(apiUrl('/admin/members/bulk/delete'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ membershipIds }),
+                });
+                if (!res.ok) throw new Error('Failed to remove members');
+                await fetchMembers();
+            },
+        });
+
     // ─── Handlers (unchanged from pre-migration) ───
     async function handleInvite() {
         if (!inviteEmail.trim()) return;
@@ -758,11 +776,13 @@ export default function MembersAdminPage() {
                         data={filteredMembers}
                         columns={memberColumns}
                         getRowId={(m) => m.id}
+                        batchActions={[memberBulkAction]}
                         emptyState="No members."
                         resourceName={(p) => (p ? 'members' : 'member')}
                         data-testid="members-table"
                     />
                 )}
+                {memberRemoveDialog}
             </div>
 
             {/* Pending Invites DataTable */}

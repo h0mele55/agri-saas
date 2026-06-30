@@ -19,7 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { DataTable, createColumns, useColumnsDropdown } from '@/components/ui/table';
+import { DataTable, createColumns, useColumnsDropdown, useBulkDelete } from '@/components/ui/table';
 import { Package } from 'lucide-react';
 import {
     FilterProvider,
@@ -149,6 +149,22 @@ function VendorsPageInner({ initialVendors, initialFilters, tenantSlug, permissi
 
     const vendors = vendorsQuery.data?.rows ?? [];
     const truncated = vendorsQuery.data?.truncated ?? false;
+
+    // Bulk-delete via the table selection action-row.
+    const { batchAction: vendorBulkDelete, dialog: vendorDeleteDialog } =
+        useBulkDelete<any>({
+            entitySingular: 'vendor',
+            entityPlural: 'vendors',
+            onDelete: async (vendorIds) => {
+                const res = await fetch(`/api/t/${tenantSlug}/vendors/bulk/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vendorIds }),
+                });
+                if (!res.ok) throw new Error('Failed to delete vendors');
+                await vendorsQuery.mutate();
+            },
+        });
     const liveFilters = useMemo(() => buildVendorFilters(), []);
     const filterCards = useMemo(() => filtersToCards(liveFilters), [liveFilters]);
     const { visibleCards, dropdown: filtersDropdown } = useFilterCardVisibility({
@@ -384,6 +400,7 @@ function VendorsPageInner({ initialVendors, initialFilters, tenantSlug, permissi
                         data={vendors}
                         columns={vendorColumns}
                         getRowId={(v: any) => v.id}
+                        batchActions={permissions.canCreate ? [vendorBulkDelete] : undefined}
                         columnVisibility={columnVisibility}
                         onColumnVisibilityChange={setColumnVisibility}
                         onRowClick={(row) => router.push(tenantHref(`/vendors/${row.original.id}`))}
@@ -419,6 +436,7 @@ function VendorsPageInner({ initialVendors, initialFilters, tenantSlug, permissi
             {permissions.canCreate && (
                 <NewVendorModal open={isCreateOpen} setOpen={setIsCreateOpen} />
             )}
+            {vendorDeleteDialog}
         </ListPageShell>
     );
 }

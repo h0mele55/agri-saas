@@ -7,7 +7,7 @@ import { useTenantApiUrl } from '@/lib/tenant-context-provider';
 import { apiPost } from '@/lib/api-client';
 import { ListPageShell } from '@/components/layout/ListPageShell';
 import { PageBreadcrumbs } from '@/components/layout/PageBreadcrumbs';
-import { DataTable, createColumns } from '@/components/ui/table';
+import { DataTable, createColumns, useBulkDelete } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
@@ -23,9 +23,24 @@ interface LocationItem {
     _count?: { parcels?: number };
 }
 
-export function LocationsClient({ tenantSlug }: { tenantSlug: string }) {
+export function LocationsClient({ tenantSlug, canAdmin = false }: { tenantSlug: string; canAdmin?: boolean }) {
     const buildUrl = useTenantApiUrl();
     const { data, mutate, isLoading } = useTenantSWR<LocationItem[]>('/locations');
+
+    const { batchAction: locationBulkDelete, dialog: locationDeleteDialog } =
+        useBulkDelete<LocationItem>({
+            entitySingular: 'location',
+            entityPlural: 'locations',
+            onDelete: async (ids) => {
+                const res = await fetch(`/api/t/${tenantSlug}/locations/bulk/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locationIds: ids }),
+                });
+                if (!res.ok) throw new Error('Failed to delete locations');
+                await mutate();
+            },
+        });
     const [showNew, setShowNew] = useState(false);
     const [name, setName] = useState('');
     const [busy, setBusy] = useState(false);
@@ -99,6 +114,7 @@ export function LocationsClient({ tenantSlug }: { tenantSlug: string }) {
                     columns={columns}
                     loading={isLoading && !data}
                     getRowId={(l) => l.id}
+                    batchActions={canAdmin ? [locationBulkDelete] : undefined}
                     emptyState={(
                         <EmptyState
                             size="sm"
@@ -130,6 +146,8 @@ export function LocationsClient({ tenantSlug }: { tenantSlug: string }) {
                     </Modal.Actions>
                 </Modal.Form>
             </Modal>
+
+            {locationDeleteDialog}
         </ListPageShell>
     );
 }

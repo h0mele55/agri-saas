@@ -34,6 +34,8 @@ const ADMIN_ONLY_ROUTES = [
     'admin/members/route.ts',
     'admin/members/[membershipId]/route.ts',
     'admin/members/[membershipId]/deactivate/route.ts',
+    // Bulk-deactivate (remove) members — selection action-row
+    'admin/members/bulk/delete/route.ts',
     'admin/settings/route.ts',
     // WP-2 — per-tenant module gating ("simple mode")
     'admin/modules/route.ts',

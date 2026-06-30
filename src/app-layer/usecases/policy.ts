@@ -643,6 +643,49 @@ export async function deletePolicy(ctx: RequestContext, id: string) {
     });
 }
 
+/**
+ * Bulk soft-delete policies — the table selection action-row's "Delete
+ * selected". Mirrors {@link deletePolicy}: ADMIN-gated, tenant-scoped, one
+ * audit row per deleted policy. `Policy` is a soft-delete model, so
+ * `deleteMany` sets `deletedAt`; the `findMany` auto-filters already-deleted
+ * rows, so a re-submit is idempotent. Returns the count actually deleted.
+ */
+export async function bulkDeletePolicy(
+    ctx: RequestContext,
+    policyIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanAdmin(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const rows = await db.policy.findMany({
+            where: { id: { in: policyIds }, tenantId: ctx.tenantId },
+            select: { id: true },
+        });
+        if (rows.length === 0) return { deleted: 0 };
+
+        await db.policy.deleteMany({
+            where: { id: { in: rows.map((r) => r.id) }, tenantId: ctx.tenantId },
+        });
+
+        for (const r of rows) {
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Policy',
+                entityId: r.id,
+                details: 'Policy soft-deleted (bulk)',
+                detailsJson: {
+                    category: 'entity_lifecycle',
+                    entityName: 'Policy',
+                    operation: 'deleted',
+                    summary: 'SOFT_DELETE',
+                },
+            });
+        }
+
+        return { deleted: rows.length };
+    });
+}
+
 export async function restorePolicy(ctx: RequestContext, id: string) {
     return restoreEntity(ctx, 'Policy', id);
 }

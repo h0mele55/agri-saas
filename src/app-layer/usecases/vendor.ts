@@ -117,6 +117,45 @@ export async function updateVendor(ctx: RequestContext, vendorId: string, patch:
     });
 }
 
+/**
+ * Bulk soft-delete vendors — the vendors table selection action-row's
+ * "Delete selected". Mirrors {@link updateVendor}'s permission tier
+ * (`assertCanManageVendors` — ADMIN/EDITOR), tenant-scoped, one audit row
+ * per deleted vendor. `Vendor` is a soft-delete model, so `deleteMany`
+ * sets `deletedAt`; the `findMany` auto-filters already-deleted rows, so a
+ * re-submit is idempotent. Returns the count actually deleted.
+ */
+export async function bulkDeleteVendor(
+    ctx: RequestContext,
+    vendorIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanManageVendors(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const rows = await db.vendor.findMany({
+            where: { id: { in: vendorIds }, tenantId: ctx.tenantId },
+            select: { id: true },
+        });
+        if (rows.length === 0) return { deleted: 0 };
+
+        await db.vendor.deleteMany({
+            where: { id: { in: rows.map((r) => r.id) }, tenantId: ctx.tenantId },
+        });
+
+        for (const r of rows) {
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Vendor',
+                entityId: r.id,
+                details: 'Vendor soft-deleted (bulk)',
+                detailsJson: { category: 'entity_lifecycle', entityName: 'Vendor', operation: 'deleted', summary: 'SOFT_DELETE' },
+            });
+        }
+
+        return { deleted: rows.length };
+    });
+}
+
 // ─── Vendor Documents ───
 
 export async function listVendorDocuments(ctx: RequestContext, vendorId: string) {
