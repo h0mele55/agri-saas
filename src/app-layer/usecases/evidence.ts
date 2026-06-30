@@ -350,6 +350,39 @@ export async function deleteEvidence(ctx: RequestContext, id: string) {
     return result;
 }
 
+export async function bulkDeleteEvidence(
+    ctx: RequestContext,
+    evidenceIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanAdmin(ctx);
+
+    const result = await runInTenantContext(ctx, async (db) => {
+        const rows = await db.evidence.findMany({
+            where: { id: { in: evidenceIds }, tenantId: ctx.tenantId },
+            select: { id: true },
+        });
+        if (rows.length === 0) return { deleted: 0 };
+
+        await db.evidence.deleteMany({
+            where: { id: { in: rows.map((r) => r.id) }, tenantId: ctx.tenantId },
+        });
+
+        for (const r of rows) {
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Evidence',
+                entityId: r.id,
+                details: 'Evidence soft-deleted (bulk)',
+                detailsJson: { category: 'entity_lifecycle', entityName: 'Evidence', operation: 'deleted', summary: 'SOFT_DELETE' },
+            });
+        }
+
+        return { deleted: rows.length };
+    });
+    await bumpEntityCacheVersion(ctx, 'evidence');
+    return result;
+}
+
 export async function restoreEvidence(ctx: RequestContext, id: string) {
     const result = await restoreEntity(ctx, 'Evidence', id);
     await bumpEntityCacheVersion(ctx, 'evidence');

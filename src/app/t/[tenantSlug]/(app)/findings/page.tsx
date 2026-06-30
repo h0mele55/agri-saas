@@ -36,6 +36,7 @@ export default async function FindingsPage({
             <FindingsClient
                 initialFindings={JSON.parse(JSON.stringify(findings))}
                 tenantSlug={tenantSlug}
+                permissions={ctx.permissions}
                 translations={{
                     title: t('title'),
                 listDescription: t('listDescription'),

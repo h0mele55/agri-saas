@@ -191,6 +191,49 @@ export async function deleteAsset(ctx: RequestContext, id: string) {
     });
 }
 
+/**
+ * Bulk soft-delete assets (the assets table action-row "Delete selected").
+ * Mirrors {@link deleteAsset}: ADMIN-gated, tenant-scoped, one audit row per
+ * deleted asset. `Asset` is a soft-delete model, so `deleteMany` sets
+ * `deletedAt`; the `findMany` auto-filters already-deleted rows, so a
+ * re-submit is idempotent. Returns the count actually deleted.
+ */
+export async function bulkDeleteAsset(
+    ctx: RequestContext,
+    assetIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanAdmin(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const rows = await db.asset.findMany({
+            where: { id: { in: assetIds }, tenantId: ctx.tenantId },
+            select: { id: true },
+        });
+        if (rows.length === 0) return { deleted: 0 };
+
+        await db.asset.deleteMany({
+            where: { id: { in: rows.map((r) => r.id) }, tenantId: ctx.tenantId },
+        });
+
+        for (const r of rows) {
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Asset',
+                entityId: r.id,
+                details: 'Asset soft-deleted (bulk)',
+                detailsJson: {
+                    category: 'entity_lifecycle',
+                    entityName: 'Asset',
+                    operation: 'deleted',
+                    summary: 'SOFT_DELETE',
+                },
+            });
+        }
+
+        return { deleted: rows.length };
+    });
+}
+
 // ─── Restore / Purge / Include Deleted ───
 
 import { restoreEntity, purgeEntity } from './soft-delete-operations';

@@ -33,7 +33,7 @@ import { Skeleton, SkeletonButton } from '@/components/ui/skeleton';
 import { Modal } from '@/components/ui/modal';
 import { Combobox, ComboboxOption } from '@/components/ui/combobox';
 import { Tooltip } from '@/components/ui/tooltip';
-import { DataTable, createColumns } from '@/components/ui/table';
+import { DataTable, createColumns, useBulkDelete } from '@/components/ui/table';
 import { InitialsAvatar } from '@/components/ui/initials-avatar';
 import { InlineNotice } from '@/components/ui/inline-notice';
 import { cn } from '@/lib/cn';
@@ -166,6 +166,41 @@ export default function MembersAdminPage() {
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => { fetchMembers(); }, [fetchMembers]);
+
+    // Bulk-revoke for the pending-invitations table — selection action-row.
+    const { batchAction: inviteBulkAction, dialog: inviteRevokeDialog } =
+        useBulkDelete<Invite>({
+            entitySingular: 'invitation',
+            entityPlural: 'invitations',
+            verb: 'Revoke',
+            onDelete: async (inviteIds) => {
+                const res = await fetch(apiUrl('/admin/invites/bulk/delete'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inviteIds }),
+                });
+                if (!res.ok) throw new Error('Failed to revoke invitations');
+                await fetchMembers();
+            },
+        });
+
+    // Bulk-remove (deactivate) for the members table — selection action-row.
+    // The usecase skips your own membership and the last active OWNER/ADMIN.
+    const { batchAction: memberBulkAction, dialog: memberRemoveDialog } =
+        useBulkDelete<Member>({
+            entitySingular: 'member',
+            entityPlural: 'members',
+            verb: 'Remove',
+            onDelete: async (membershipIds) => {
+                const res = await fetch(apiUrl('/admin/members/bulk/delete'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ membershipIds }),
+                });
+                if (!res.ok) throw new Error('Failed to remove members');
+                await fetchMembers();
+            },
+        });
 
     // ─── Handlers (unchanged from pre-migration) ───
     async function handleInvite() {
@@ -741,11 +776,13 @@ export default function MembersAdminPage() {
                         data={filteredMembers}
                         columns={memberColumns}
                         getRowId={(m) => m.id}
+                        batchActions={[memberBulkAction]}
                         emptyState="No members."
                         resourceName={(p) => (p ? 'members' : 'member')}
                         data-testid="members-table"
                     />
                 )}
+                {memberRemoveDialog}
             </div>
 
             {/* Pending Invites DataTable */}
@@ -757,11 +794,13 @@ export default function MembersAdminPage() {
                             data={invites}
                             columns={inviteColumns}
                             getRowId={(i) => i.id}
+                            batchActions={[inviteBulkAction]}
                             emptyState="No pending invitations."
                             resourceName={(p) => (p ? 'invites' : 'invite')}
                             data-testid="invites-table"
                         />
                     </div>
+                    {inviteRevokeDialog}
                 </div>
             )}
 

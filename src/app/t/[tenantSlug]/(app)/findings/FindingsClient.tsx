@@ -7,7 +7,7 @@ import { ownerDisplayName } from '@/lib/owner-display';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableTitleCell } from '@/components/ui/table-title-cell';
-import { DataTable, createColumns, useColumnsDropdown } from '@/components/ui/table';
+import { DataTable, createColumns, useColumnsDropdown, useBulkDelete } from '@/components/ui/table';
 import { ListPageShell } from '@/components/layout/ListPageShell';
 import type { CappedList } from '@/lib/list-backfill-cap';
 import { TruncationBanner } from '@/components/ui/TruncationBanner';
@@ -23,6 +23,13 @@ interface FindingsClientProps {
 
     initialFindings: any[];
     tenantSlug: string;
+    permissions: {
+        canRead: boolean;
+        canWrite: boolean;
+        canAdmin: boolean;
+        canAudit: boolean;
+        canExport: boolean;
+    };
     translations: {
         title: string;
         listDescription: string;
@@ -56,7 +63,7 @@ interface FindingsClientProps {
  * Client island for findings — handles create form and status updates.
  * Data is pre-fetched server-side and passed via props.
  */
-export function FindingsClient({ initialFindings, tenantSlug, translations: t }: FindingsClientProps) {
+export function FindingsClient({ initialFindings, tenantSlug, permissions, translations: t }: FindingsClientProps) {
     const [showForm, setShowForm] = useState(false);
 
     const apiUrl = (path: string) => `/api/t/${tenantSlug}${path}`;
@@ -111,6 +118,22 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
     const updateStatus = (id: string, status: string) => {
         statusMutation.mutate({ id, status });
     };
+
+    // Bulk-delete via the table selection action-row.
+    const { batchAction: findingBulkDelete, dialog: findingDeleteDialog } =
+        useBulkDelete({
+            entitySingular: 'finding',
+            entityPlural: 'findings',
+            onDelete: async (findingIds) => {
+                const res = await fetch(apiUrl('/findings/bulk/delete'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ findingIds }),
+                });
+                if (!res.ok) throw new Error('Failed to delete findings');
+                await queryClient.invalidateQueries({ queryKey: queryKeys.findings.list(tenantSlug) });
+            },
+        });
 
     const sevLabel = (sev: string) => {
         const map: Record<string, string> = { LOW: t.low, MEDIUM: t.medium, HIGH: t.high, CRITICAL: t.critical };
@@ -241,6 +264,7 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
                     data={findings}
                     columns={orderColumns(findingColumns)}
                     getRowId={(f: any) => f.id}
+                    batchActions={permissions.canAdmin ? [findingBulkDelete] : undefined}
                     columnVisibility={columnVisibility}
                     onColumnVisibilityChange={setColumnVisibility}
                     emptyState={
@@ -255,6 +279,7 @@ export function FindingsClient({ initialFindings, tenantSlug, translations: t }:
                     data-testid="findings-table"
                 />
             </ListPageShell.Body>
+            {findingDeleteDialog}
         </ListPageShell>
     );
 }

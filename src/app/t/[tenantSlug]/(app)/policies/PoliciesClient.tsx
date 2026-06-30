@@ -16,6 +16,7 @@ import { TruncationBanner } from '@/components/ui/TruncationBanner';
 import {
     createColumns,
     useColumnsDropdown,
+    useBulkDelete,
 } from '@/components/ui/table';
 import {
     FilterProvider,
@@ -181,6 +182,22 @@ function PoliciesPageInner({
     const policies = policiesQuery.data?.rows ?? [];
     const truncated = policiesQuery.data?.truncated ?? false;
     const loading = policiesQuery.isLoading && !policiesQuery.data;
+
+    // Bulk-delete via the table selection action-row.
+    const { batchAction: policyBulkDelete, dialog: policyDeleteDialog } =
+        useBulkDelete({
+            entitySingular: 'policy',
+            entityPlural: 'policies',
+            onDelete: async (policyIds) => {
+                const res = await fetch(`/api/t/${tenantSlug}/policies/bulk/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ policyIds }),
+                });
+                if (!res.ok) throw new Error('Failed to delete policies');
+                await policiesQuery.mutate();
+            },
+        });
 
     const liveFilters = useMemo(
         () => buildPolicyFilters(policies),
@@ -495,6 +512,7 @@ function PoliciesPageInner({
                 columns: orderColumns(policyColumns),
                 loading,
                 getRowId: (p: any) => p.id,
+                batchActions: permissions.canAdmin ? [policyBulkDelete] : undefined,
                 onRowClick: (row) =>
                     router.push(tenantHref(`/policies/${row.original.id}`)),
                 emptyState: hasActive ? (
@@ -530,6 +548,7 @@ function PoliciesPageInner({
                     isTemplateMode={createTemplateMode}
                 />
             )}
+            {policyDeleteDialog}
         </EntityListPage>
     );
 }

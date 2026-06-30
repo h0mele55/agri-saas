@@ -197,6 +197,61 @@ export async function revokeInvite(
     });
 }
 
+/**
+ * Bulk-revoke pending invites — the table action-row's "Revoke selected"
+ * affordance. Mirrors {@link revokeInvite} but over a set of ids in a single
+ * tenant-scoped `updateMany`; the `acceptedAt: null, revokedAt: null`
+ * predicate makes it idempotent (already-accepted/revoked ids are skipped,
+ * never error). One audit row per actually-revoked invite. Returns the count
+ * actually revoked.
+ */
+export async function bulkRevokeInvite(
+    ctx: RequestContext,
+    input: { inviteIds: string[] },
+): Promise<{ revoked: number }> {
+    assertCanManageMembers(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const invites = await db.tenantInvite.findMany({
+            where: {
+                id: { in: input.inviteIds },
+                tenantId: ctx.tenantId,
+                acceptedAt: null,
+                revokedAt: null,
+            },
+            select: { id: true, email: true },
+        });
+        if (invites.length === 0) return { revoked: 0 };
+
+        await db.tenantInvite.updateMany({
+            where: {
+                id: { in: invites.map((i) => i.id) },
+                tenantId: ctx.tenantId,
+                acceptedAt: null,
+                revokedAt: null,
+            },
+            data: { revokedAt: new Date() },
+        });
+
+        for (const invite of invites) {
+            await logEvent(db, ctx, {
+                action: 'MEMBER_INVITE_REVOKED',
+                entityType: 'TenantInvite',
+                entityId: invite.id,
+                details: `Revoked invite for ${invite.email}`,
+                detailsJson: {
+                    category: 'entity_lifecycle',
+                    entityName: 'TenantInvite',
+                    operation: 'deleted',
+                    summary: `Revoked invite for ${invite.email}`,
+                },
+            });
+        }
+
+        return { revoked: invites.length };
+    });
+}
+
 // ─── listPendingInvites ──────────────────────────────────────────────
 
 /**

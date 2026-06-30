@@ -1,6 +1,6 @@
 import { RequestContext } from '../types';
 import { FindingRepository } from '../repositories/FindingRepository';
-import { assertCanRead, assertCanWrite } from '../policies/common';
+import { assertCanRead, assertCanWrite, assertCanAdmin } from '../policies/common';
 import { logEvent } from '../events/audit';
 import { notFound, badRequest } from '@/lib/errors/types';
 import { runInTenantContext, PrismaTx } from '@/lib/db-context';
@@ -245,5 +245,43 @@ export async function updateFinding(ctx: RequestContext, id: string, data: z.inf
         }
 
         return finding;
+    });
+}
+
+/**
+ * Bulk soft-delete findings — the findings table selection action-row's
+ * "Delete selected". ADMIN-gated, tenant-scoped, one audit row per deleted
+ * finding. `Finding` is a soft-delete model, so `deleteMany` sets
+ * `deletedAt`; the `findMany` auto-filters already-deleted rows, so a
+ * re-submit is idempotent. Returns the count actually deleted.
+ */
+export async function bulkDeleteFinding(
+    ctx: RequestContext,
+    findingIds: string[],
+): Promise<{ deleted: number }> {
+    assertCanAdmin(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const rows = await db.finding.findMany({
+            where: { id: { in: findingIds }, tenantId: ctx.tenantId },
+            select: { id: true },
+        });
+        if (rows.length === 0) return { deleted: 0 };
+
+        await db.finding.deleteMany({
+            where: { id: { in: rows.map((r) => r.id) }, tenantId: ctx.tenantId },
+        });
+
+        for (const r of rows) {
+            await logEvent(db, ctx, {
+                action: 'SOFT_DELETE',
+                entityType: 'Finding',
+                entityId: r.id,
+                details: 'Finding soft-deleted (bulk)',
+                detailsJson: { category: 'entity_lifecycle', entityName: 'Finding', operation: 'deleted', summary: 'SOFT_DELETE' },
+            });
+        }
+
+        return { deleted: rows.length };
     });
 }

@@ -318,6 +318,76 @@ export async function deactivateTenantMember(
     });
 }
 
+/**
+ * Bulk-deactivate memberships — the members table selection action-row
+ * ("Remove selected"). Batch-aware version of {@link deactivateTenantMember}:
+ * skips the caller's own membership and protects the LAST active OWNER / ADMIN
+ * across the WHOLE selection (you can deactivate owners only while ≥1 active
+ * OWNER remains — the same invariant the DB trigger backstops). N+1-safe: one
+ * `findMany` + two counts + one `updateMany`, never a read inside the loop.
+ * Returns how many were deactivated vs skipped (self / last-owner / not-found).
+ */
+export async function bulkDeactivateTenantMember(
+    ctx: RequestContext,
+    input: { membershipIds: string[] },
+): Promise<{ deactivated: number; skipped: number }> {
+    assertCanManageMembers(ctx);
+
+    return runInTenantContext(ctx, async (db) => {
+        const memberships = await db.tenantMembership.findMany({
+            where: { id: { in: input.membershipIds }, tenantId: ctx.tenantId, status: 'ACTIVE' },
+            include: { user: { select: { id: true, email: true } } },
+        });
+
+        const [ownerTotal, adminTotal] = await Promise.all([
+            db.tenantMembership.count({ where: { tenantId: ctx.tenantId, role: 'OWNER', status: 'ACTIVE' } }),
+            db.tenantMembership.count({ where: { tenantId: ctx.tenantId, role: 'ADMIN', status: 'ACTIVE' } }),
+        ]);
+
+        // Greedily pick deactivations, decrementing the remaining owner/admin
+        // headroom so the batch can never orphan the tenant (≥1 of each kept).
+        let remainingOwners = ownerTotal;
+        let remainingAdmins = adminTotal;
+        const toDeactivate = memberships.filter((m) => {
+            if (m.userId === ctx.userId) return false; // never self
+            if (m.role === 'OWNER') {
+                if (remainingOwners <= 1) return false;
+                remainingOwners -= 1;
+            }
+            if (m.role === 'ADMIN') {
+                if (remainingAdmins <= 1) return false;
+                remainingAdmins -= 1;
+            }
+            return true;
+        });
+
+        const requested = input.membershipIds.length;
+        if (toDeactivate.length === 0) return { deactivated: 0, skipped: requested };
+
+        await db.tenantMembership.updateMany({
+            where: { id: { in: toDeactivate.map((m) => m.id) }, tenantId: ctx.tenantId, status: 'ACTIVE' },
+            data: { status: 'DEACTIVATED', deactivatedAt: new Date() },
+        });
+
+        for (const m of toDeactivate) {
+            await logEvent(db, ctx, {
+                action: 'MEMBER_DEACTIVATED',
+                entityType: 'TenantMembership',
+                entityId: m.id,
+                details: `Deactivated member: ${m.user.email} (bulk)`,
+                detailsJson: {
+                    category: 'status_change',
+                    entityName: 'TenantMembership',
+                    fromStatus: 'ACTIVE',
+                    toStatus: 'DEACTIVATED',
+                },
+            });
+        }
+
+        return { deactivated: toDeactivate.length, skipped: requested - toDeactivate.length };
+    });
+}
+
 // ─── Tenant Admin Settings ───
 
 export async function getTenantAdminSettings(ctx: RequestContext) {

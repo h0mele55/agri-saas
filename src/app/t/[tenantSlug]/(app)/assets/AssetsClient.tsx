@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryKeys';
-import { DataTable, createColumns, useColumnsDropdown } from '@/components/ui/table';
+import { DataTable, createColumns, useColumnsDropdown, useBulkDelete } from '@/components/ui/table';
 import {
     FilterProvider,
     useFilterContext,
@@ -38,7 +38,7 @@ interface AssetsClientProps {
     initialAssets: any[];
     initialFilters: Record<string, string>;
     tenantSlug: string;
-    permissions: { canWrite: boolean };
+    permissions: { canWrite: boolean; canAdmin: boolean };
     translations: {
         title: string;
         listDescription: string;
@@ -137,6 +137,23 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
         initialData: filtersMatchInitial ? initialAssets : undefined,
     });
     const assets = assetsQuery.data ?? [];
+
+    // Bulk-delete via the table selection action-row.
+    const { batchAction: assetBulkDelete, dialog: assetDeleteDialog } =
+        useBulkDelete({
+            entitySingular: 'asset',
+            entityPlural: 'assets',
+            onDelete: async (assetIds) => {
+                const res = await fetch(`/api/t/${tenantSlug}/assets/bulk/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assetIds }),
+                });
+                if (!res.ok) throw new Error('Failed to delete assets');
+                await assetsQuery.refetch();
+            },
+        });
+
     const liveFilters = useMemo(() => buildAssetFilters(), []);
     // R-filter-gear (#3, 2026-06-07) — the gear controls the quantifiable
     // KPI cards (Total / Active / High criticality / Retired), not the
@@ -448,6 +465,7 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
                     data={assets}
                     columns={orderColumns(assetColumns)}
                     getRowId={(a: any) => a.id}
+                    batchActions={permissions.canAdmin ? [assetBulkDelete] : undefined}
                     columnVisibility={columnVisibility}
                     onColumnVisibilityChange={setColumnVisibility}
                     onRowClick={(row) => router.push(tenantHref(`/assets/${row.original.id}`))}
@@ -507,6 +525,8 @@ function AssetsPageInner({ initialAssets, initialFilters, tenantSlug, permission
                     addAsset: t.addAsset,
                 }}
             />
+
+            {assetDeleteDialog}
         </ListPageShell>
     );
 }
