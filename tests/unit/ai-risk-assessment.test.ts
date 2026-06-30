@@ -99,6 +99,25 @@ describe('StubRiskSuggestionProvider', () => {
         expect(output.isFallback).toBeFalsy();
     });
 
+    it('still returns framework-matched suggestions when assets are agricultural (no catalog overlap)', async () => {
+        // The knowledge base is keyed to information-security asset classes.
+        // A farm tenant's assets (TRACTOR / HARVESTER / BUILDING) match none
+        // of them, so the asset-type filter must fall back to framework-only
+        // matching rather than zeroing out every suggestion.
+        const input: RiskAssessmentInput = {
+            frameworks: ['ISO27001'],
+            assets: [
+                { id: '1', name: 'John Deere 6155R', type: 'TRACTOR' },
+                { id: '2', name: 'Grain Storage Barn', type: 'BUILDING' },
+            ],
+            maxRiskScale: 5,
+        };
+
+        const output = await provider.generateSuggestions(input);
+
+        expect(output.suggestions.length).toBeGreaterThan(0);
+    });
+
     it('returns valid structured output matching schema', async () => {
         const input: RiskAssessmentInput = {
             frameworks: ['ISO27001', 'NIS2'],

@@ -36,9 +36,12 @@ export const DEFAULT_SOFT_DELETE_GRACE_DAYS = 90;
 /** Default: archived evidence older than 365 days is eligible for hard purge */
 export const DEFAULT_EVIDENCE_PURGE_DAYS = 365;
 
-/** Models that support retentionUntil-based sweep */
+/** Models that support retentionUntil-based sweep.
+ * Asset dropped its `retentionUntil` column in the agricultural-assets
+ * rework (data-retention is an information-asset concept, not a machine
+ * one), so it is no longer swept. */
 const RETENTION_MODELS = [
-    'Asset', 'Risk', 'Control', 'Evidence', 'Policy',
+    'Risk', 'Control', 'Evidence', 'Policy',
     'Vendor', 'FileRecord', 'Task',
 ] as const;
 
