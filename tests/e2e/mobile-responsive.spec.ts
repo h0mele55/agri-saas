@@ -100,19 +100,16 @@ test.describe('mobile responsive — agriculture @mobile', () => {
         // Switch to the Map tab (the tab bar is part of EntityDetailLayout).
         await main.getByRole('tab', { name: 'Map' }).click();
 
-        // The Map-mode segmented control is a radiogroup labelled "Map mode".
-        const mapModeGroup = main.getByRole('radiogroup', { name: 'Map mode' });
-        await expect(mapModeGroup).toBeVisible({ timeout: 30_000 });
-
-        // Touch-target check: each Map-mode segment is ≥44px tall (WCAG
-        // 2.5.5). The "Draw" radio is representative.
-        const drawRadio = mapModeGroup.getByRole('radio', { name: 'Draw' });
-        await expect(drawRadio).toBeVisible();
-        const drawBox = await drawRadio.boundingBox();
-        expect(drawBox, 'Draw control has a measurable box').not.toBeNull();
+        // The Select/Draw/Edit/Split map-mode toggle was removed — the
+        // NDVI overlay button now holds that toolbar slot. Touch-target
+        // check: it's a ≥44px tap target (WCAG 2.5.5).
+        const ndviButton = main.getByRole('button', { name: 'NDVI' });
+        await expect(ndviButton).toBeVisible({ timeout: 30_000 });
+        const ndviBox = await ndviButton.boundingBox();
+        expect(ndviBox, 'NDVI control has a measurable box').not.toBeNull();
         expect(
-            drawBox!.height,
-            'Map-mode control should be a ≥44px touch target on mobile',
+            ndviBox!.height,
+            'NDVI control should be a ≥44px touch target on mobile',
         ).toBeGreaterThanOrEqual(44);
 
         // The map container is the labelled, focusable group rendered by

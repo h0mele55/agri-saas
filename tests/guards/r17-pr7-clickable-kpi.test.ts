@@ -113,31 +113,20 @@ describe('R17-PR7 — clickable KPI tile wiring', () => {
         });
     });
 
-    describe('Dashboard wiring (KpiCards covered)', () => {
-        it('uses useDashboardChartFilter inside InteractiveKpiGrid', () => {
-            expect(DASHBOARD_CLIENT).toMatch(
-                /function\s+InteractiveKpiGrid\b[\s\S]*?useDashboardChartFilter\(\)/,
-            );
+    // The clickable KPI grid (risks + evidence tiles) has since been
+    // REMOVED from the farm dashboard along with the trend + next-best-
+    // action surfaces. The MetricCard / KpiCard primitives above keep the
+    // onClick/selected contract for other consumers; the dashboard just no
+    // longer composes them. This block is now a forward-guard on the
+    // removal so a re-add is a conscious change.
+    describe('Dashboard wiring removed (KPI grid gone)', () => {
+        it('no longer defines InteractiveKpiGrid on the dashboard', () => {
+            expect(DASHBOARD_CLIENT).not.toMatch(/function\s+InteractiveKpiGrid\b/);
         });
 
-        // The compliance KPIs (coverage / tasks / policies / findings)
-        // were removed when those pages left the farm app — only the
-        // risk + evidence tiles remain.
-        for (const kpi of [
-            'risks',
-            'evidence',
-        ]) {
-            it(`wires the "${kpi}" tile with onClick + selected`, () => {
-                // Each KpiCard must call click('<key>') AND
-                // selected={isSelected('<key>')}. The two helpers
-                // resolve to toggle / equality against the context.
-                expect(DASHBOARD_CLIENT).toMatch(
-                    new RegExp(`onClick=\\{click\\('${kpi}'\\)\\}`),
-                );
-                expect(DASHBOARD_CLIENT).toMatch(
-                    new RegExp(`selected=\\{isSelected\\('${kpi}'\\)\\}`),
-                );
-            });
-        }
+        it('no longer mounts any KpiCard on the dashboard', () => {
+            expect(DASHBOARD_CLIENT).not.toContain('<KpiCard');
+            expect(DASHBOARD_CLIENT).not.toContain('id="kpi-grid"');
+        });
     });
 });

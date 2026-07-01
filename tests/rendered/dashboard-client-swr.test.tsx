@@ -1,31 +1,25 @@
 /**
- * Epic 69 — DashboardClient SWR-driven behaviour test.
+ * DashboardClient — SWR-driven behaviour test.
  *
- * Pins the pilot migration's three acceptance criteria from the
- * Epic 69 brief:
+ * After the farm-UI trim the dashboard's only SWR-backed card is the
+ * open-field-tasks hero, which reads the shared `/farm-tasks` list.
+ * This test pins the three acceptance criteria that survived the trim:
  *
- *   1. **Cards load via SWR.** The KPI grid + risk distribution +
- *      evidence-status cards re-render when the SWR cache key
- *      `/api/t/{slug}/dashboard/executive` is updated. The
- *      lifecycle is observable: SSR fallback paints first, then
- *      SWR's revalidation overwrites the cache, then the rendered
- *      KPI numbers reflect the new payload.
+ *   1. **Cards load via SWR.** The hero count reflects the
+ *      `/api/t/{slug}/farm-tasks` payload once it resolves (open =
+ *      rows whose status is not terminal).
  *
- *   2. **Background refresh works.** Calling SWR's keyed
- *      `mutate(...)` from outside the component (the same hook a
- *      future `useTenantMutation` invalidate-array would use)
- *      causes the cards to update without a page reload.
+ *   2. **Background refresh works.** Writing a fresh payload into the
+ *      cache key via SWR's keyed `mutate(...)` (the same hook a future
+ *      `useTenantMutation` invalidate-array would use) updates the
+ *      hero without a page reload.
  *
- *   3. **No coarse refresh.** This test deliberately does NOT mock
- *      `useRouter().refresh()` because the new client component
- *      doesn't reach for it. The structural test in
- *      `tests/unit/executive-dashboard-page.test.ts` enforces the
- *      negative invariant ("router.refresh() is not called from
- *      page or client").
+ *   3. **No coarse refresh.** The client never reaches for
+ *      `useRouter().refresh()`.
  */
 
 import * as React from 'react';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { SWRConfig, useSWRConfig } from 'swr';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -68,8 +62,8 @@ jest.mock('@/components/onboarding/OnboardingBanner', () => {
 });
 
 import DashboardClient from '@/app/t/[tenantSlug]/(app)/dashboard/DashboardClient';
-import type { ExecutiveDashboardPayload } from '@/app-layer/repositories/DashboardRepository';
-import type { TrendPayload } from '@/app-layer/usecases/compliance-trends';
+
+const FARM_TASKS_KEY = '/api/t/acme/farm-tasks';
 
 // ── fetch mock ─────────────────────────────────────────────────────────
 
@@ -80,92 +74,21 @@ beforeEach(() => {
     (global as unknown as { fetch: typeof fetchMock }).fetch = fetchMock;
 });
 
-// ── Fixture helpers ────────────────────────────────────────────────────
-
-function buildExec(overrides: Partial<ExecutiveDashboardPayload> = {}): ExecutiveDashboardPayload {
-    return {
-        stats: {
-            assets: 1,
-            risks: 5,
-            controls: 50,
-            evidence: 100,
-            openTasks: 4,
-            openFindings: 2,
-            highRisks: 1,
-            pendingEvidence: 0,
-            overdueEvidence: 0,
-            clausesReady: 10,
-            totalClauses: 20,
-            unreadNotifications: 0,
-        },
-        controlCoverage: {
-            total: 50,
-            applicable: 40,
-            implemented: 30,
-            inProgress: 5,
-            notStarted: 5,
-            planned: 0,
-            needsReview: 0,
-            coveragePercent: 75,
-        },
-        controlsByStatus: [],
-        riskBySeverity: { low: 1, medium: 2, high: 1, critical: 1 },
-        riskByStatus: { open: 3, mitigating: 1, accepted: 0, closed: 1 },
-        evidenceExpiry: {
-            overdue: 0,
-            dueSoon7d: 0,
-            dueSoon30d: 0,
-            noReviewDate: 0,
-            current: 100,
-        },
-        policySummary: {
-            total: 5,
-            draft: 1,
-            inReview: 1,
-            approved: 1,
-            published: 2,
-            archived: 0,
-            overdueReview: 0,
-        },
-        taskSummary: {
-            total: 4,
-            open: 4,
-            inProgress: 0,
-            blocked: 0,
-            resolved: 0,
-            overdue: 0,
-        },
-        vendorSummary: { total: 0, overdueReview: 0 },
-        upcomingExpirations: [],
-        // Epic G-5 — exceptions card. All zeros in the baseline so
-        // the existing assertions don't have to learn this surface.
-        exceptions: {
-            activeApproved: 0,
-            pendingRequest: 0,
-            expiringWithin30: 0,
-            expiringWithin7: 0,
-            expired: 0,
-        },
-        // Epic G-7 — treatment plans card. Same zero-baseline shape.
-        treatmentPlans: {
-            activeOnTrack: 0,
-            overdue: 0,
-            dueWithin30: 0,
-            dueWithin7: 0,
-            completed: 0,
-        },
-        computedAt: new Date('2026-05-04T00:00:00Z').toISOString(),
-        ...overrides,
-    };
+// Route by URL: farm-tasks returns the supplied list; every other
+// endpoint (e.g. the module-gated `/dashboard/ag` strip) resolves to
+// null so the ag strip renders nothing and stays out of the way.
+function routeFetch(farmTasks: Array<{ id: string; status: string }>) {
+    fetchMock.mockImplementation(async (url: string) => ({
+        ok: true,
+        json: async () => (url === FARM_TASKS_KEY ? farmTasks : null),
+    }));
 }
-
-const TRENDS_NULL: TrendPayload | null = null;
 
 function makeWrapper() {
     return function Wrapper({ children }: { children: React.ReactNode }) {
-        // KpiCard subtitles + StatusBadge use Radix Tooltip and need
-        // a TooltipProvider in scope. Real app injection happens via
-        // the root layout — replicating it here keeps the harness
+        // HeroMetric's delta chip + StatusBadge use Radix Tooltip and
+        // need a TooltipProvider in scope. Real app injection happens
+        // via the root layout — replicating it here keeps the harness
         // close to production.
         return (
             <SWRConfig
@@ -180,61 +103,36 @@ function makeWrapper() {
     };
 }
 
+function heroValue(): string {
+    return within(screen.getByTestId('dashboard-hero'))
+        .getByText((_, el) => el?.getAttribute('data-hero-metric-value') === 'true')
+        .textContent!.trim();
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────
 
-describe('DashboardClient — SWR migration acceptance', () => {
-    it('renders the SSR fallback synchronously on first paint (no loading flash)', () => {
-        const exec = buildExec({
-            stats: { ...buildExec().stats, risks: 7 },
-        });
+describe('DashboardClient — SWR behaviour', () => {
+    it('renders the open-field-tasks count from the /farm-tasks cache', async () => {
+        // 3 rows, one terminal (CLOSED) → 2 open field tasks.
+        routeFetch([
+            { id: 't1', status: 'OPEN' },
+            { id: 't2', status: 'IN_PROGRESS' },
+            { id: 't3', status: 'CLOSED' },
+        ]);
 
-        render(
-            <DashboardClient
-                initialExec={exec}
-                initialTrends={TRENDS_NULL}
-            />,
-            { wrapper: makeWrapper() },
-        );
+        render(<DashboardClient />, { wrapper: makeWrapper() });
 
-        // First render contains real numbers — proving fallbackData is wired.
-        expect(screen.getByText('7')).toBeInTheDocument();
-        // No fetch happened on mount-time render — `keepPreviousData` +
-        // `fallbackData` together mean the cards display from cache
-        // without a loading state.
-        // (SWR DOES trigger a background revalidation, but the rendered
-        // UI shows fallbackData throughout — we don't need to assert
-        // fetch count here, only that the data is visible.)
+        await waitFor(() => expect(heroValue()).toBe('2'));
     });
 
-    it('updates KPI numbers when the SWR cache key is mutated externally', async () => {
-        const initial = buildExec({
-            stats: { ...buildExec().stats, risks: 7 },
-        });
-        // The "fresh" payload that the cache will be set to.
-        const refreshed = buildExec({
-            stats: { ...buildExec().stats, risks: 99 },
-        });
+    it('updates the hero when the SWR cache key is mutated externally', async () => {
+        routeFetch([{ id: 't1', status: 'OPEN' }]);
 
-        // The fetch implementation switches mid-test. Before the
-        // mutation, ANY background revalidation that SWR fires
-        // returns `initial`. After the mutation we flip the
-        // implementation to return `refreshed` so a slow CI runner
-        // that races a revalidation in between the mutate write and
-        // the `waitFor` assertion can't overwrite the cache back to
-        // `initial`. (Local jest never hit that race; CI did.)
-        let currentResponse = initial;
-        fetchMock.mockImplementation(async () => ({
-            ok: true,
-            json: async () => currentResponse,
-        }));
-
-        // The scoped SWRConfig (provider: () => new Map()) creates
-        // a per-test cache that the global `mutate` from 'swr' does
-        // NOT reach. Use a sibling component to grab `mutate` from
-        // `useSWRConfig()` — that one IS scoped to the same cache
-        // the dashboard reads from.
-        let scopedMutate: ReturnType<typeof useSWRConfig>['mutate'] | null =
-            null;
+        // The scoped SWRConfig (provider: () => new Map()) creates a
+        // per-test cache that the global `mutate` from 'swr' does NOT
+        // reach. Grab `mutate` from `useSWRConfig()` — that one IS
+        // scoped to the same cache the dashboard reads from.
+        let scopedMutate: ReturnType<typeof useSWRConfig>['mutate'] | null = null;
         function MutateBridge() {
             scopedMutate = useSWRConfig().mutate;
             return null;
@@ -243,63 +141,37 @@ describe('DashboardClient — SWR migration acceptance', () => {
         render(
             <>
                 <MutateBridge />
-                <DashboardClient
-                    initialExec={initial}
-                    initialTrends={TRENDS_NULL}
-                />
+                <DashboardClient />
             </>,
             { wrapper: makeWrapper() },
         );
 
-        expect(screen.getByText('7')).toBeInTheDocument();
+        await waitFor(() => expect(heroValue()).toBe('1'));
 
-        // Flip the fetch mock BEFORE the mutate so any racing
-        // revalidation lands on `refreshed`.
-        currentResponse = refreshed;
-
-        // Imitate what a `useTenantMutation({ ..., invalidate: [
-        //     CACHE_KEYS.dashboard.executive(),
-        // ] })` site would do post-mutation: write the fresh payload
-        // straight into the cache for the dashboard key. Cards
-        // re-render without any router.refresh().
+        // Imitate what a `useTenantMutation({ ..., invalidate: [...] })`
+        // site would do post-mutation: write a fresh payload straight
+        // into the farm-tasks cache. The hero re-renders without any
+        // router.refresh().
         await act(async () => {
             await scopedMutate!(
-                '/api/t/acme/dashboard/executive',
-                refreshed,
+                FARM_TASKS_KEY,
+                [
+                    { id: 't1', status: 'OPEN' },
+                    { id: 't2', status: 'OPEN' },
+                    { id: 't3', status: 'OPEN' },
+                ],
                 { revalidate: false },
             );
         });
 
-        await waitFor(() => expect(screen.getByText('99')).toBeInTheDocument());
+        await waitFor(() => expect(heroValue()).toBe('3'));
         expect(refreshSpy).not.toHaveBeenCalled();
     });
 
-    it('renders the trend empty state when initial trends are null and fetch yields null', async () => {
-        fetchMock.mockResolvedValue({
-            ok: true,
-            json: async () => null,
-        });
-
-        render(
-            <DashboardClient
-                initialExec={buildExec()}
-                initialTrends={TRENDS_NULL}
-            />,
-            { wrapper: makeWrapper() },
-        );
-
-        // Empty state copy still ships when no trend snapshots exist.
-        expect(
-            screen.getByText('Trend charts will appear here', { exact: false }),
-        ).toBeInTheDocument();
-    });
-
     it('passes RecentActivityCard children through unchanged (server-boundary preservation)', () => {
+        routeFetch([]);
         render(
-            <DashboardClient
-                initialExec={buildExec()}
-                initialTrends={TRENDS_NULL}
-            >
+            <DashboardClient>
                 <div data-testid="recent-activity-card">recent activity</div>
             </DashboardClient>,
             { wrapper: makeWrapper() },

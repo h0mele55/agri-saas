@@ -54,60 +54,30 @@ const SRC = fs.readFileSync(
     'utf8',
 );
 
-describe('R17-PR9 — charts subscribe via ChartFocusWrapper', () => {
-    it('defines ChartFocusWrapper component', () => {
-        expect(SRC).toMatch(/function\s+ChartFocusWrapper\s*\(\s*\{/);
+// The whole chart-filter coordination surface (KPI tiles ↔ charts) has
+// since been REMOVED from the farm dashboard along with the KPI grid, the
+// trend section, and the next-best-action card. `ChartFocusWrapper` was
+// the shared focus/dim wrapper; with no chart left to wrap, it's gone too.
+// This block is now a forward-guard on the removal so a re-add is a
+// conscious change.
+describe('R17-PR9 — chart-filter coordination removed from dashboard', () => {
+    it('no longer defines ChartFocusWrapper on the dashboard', () => {
+        expect(SRC).not.toMatch(/function\s+ChartFocusWrapper\b/);
+        expect(SRC).not.toContain('<ChartFocusWrapper');
     });
 
-    it('wrapper reads selectedKpi from the chart-filter hook', () => {
-        expect(SRC).toMatch(
-            /function\s+ChartFocusWrapper[\s\S]*?const\s+\{\s*selectedKpi\s*\}\s*=\s*useDashboardChartFilter\(\)/,
-        );
+    it('no longer reads selectedKpi via useDashboardChartFilter', () => {
+        expect(SRC).not.toContain('useDashboardChartFilter');
     });
 
-    it('wrapper focus + dim booleans match the PR-8 pattern', () => {
-        expect(SRC).toMatch(
-            /const\s+isFocused\s*=\s*selectedKpi\s*===\s*kpiKey/,
-        );
-        expect(SRC).toMatch(
-            /const\s+isDimmed\s*=\s*selectedKpi\s*!==\s*null\s*&&\s*!isFocused/,
-        );
+    it('no chart-focus contract DOM attributes remain', () => {
+        expect(SRC).not.toContain('data-chart-focus');
+        expect(SRC).not.toContain('data-chart-dimmed');
+        expect(SRC).not.toContain('data-chart-focus-key');
     });
 
-    it('wrapper exposes the contract DOM attributes', () => {
-        expect(SRC).toMatch(
-            /data-chart-focus=\{isFocused\s*\?\s*['"]true['"]\s*:\s*undefined\}/,
-        );
-        expect(SRC).toMatch(
-            /data-chart-dimmed=\{isDimmed\s*\?\s*['"]true['"]\s*:\s*undefined\}/,
-        );
-        // NEW in PR-9: tag the rendered DOM with WHICH kpi key
-        // this chart belongs to. Future telemetry / E2E reads
-        // the attribute directly rather than parsing className.
-        expect(SRC).toMatch(/data-chart-focus-key=\{kpiKey\}/);
-    });
-
-    it('wrapper applies the focus + dim visual recipe', () => {
-        expect(SRC).toMatch(
-            /isFocused\s*&&[\s\S]*?ring-2\s+ring-brand-default\s+ring-offset-2/,
-        );
-        expect(SRC).toMatch(/isDimmed\s*&&\s*['"]opacity-60['"]/);
-    });
-
-    // The Control Coverage ProgressCard (kpiKey="coverage") and the
-    // Evidence Status section (kpiKey="evidence") were both removed from
-    // the dashboard. The Open-Risks trend card is the surviving consumer
-    // of the generic ChartFocusWrapper.
-
-    it('the Open-Risks trend card is wrapped with kpiKey="risks"', () => {
-        expect(SRC).toMatch(
-            /<ChartFocusWrapper\s+kpiKey="risks"[\s\S]*?<TrendCard/,
-        );
-    });
-
-    it('no removed section is still wrapped (evidence / coverage gone)', () => {
-        expect(SRC).not.toMatch(/<ChartFocusWrapper\s+kpiKey="evidence"/);
-        expect(SRC).not.toMatch(/<ChartFocusWrapper\s+kpiKey="coverage"/);
+    it('no removed section is still wrapped (risks / evidence / coverage gone)', () => {
         expect(SRC).not.toContain('EvidenceStatusSection');
+        expect(SRC).not.toContain('kpiKey=');
     });
 });

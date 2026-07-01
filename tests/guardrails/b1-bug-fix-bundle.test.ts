@@ -129,36 +129,27 @@ describe('B1 — bug-fix bundle', () => {
             'src/app/t/[tenantSlug]/(app)/dashboard/DashboardClient.tsx',
         );
 
-        it('the remaining entity is chart-bound via its kpiKey binding', () => {
-            // The Risk Distribution, Evidence Status, Compliance Alerts and
-            // Evidence Expiry widgets were removed; only the Risks KPI tile
-            // still owns a chart (the Open-Risks trend), bound via `kpiKey`.
-            expect(src).toMatch(/kpiKey="risks"/);
-            // The evidence charts are gone — nothing binds to the evidence
-            // key any more.
-            expect(src).not.toMatch(/kpiKey="evidence"/);
-            // The compliance keys are gone from the dashboard.
-            expect(src).not.toMatch(/kpiKey="coverage"/);
-            expect(src).not.toMatch(/kpiKey="tasks"/);
+        it('no KPI tile is chart-bound any more (chart-filter surface removed)', () => {
+            // The KPI grid + trend section (and with them the chart-filter
+            // coordination) were removed from the farm dashboard — no
+            // `kpiKey` binding remains for any entity.
+            expect(src).not.toMatch(/kpiKey=/);
         });
 
         it('a click only toggles chart focus — no navigation map', () => {
             // The KPI tiles never navigated to a list page; a click only
-            // toggles chart focus. The task/policy status donuts were
+            // toggled chart focus. The task/policy status donuts were
             // removed with their pages, so StatusDonutSection is gone too.
             expect(src).not.toMatch(/KPI_NAV_HREF/);
             expect(src).not.toMatch(/StatusDonutSection/);
         });
 
-        it('the chart-bound trend card is wrapped in ChartFocusWrapper', () => {
-            // The TrendSection now hosts a single <TrendCard> (Open Risks)
-            // under one wrapper; the Overdue-Evidence trend was removed.
-            const block = src.slice(
-                src.indexOf('function TrendSection'),
-                src.indexOf('function TrendEmptyState'),
-            );
-            const wrapperCount = (block.match(/<ChartFocusWrapper kpiKey="/g) ?? []).length;
-            expect(wrapperCount).toBe(1);
+        it('the chart-bound trend section was removed from the dashboard', () => {
+            // The TrendSection (and its ChartFocusWrapper) left with the
+            // rest of the compliance surfaces — no trend card remains.
+            expect(src).not.toContain('function TrendSection');
+            expect(src).not.toContain('<ChartFocusWrapper');
+            expect(src).not.toContain('<TrendCard');
         });
 
         it('the removed evidence widgets no longer mount on the dashboard', () => {

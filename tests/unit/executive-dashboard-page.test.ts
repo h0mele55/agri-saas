@@ -1,13 +1,14 @@
 /**
- * Executive Dashboard Page — structural tests.
+ * Farm Dashboard Page — structural tests.
  *
- * Epic 69 (SWR-First Client-Side Data Fetching) split the dashboard
- * into a thin server shell (`page.tsx`) that fetches once + a
- * `'use client'` component (`DashboardClient.tsx`) that owns all the
- * card composition. The tests below now read BOTH files together so
- * the existing composition / contract assertions still pin the right
- * thing — the layout invariants are about "the dashboard tree" not
- * "the page file".
+ * The dashboard is a thin server shell (`page.tsx`) that fetches the
+ * greeting + session once + a `'use client'` component
+ * (`DashboardClient.tsx`) that owns the card composition. After the
+ * farm-UI trim the dashboard is intentionally small: the onboarding
+ * banner, the "your farm today" ag strip, the open-field-tasks hero,
+ * and the recent-activity feed. The compliance-era surfaces (risk /
+ * evidence KPI tiles, the compliance-trend charts, and the next-best-
+ * action "readiness" card) were removed.
  *
  * Each section is annotated with which file is being inspected so a
  * future cleanup that re-merges the two (or splits further) updates
@@ -40,7 +41,7 @@ function readAll(): string {
 
 // ─── Page Structure ────────────────────────────────────────────────
 
-describe('Executive Dashboard Page', () => {
+describe('Farm Dashboard Page', () => {
     test('page file exists and is the slim server shell', () => {
         const content = readPage();
         expect(fs.existsSync(DASHBOARD_PAGE)).toBe(true);
@@ -62,75 +63,67 @@ describe('Executive Dashboard Page', () => {
         expect(readPage()).toContain('export default async function DashboardPage');
     });
 
-    test('uses getExecutiveDashboard for KPIs', () => {
-        expect(readPage()).toContain('getExecutiveDashboard');
-    });
-
-    test('fetches trend data via getComplianceTrends', () => {
-        expect(readPage()).toContain('getComplianceTrends');
-    });
-
     test('uses tenant context from getTenantCtx', () => {
         expect(readPage()).toContain('getTenantCtx');
+    });
+
+    test('no longer fetches compliance KPI / trend payloads', () => {
+        // The trimmed farm dashboard doesn't surface KPI tiles or the
+        // compliance-trend charts, so the server shell stopped fetching
+        // them entirely.
+        const content = readPage();
+        expect(content).not.toContain('getExecutiveDashboard');
+        expect(content).not.toContain('getComplianceTrends');
     });
 });
 
 // ─── Widget Composition ────────────────────────────────────────────
 
 describe('Dashboard Widget Composition', () => {
-    test('uses KpiCard component (≥2 instances)', () => {
-        const content = readAll();
-        expect(content).toContain("from '@/components/ui/KpiCard'");
-        const kpiCount = (content.match(/<KpiCard/g) || []).length;
-        // Reduced to the farm KPI set (risks + evidence) after the
-        // compliance KPIs left the dashboard.
-        expect(kpiCount).toBeGreaterThanOrEqual(2);
+    test('renders the open-field-tasks HeroMetric', () => {
+        const content = readClient();
+        expect(content).toContain("from '@/components/ui/HeroMetric'");
+        expect(content).toContain('<HeroMetric');
     });
 
-    // The Risk Distribution donut was removed from the dashboard; the
-    // DonutChart component still exists for other surfaces but the
-    // dashboard no longer mounts it.
-    test('dashboard no longer renders the Risk Distribution DonutChart', () => {
+    test('renders the "your farm today" ag strip', () => {
+        expect(readClient()).toContain('<AgDashboardStrip');
+    });
+
+    // The risk + evidence KPI tiles were removed with the compliance
+    // surfaces — the farm dashboard mounts no KpiCard.
+    test('dashboard no longer mounts a KpiCard', () => {
+        expect(readAll()).not.toContain('<KpiCard');
+    });
+
+    // The Risk Distribution donut / Evidence Status breakdown are gone.
+    test('dashboard no longer renders a DonutChart or StatusBreakdown', () => {
         const content = readAll();
         expect(content).not.toContain('<DonutChart');
-    });
-
-    test('uses TrendCard component (Epic 59 — TimeSeriesChart-backed)', () => {
-        const content = readAll();
-        expect(content).toContain("from '@/components/ui/TrendCard'");
-        expect(content).toContain('<TrendCard');
-    });
-
-    // The Evidence Status card (the only StatusBreakdown consumer on the
-    // dashboard) was removed; the dashboard no longer mounts a breakdown.
-    test('dashboard no longer renders the Evidence Status StatusBreakdown', () => {
-        const content = readAll();
         expect(content).not.toContain('<StatusBreakdown');
     });
 
-    test('has exactly 2 KPI cards (risks + evidence) for the farm grid', () => {
-        const content = readAll();
-        const kpiCount = (content.match(/<KpiCard/g) || []).length;
-        expect(kpiCount).toBe(2);
+    // The compliance-trend charts left with their KPIs.
+    test('dashboard no longer renders a TrendCard', () => {
+        expect(readAll()).not.toContain('<TrendCard');
+    });
+
+    // The next-best-action ("readiness") recommendation card was removed.
+    test('dashboard no longer renders the NextBestActionCard', () => {
+        expect(readAll()).not.toContain('NextBestActionCard');
     });
 });
 
 // ─── Layout Sections ───────────────────────────────────────────────
 
 describe('Dashboard Layout Sections', () => {
-    const ids = [
+    // The KPI grid, trend section, Risk Distribution, Evidence Status,
+    // Compliance Alerts and the Evidence Expiry calendar were all
+    // removed from the dashboard. Forward-guard their section ids so a
+    // re-add is a conscious change.
+    const removedIds = [
         'kpi-grid',
         'trend-section',
-    ];
-
-    test.each(ids)('section id="%s" present', (id) => {
-        expect(readAll()).toContain(`id="${id}"`);
-    });
-
-    // Risk Distribution, Evidence Status, Compliance Alerts and the
-    // Evidence Expiry calendar were removed from the dashboard. Forward-
-    // guard their section ids so a re-add is a conscious change.
-    const removedIds = [
         'risk-distribution',
         'evidence-status',
         'compliance-alerts',
@@ -139,10 +132,6 @@ describe('Dashboard Layout Sections', () => {
 
     test.each(removedIds)('section id="%s" removed', (id) => {
         expect(readAll()).not.toContain(`id="${id}"`);
-    });
-
-    test('uses responsive grid layout (lg:grid-cols-2)', () => {
-        expect(readAll()).toContain('lg:grid-cols-2');
     });
 });
 
@@ -165,17 +154,6 @@ describe('Dashboard Server/Client Split (Epic 69)', () => {
         expect(content).toContain('useTenantSWR');
     });
 
-    test('client component reaches into the typed CACHE_KEYS registry', () => {
-        const content = readClient();
-        expect(content).toContain("from '@/lib/swr-keys'");
-        expect(content).toContain('CACHE_KEYS.dashboard.executive()');
-    });
-
-    test('SWR hook is wired with fallbackData (no loading flash on first paint)', () => {
-        const content = readClient();
-        expect(content).toContain('fallbackData');
-    });
-
     test('page.tsx forwards RecentActivityCard via children (server boundary preserved)', () => {
         const content = readPage();
         expect(content).toContain('<DashboardClient');
@@ -183,47 +161,9 @@ describe('Dashboard Server/Client Split (Epic 69)', () => {
     });
 });
 
-// ─── Data Contract Compatibility ───────────────────────────────────
-
-describe('Dashboard Data Contracts', () => {
-    test('consumes ExecutiveDashboardPayload type', () => {
-        expect(readAll()).toContain('ExecutiveDashboardPayload');
-    });
-
-    // riskBySeverity backed the Risk Distribution donut, now removed —
-    // the dashboard no longer reads those fields (the payload still
-    // carries them for other consumers).
-    test('no longer reads riskBySeverity fields (Risk Distribution removed)', () => {
-        const content = readAll();
-        expect(content).not.toContain('riskBySeverity.');
-    });
-
-    test('accesses evidenceExpiry fields', () => {
-        const content = readAll();
-        // Only `.overdue` survives — it feeds the Evidence KPI subtitle
-        // and the Next-Best-Action input. The dueSoon7d / current fields
-        // left with the removed Evidence Status card.
-        expect(content).toContain('evidenceExpiry.overdue');
-    });
-
-    test('accesses trend data points for sparklines', () => {
-        const content = readAll();
-        // The farm dashboard keeps only the risk + evidence trends;
-        // the coverage + findings series left with their KPIs.
-        expect(content).toContain('risksOpen');
-        expect(content).toContain('evidenceOverdue');
-    });
-});
-
 // ─── Empty State Handling ──────────────────────────────────────────
 
 describe('Dashboard Empty State Handling', () => {
-    test('trend section handles no/insufficient data gracefully', () => {
-        const content = readAll();
-        expect(content).toContain('daysAvailable < 2');
-        expect(content).toContain('Trend charts will appear here');
-    });
-
     // Compliance Alerts was removed from the dashboard — no alerts list
     // and no no-alerts empty state remain.
     test('dashboard no longer renders the Compliance Alerts list', () => {
@@ -235,14 +175,6 @@ describe('Dashboard Empty State Handling', () => {
         // The top-bar notifications bell is the single canonical affordance;
         // the dashboard header no longer shows its own on unread > 0.
         expect(readAll()).not.toContain("href={href('/notifications')}");
-    });
-
-    test('trend fetch failure degrades gracefully (catch path on the server)', () => {
-        // Server file owns the try/catch since it's the one that
-        // calls the usecase. Match catch + null fallback explicitly.
-        const content = readPage();
-        expect(content).toContain('catch');
-        expect(content).toMatch(/trends\s*=\s*null/);
     });
 });
 
@@ -290,16 +222,7 @@ describe('Dashboard Backward Compatibility', () => {
         expect(readClient()).toContain('OnboardingBanner');
     });
 
-    test('next-best-action card replaces the legacy quick-actions grid (v2-PR-11)', () => {
-        // The 6-button "Quick Actions" grid was retired in v2-PR-11.
-        // The dashboard now renders a state-driven recommendation
-        // card (`<NextBestActionCard>`) plus a muted "quick add"
-        // text-link row below the primary CTA.
-        expect(readAll()).toContain('NextBestActionCard');
-        expect(readAll()).not.toContain('quickActions');
-    });
-
-    test('i18n translations still used (server uses next-intl/server, client uses next-intl)', () => {
+    test('i18n translations still used in the client tree', () => {
         // Server shell no longer needs translations directly; the
         // client owns all i18n strings now.
         expect(readClient()).toContain('useTranslations');

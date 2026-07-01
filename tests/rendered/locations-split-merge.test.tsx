@@ -1,21 +1,20 @@
 /**
- * In-map split/merge UI — Location detail Map tab (feat/fast-follows).
+ * In-map merge UI — Location detail Map tab.
  *
  * MapCanvas mounts MapLibre/WebGL, which jsdom can't render, so we mock
  * the dynamic-imported MapCanvas with a lightweight stub that exposes the
- * authoring seam (`mode`, `selectedIds`, `onSelectionChange`,
- * `onCreateSplitLine`). That lets us drive selection + a drawn split line
- * from the test and assert the page's toolbar logic + API wiring:
+ * selection seam (`selectedIds`, `onSelectionChange`). That lets us drive
+ * selection from the test and assert the page's merge toolbar logic + API
+ * wiring:
  *
- *   1. the Split mode option exists in the map-mode ToggleGroup;
+ *   1. the Select/Draw/Edit/Split map-mode toggle is GONE — the map is
+ *      select-only now (draw/edit/split were removed with the toggle);
  *   2. the Merge action appears ONLY when ≥2 parcels are selected;
  *   3. confirming the merge modal POSTs `{ parcelIds, name }` to
- *      `.../parcels/merge`;
- *   4. drawing a split line POSTs `{ line }` to `.../parcels/{id}/split`.
+ *      `.../parcels/merge`.
  */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import * as React from 'react';
-import type { LineString } from 'geojson';
 
 // ─── next/navigation: stable params + router (Modal calls useRouter) ─
 jest.mock('next/navigation', () => ({
@@ -74,22 +73,18 @@ jest.mock('@/lib/hooks/use-tenant-swr', () => ({
     },
 }));
 
-// ─── MapCanvas stub — drives the authoring seam from the test ──────
+// ─── MapCanvas stub — drives the selection seam from the test ──────
 // `next/dynamic` resolves `import('@/components/ui/map/MapCanvas')` to
 // `m.MapCanvas`; mocking the module makes the dynamic component this stub.
-let lastSplitHandler: ((line: LineString) => void) | undefined;
 let lastSelectionHandler: ((ids: string[]) => void) | undefined;
 jest.mock('@/components/ui/map/MapCanvas', () => ({
     MapCanvas: (props: {
-        mode?: string;
         selectedIds?: string[];
         onSelectionChange?: (ids: string[]) => void;
-        onCreateSplitLine?: (line: LineString) => void;
     }) => {
-        lastSplitHandler = props.onCreateSplitLine;
         lastSelectionHandler = props.onSelectionChange;
         return (
-            <div data-testid="map-canvas" data-mode={props.mode} data-selected={(props.selectedIds ?? []).join(',')} />
+            <div data-testid="map-canvas" data-selected={(props.selectedIds ?? []).join(',')} />
         );
     },
 }));
@@ -120,17 +115,17 @@ beforeEach(() => {
     apiPatch.mockReset();
     mutate.mockReset();
     apiPost.mockResolvedValue({ id: 'new', areaHa: 15 });
-    lastSplitHandler = undefined;
     lastSelectionHandler = undefined;
 });
 
-describe('Location detail — split/merge toolbar', () => {
-    it('exposes a Split option in the map-mode toggle', () => {
+describe('Location detail — merge toolbar', () => {
+    it('no longer renders the Select/Draw/Edit/Split map-mode toggle', () => {
         openMapTab();
-        expect(screen.getByRole('radio', { name: 'Split' })).toBeInTheDocument();
-        expect(screen.getByRole('radio', { name: 'Select' })).toBeInTheDocument();
-        expect(screen.getByRole('radio', { name: 'Draw' })).toBeInTheDocument();
-        expect(screen.getByRole('radio', { name: 'Edit' })).toBeInTheDocument();
+        // The toggle (and with it draw/edit/split authoring) was removed —
+        // the map is select-only.
+        for (const label of ['Select', 'Draw', 'Edit', 'Split']) {
+            expect(screen.queryByRole('radio', { name: label })).not.toBeInTheDocument();
+        }
     });
 
     it('shows the Merge action only when ≥2 parcels are selected', () => {
@@ -162,42 +157,5 @@ describe('Location detail — split/merge toolbar', () => {
         expect(url).toBe('/api/t/acme/locations/loc1/parcels/merge');
         expect(body).toEqual({ parcelIds: ['p1', 'p2'], name: 'Combined' });
         await waitFor(() => expect(mutate).toHaveBeenCalled());
-    });
-
-    it('drawing a split line POSTs { line } to .../parcels/{id}/split and clears selection', async () => {
-        openMapTab();
-        // Pick the target in Select mode, then switch to Split — the single
-        // selection carries over (selection is disabled inside split mode).
-        React.act(() => lastSelectionHandler?.(['p1']));
-        fireEvent.click(screen.getByRole('radio', { name: 'Split' }));
-        expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-mode', 'split');
-        expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-selected', 'p1');
-
-        const line: LineString = { type: 'LineString', coordinates: [[0, 0.5], [1, 0.5]] };
-        await React.act(async () => {
-            lastSplitHandler?.(line);
-        });
-
-        await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
-        const [url, body] = apiPost.mock.calls[0];
-        expect(url).toBe('/api/t/acme/locations/loc1/parcels/p1/split');
-        expect(body).toEqual({ line });
-        await waitFor(() => expect(mutate).toHaveBeenCalled());
-    });
-
-    it('surfaces a "must fully cross" 400 inline and stays in split mode', async () => {
-        apiPost.mockRejectedValueOnce(new ApiClientError('Split line must fully cross the parcel.', 400));
-        openMapTab();
-        React.act(() => lastSelectionHandler?.(['p1']));
-        fireEvent.click(screen.getByRole('radio', { name: 'Split' }));
-
-        const line: LineString = { type: 'LineString', coordinates: [[0, 0.5], [0.4, 0.5]] };
-        await React.act(async () => {
-            lastSplitHandler?.(line);
-        });
-
-        expect(await screen.findByRole('alert')).toHaveTextContent(/must fully cross/i);
-        // Still in split mode (the map stub reflects the live mode prop).
-        expect(screen.getByTestId('map-canvas')).toHaveAttribute('data-mode', 'split');
     });
 });
