@@ -878,10 +878,16 @@ export const CreateFieldOperationSchema = z.object({
     productItemId: z.string().min(1, 'A product is required'),
     doseValue: z.coerce.number().positive('Dose must be greater than zero'),
     doseUnitId: z.string().min(1, 'A dose unit is required'),
+    // Optional soil-nurturing fertilizer applied alongside the treatment
+    // product. When present, all three must be present (an extra
+    // OperationParcel line per parcel is written for it).
+    fertilizerItemId: z.string().min(1).optional(),
+    fertilizerDoseValue: z.coerce.number().positive('Fertilizer dose must be greater than zero').optional(),
+    fertilizerDoseUnitId: z.string().min(1).optional(),
     targetNote: z.string().max(2000).nullable().optional(),
     dueAt: z.string().nullable().optional(),
 }).strip().openapi('FieldOperationCreateRequest', {
-    description: 'Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel.',
+    description: 'Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel (and, when a fertilizer is supplied, a second per-parcel line for it).',
 });
 
 export const UpdateOperationParcelSchema = z.object({

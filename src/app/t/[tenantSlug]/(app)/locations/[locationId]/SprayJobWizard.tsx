@@ -109,12 +109,22 @@ export function SprayJobWizard({
     const [assigneeUserId, setAssigneeUserId] = useState<string | null>(null);
 
     const [selectedParcelIds, setSelectedParcelIds] = useState<string[]>(initialParcelIds ?? []);
+    // Soil-nurturing fertilizer (step 2/3) then treatment product (step 4/5).
+    const [fertilizerItemId, setFertilizerItemId] = useState('');
+    const [fertDose, setFertDose] = useState('');
+    const [fertDoseUnitId, setFertDoseUnitId] = useState('');
     const [productItemId, setProductItemId] = useState('');
     const [dose, setDose] = useState('');
     const [doseUnitId, setDoseUnitId] = useState('');
 
-    const productOptions = useMemo<ComboboxOption<ItemDTO>[]>(
-        () => (items ?? []).map((it) => ({ value: it.id, label: it.name, meta: it })),
+    // Fertilizers feed the Soil Nurturing step; everything else feeds the
+    // Treatment step, so the two pickers never overlap.
+    const fertilizerOptions = useMemo<ComboboxOption<ItemDTO>[]>(
+        () => (items ?? []).filter((it) => it.category === 'FERTILIZER').map((it) => ({ value: it.id, label: it.name, meta: it })),
+        [items],
+    );
+    const treatmentOptions = useMemo<ComboboxOption<ItemDTO>[]>(
+        () => (items ?? []).filter((it) => it.category !== 'FERTILIZER').map((it) => ({ value: it.id, label: it.name, meta: it })),
         [items],
     );
     const unitOptions = useMemo<ComboboxOption<UnitDTO>[]>(
@@ -122,7 +132,12 @@ export function SprayJobWizard({
         [units],
     );
 
-    const selectedProduct = productOptions.find((o) => o.value === productItemId) ?? null;
+    const selectedFertilizer = fertilizerOptions.find((o) => o.value === fertilizerItemId) ?? null;
+    const selectedFertUnit = unitOptions.find((o) => o.value === fertDoseUnitId) ?? null;
+    const fertDoseNumber = Number(fertDose);
+    const fertDoseValid = fertDose.trim() !== '' && Number.isFinite(fertDoseNumber) && fertDoseNumber > 0;
+
+    const selectedProduct = treatmentOptions.find((o) => o.value === productItemId) ?? null;
     const selectedUnit = unitOptions.find((o) => o.value === doseUnitId) ?? null;
     const doseNumber = Number(dose);
     const doseValid = dose.trim() !== '' && Number.isFinite(doseNumber) && doseNumber > 0;
@@ -211,6 +226,9 @@ export function SprayJobWizard({
 
     const reset = () => {
         setSelectedParcelIds([]);
+        setFertilizerItemId('');
+        setFertDose('');
+        setFertDoseUnitId('');
         setProductItemId('');
         setDose('');
         setDoseUnitId('');
@@ -282,14 +300,68 @@ export function SprayJobWizard({
             ),
         },
         {
+            id: 'fertilizer',
+            title: 'Soil Nurturing',
+            description: 'Choose the fertilizer to apply.',
+            canAdvance: Boolean(fertilizerItemId),
+            content: (
+                <FormField label="Fertilizer" required>
+                    <Combobox<false, ItemDTO>
+                        options={fertilizerOptions}
+                        selected={selectedFertilizer}
+                        setSelected={(opt) => setFertilizerItemId(opt?.value ?? '')}
+                        placeholder="Select a fertilizer…"
+                        searchPlaceholder="Search fertilizers…"
+                        emptyState="No fertilizers in inventory"
+                        forceDropdown
+                        matchTriggerWidth
+                        buttonProps={{ className: 'w-full' }}
+                        caret
+                    />
+                </FormField>
+            ),
+        },
+        {
+            id: 'fertilizer-rate',
+            title: 'What rate?',
+            description: 'Set the fertilizer dose and unit.',
+            canAdvance: fertDoseValid && Boolean(fertDoseUnitId),
+            content: (
+                <div className="grid grid-cols-2 gap-default">
+                    <FormField label="Dose" required>
+                        <Input
+                            inputMode="decimal"
+                            value={fertDose}
+                            onChange={(e) => setFertDose(e.target.value)}
+                            placeholder="e.g. 150"
+                        />
+                    </FormField>
+                    <FormField label="Unit" required>
+                        <Combobox<false, UnitDTO>
+                            options={unitOptions}
+                            selected={selectedFertUnit}
+                            setSelected={(opt) => setFertDoseUnitId(opt?.value ?? '')}
+                            placeholder="Unit…"
+                            searchPlaceholder="Search units…"
+                            emptyState="No units match"
+                            forceDropdown
+                            matchTriggerWidth
+                            buttonProps={{ className: 'w-full' }}
+                            caret
+                        />
+                    </FormField>
+                </div>
+            ),
+        },
+        {
             id: 'product',
-            title: 'Which product?',
+            title: 'Treatment',
             description: 'Choose the product to apply.',
             canAdvance: Boolean(productItemId),
             content: (
                 <FormField label="Product" required>
                     <Combobox<false, ItemDTO>
-                        options={productOptions}
+                        options={treatmentOptions}
                         selected={selectedProduct}
                         setSelected={(opt) => setProductItemId(opt?.value ?? '')}
                         placeholder="Select a product…"
@@ -347,7 +419,7 @@ export function SprayJobWizard({
         },
         {
             id: 'confirm',
-            title: 'Confirm spray job',
+            title: 'Confirm Spray Job',
             description: 'Review before creating.',
             // Final guard: the schema requires an assignee — block finish
             // until /api/auth/me has resolved the current user.
@@ -361,6 +433,16 @@ export function SprayJobWizard({
                                 {selectedParcelIds
                                     .map((id) => parcels.find((p) => p.id === id)?.name ?? id)
                                     .join(', ') || '—'}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt className="text-content-secondary">Fertilizer</dt>
+                            <dd className="font-medium">{selectedFertilizer?.label ?? '—'}</dd>
+                        </div>
+                        <div>
+                            <dt className="text-content-secondary">Fertilizer rate</dt>
+                            <dd className="font-medium">
+                                {fertDoseValid ? fertDoseNumber : '—'} {selectedFertUnit?.meta?.symbol ?? ''}
                             </dd>
                         </div>
                         <div>
@@ -396,6 +478,9 @@ export function SprayJobWizard({
 
     const isDirty =
         selectedParcelIds.length > 0 ||
+        Boolean(fertilizerItemId) ||
+        fertDose.trim() !== '' ||
+        Boolean(fertDoseUnitId) ||
         Boolean(productItemId) ||
         dose.trim() !== '' ||
         Boolean(doseUnitId);
@@ -409,6 +494,11 @@ export function SprayJobWizard({
                 operationType: 'SPRAY',
                 assigneeUserId,
                 parcelIds: selectedParcelIds,
+                // Soil-nurturing fertilizer line (steps 2–3).
+                fertilizerItemId,
+                fertilizerDoseValue: Number(fertDose),
+                fertilizerDoseUnitId: fertDoseUnitId,
+                // Treatment product line (steps 4–5).
                 productItemId,
                 doseValue: Number(dose),
                 doseUnitId,

@@ -208,7 +208,11 @@ model OperationParcel {
   completedBy User?      @relation("OperationParcelCompleter", fields: [completedByUserId], references: [id])
   logEntries  LogEntry[]
 
-  @@unique([taskId, parcelId])
+  // A field operation may apply MORE THAN ONE product to a parcel — a
+  // spray job records a soil-nurturing fertilizer line AND a treatment
+  // product line per parcel. The uniqueness is therefore per product,
+  // not one line per parcel.
+  @@unique([taskId, parcelId, productItemId])
   @@index([tenantId, taskId])
   @@index([tenantId, parcelId])
   @@index([tenantId, status])

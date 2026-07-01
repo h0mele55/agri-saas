@@ -2449,6 +2449,18 @@ exports[`API contract — per-schema snapshots schema: FieldOperationCreateReque
       "type": "string",
       "minLength": 1
     },
+    "fertilizerItemId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fertilizerDoseValue": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "fertilizerDoseUnitId": {
+      "type": "string",
+      "minLength": 1
+    },
     "targetNote": {
       "type": [
         "string",
@@ -2470,7 +2482,7 @@ exports[`API contract — per-schema snapshots schema: FieldOperationCreateReque
     "doseValue",
     "doseUnitId"
   ],
-  "description": "Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel."
+  "description": "Create a spray/field-operation job over selected parcels of a location, assigned to an operator. Creates one FIELD_OPERATION Task plus one OperationParcel line per parcel (and, when a fertilizer is supplied, a second per-parcel line for it)."
 }"
 `;
 
