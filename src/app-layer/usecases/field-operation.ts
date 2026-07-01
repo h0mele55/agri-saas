@@ -26,12 +26,31 @@ export interface CreateFieldOperationInput {
     productItemId: string;
     doseValue: number;
     doseUnitId: string;
+    /** Optional soil-nurturing fertilizer — an extra per-parcel line. */
+    fertilizerItemId?: string | null;
+    fertilizerDoseValue?: number | null;
+    fertilizerDoseUnitId?: string | null;
     targetNote?: string | null;
     dueAt?: string | null;
 }
 
 function titleCase(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+/** True when a complete (item + dose + unit) fertilizer was supplied. */
+function hasFertilizer(
+    input: CreateFieldOperationInput,
+): input is CreateFieldOperationInput & {
+    fertilizerItemId: string;
+    fertilizerDoseValue: number;
+    fertilizerDoseUnitId: string;
+} {
+    return (
+        !!input.fertilizerItemId &&
+        input.fertilizerDoseValue != null &&
+        !!input.fertilizerDoseUnitId
+    );
 }
 
 /**
@@ -72,6 +91,22 @@ export async function createFieldOperation(
         const unit = await db.unit.findUnique({ where: { id: input.doseUnitId }, select: { id: true } });
         if (!unit) throw badRequest('Dose unit not found.');
 
+        // Optional soil-nurturing fertilizer: validate the same way when
+        // supplied. It must be a DIFFERENT item from the treatment product
+        // so the two per-parcel lines don't collide on the unique key.
+        if (hasFertilizer(input)) {
+            if (input.fertilizerItemId === input.productItemId) {
+                throw badRequest('The fertilizer and the treatment product must be different items.');
+            }
+            const fert = await db.item.findFirst({
+                where: { id: input.fertilizerItemId!, tenantId: ctx.tenantId, deletedAt: null },
+                select: { id: true },
+            });
+            if (!fert) throw badRequest('Fertilizer not found.');
+            const fertUnit = await db.unit.findUnique({ where: { id: input.fertilizerDoseUnitId! }, select: { id: true } });
+            if (!fertUnit) throw badRequest('Fertilizer dose unit not found.');
+        }
+
         return loc;
     });
 
@@ -90,16 +125,35 @@ export async function createFieldOperation(
     // 3 — link Task→Location and write the per-parcel prescription lines
     const parcelCount = await runInTenantContext(ctx, async (db) => {
         await TaskLinkRepository.link(db, ctx, task.id, 'LOCATION', locationId);
+        // One treatment line per parcel, plus a second fertilizer line per
+        // parcel when a soil-nurturing fertilizer was chosen.
+        const withFertilizer = hasFertilizer(input);
         await db.operationParcel.createMany({
-            data: input.parcelIds.map((parcelId) => ({
-                tenantId: ctx.tenantId,
-                taskId: task.id,
-                parcelId,
-                productItemId: input.productItemId,
-                doseValue: input.doseValue,
-                doseUnitId: input.doseUnitId,
-                targetNote: input.targetNote ?? null,
-            })),
+            data: input.parcelIds.flatMap((parcelId) => {
+                const lines = [
+                    {
+                        tenantId: ctx.tenantId,
+                        taskId: task.id,
+                        parcelId,
+                        productItemId: input.productItemId,
+                        doseValue: input.doseValue,
+                        doseUnitId: input.doseUnitId,
+                        targetNote: input.targetNote ?? null,
+                    },
+                ];
+                if (withFertilizer) {
+                    lines.push({
+                        tenantId: ctx.tenantId,
+                        taskId: task.id,
+                        parcelId,
+                        productItemId: input.fertilizerItemId,
+                        doseValue: input.fertilizerDoseValue,
+                        doseUnitId: input.fertilizerDoseUnitId,
+                        targetNote: input.targetNote ?? null,
+                    });
+                }
+                return lines;
+            }),
         });
 
         await logEvent(db, ctx, {

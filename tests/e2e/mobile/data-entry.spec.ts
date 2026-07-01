@@ -88,10 +88,11 @@ test.describe('mobile data-entry — spray job wizard @mobile', () => {
         await firstParcel.click();
         await expect(dialog.getByTestId('wizard-next')).toBeEnabled();
 
-        // Advance → step 2 (product); Back becomes available.
+        // Advance → step 2 (Soil Nurturing — the fertilizer step); Back
+        // becomes available.
         await dialog.getByTestId('wizard-next').click();
         await expect(
-            dialog.getByRole('heading', { name: 'Which product?' }),
+            dialog.getByRole('heading', { name: 'Soil Nurturing' }),
         ).toBeVisible({ timeout: 10_000 });
         await expect(dialog.getByTestId('wizard-back')).toBeEnabled();
     });
