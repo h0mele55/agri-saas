@@ -26,7 +26,6 @@ import { FieldOperationPanel } from '@/components/ui/map/FieldOperationPanel';
 import { ParcelDetailSheet, type ParcelSheetData } from '@/components/ui/map/ParcelDetailSheet';
 import { SprayJobWizard } from './SprayJobWizard';
 import { SmartDefaultsBanner } from './SmartDefaultsBanner';
-import { FieldReportCard } from './FieldReportCard';
 import type { LocationSmartDefaults } from '@/app-layer/usecases/smart-defaults';
 import { Plus, CalendarIcon } from '@/components/ui/icons/nucleo';
 import { useMediaQuery, useToast } from '@/components/ui/hooks';
@@ -190,6 +189,10 @@ export default function LocationDetailPage() {
 
     const loc = locQ.data;
     const parcels = useMemo(() => parcelsQ.data?.parcels ?? [], [parcelsQ.data]);
+    const totalAreaHa = useMemo(
+        () => parcels.reduce((sum, p) => sum + (p.areaHa ?? 0), 0),
+        [parcels],
+    );
     const bounds = parcelsQ.data?.bounds ?? null;
     const mapParcels = useMemo<MapParcel[]>(
         () => parcels.map((p) => ({ id: p.id, name: p.name, areaHa: p.areaHa ?? null, geometry: (p.geometry ?? null) as Geometry | null })),
@@ -378,10 +381,11 @@ export default function LocationDetailPage() {
             {tab === 'overview' && (
                 <div className="space-y-default">
                     <SmartDefaultsBanner data={smartQ.data} />
-                    <dl className="grid grid-cols-2 gap-default text-sm sm:grid-cols-3">
-                        <div><dt className="text-content-secondary">Status</dt><dd className="font-medium">{loc?.status ?? '—'}</dd></div>
+                    {/* Compact info row below the tabs — just the two headline
+                        figures (parcel count + total area). */}
+                    <dl className="grid grid-cols-2 gap-default text-sm">
                         <div><dt className="text-content-secondary">Parcels</dt><dd className="font-medium">{loc?._count?.parcels ?? parcels.length}</dd></div>
-                        <div><dt className="text-content-secondary">Spatial format</dt><dd className="font-medium">{loc?.spatialFormat ?? '—'}</dd></div>
+                        <div><dt className="text-content-secondary">Total area</dt><dd className="font-medium">{Math.round(totalAreaHa * 10) / 10} ha</dd></div>
                     </dl>
                     {loc?.description && <p className="text-sm">{loc.description}</p>}
                     {parcels.length === 0 && (
@@ -389,12 +393,8 @@ export default function LocationDetailPage() {
                             No parcels yet — use “Import parcels” to upload a shapefile, KML, or GeoJSON.
                         </div>
                     )}
-                    {loc && parcels.length > 0 && (
-                        <FieldReportCard locationName={loc.name} parcels={parcels} />
-                    )}
-                    {/* Parcels list — collapsible dropdown under the field
-                        report's "Parcels / Total area" row (replaces the old
-                        standalone Parcels tab). */}
+                    {/* Parcels list — collapsible dropdown under the
+                        Parcels / Total area row. */}
                     {parcels.length > 0 && (
                         <Accordion
                             type="single"

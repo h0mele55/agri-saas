@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { useEnterSubmit } from '@/components/ui/hooks';
 import {
     Building2,
-    Map,
     Server,
     ShieldCheck,
     AlertTriangle,
@@ -36,14 +35,13 @@ import { cn } from '@/lib/cn';
 // Elevation PR-6 — per-step gradient strings retired. Step icons
 // render in the canonical state colours (muted at rest, brand when
 // active, success when completed).
+// The farm onboarding is intentionally minimal: just the company profile
+// and the team. (The compliance-era steps — frameworks, assets, controls,
+// risks, review — were dropped from the flow; their step-content
+// components remain below but are no longer reachable.)
 const STEPS = [
     { key: 'COMPANY_PROFILE', label: 'Company Profile', icon: Building2 },
-    { key: 'FRAMEWORK_SELECTION', label: 'Frameworks', icon: Map },
-    { key: 'ASSET_SETUP', label: 'Assets', icon: Server },
-    { key: 'CONTROL_BASELINE_INSTALL', label: 'Controls', icon: ShieldCheck },
-    { key: 'INITIAL_RISK_REGISTER', label: 'Risks', icon: AlertTriangle },
     { key: 'TEAM_SETUP', label: 'Team', icon: Users },
-    { key: 'REVIEW_AND_FINISH', label: 'Review & Finish', icon: CheckCircle2 },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]['key'];
@@ -420,7 +418,9 @@ export default function OnboardingWizard() {
 // ─── Step Content Components ───
 
 function StepContent({ step, data, onUpdate, completedSteps, allData }: {
-    step: StepKey;
+    // Loose string (not the narrowed StepKey) so the switch can keep cases
+    // for the retired steps whose content components still live below.
+    step: string;
     data: StepData;
     onUpdate: (d: StepData) => void;
     completedSteps: string[];
