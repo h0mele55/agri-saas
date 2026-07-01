@@ -460,17 +460,17 @@ jobs:
     name: E2E
     needs: [build]
     runs-on: ${{ vars.LARGE_RUNNER || 'ubuntu-latest' }}
-    # The Playwright suite runs serially (workers: 1, fullyParallel:
-    # false — specs share seeded-tenant state) and is ~17-25 min
-    # wall-clock all-green. 40-min budget gives real headroom for
-    # the 2-retry budget without masking failures behind a timeout.
+    # The Playwright suite runs with intra-job parallelism — CI uses
+    # `workers: 3` with `fullyParallel: false` (file-level: whole spec
+    # files run concurrently, tests within a file stay ordered). This is
+    # sound because mutating specs each provision their own isolated
+    # tenant and read-only specs only read the shared seed; `retries: 2`
+    # backstops transient localhost races. See playwright.config.ts.
     #
-    # E2E sharding was attempted in an earlier revision of this PR
-    # and reverted: one shard's slice of specs surfaced a real
-    # cross-shard state coupling that needs its own investigation
-    # before the matrix is safe to enable. Future follow-up — a
-    # dedicated PR can pin state-dependent specs to shard 1 or
-    # rework the global-setup to be per-shard idempotent.
+    # An earlier multi-JOB shard matrix was tried and reverted (per-shard
+    # setup duplication + a cross-shard coupling). Intra-job workers avoid
+    # both: one setup/build, parallel workers on the same runner. The
+    # 40-min budget stays as headroom.
     timeout-minutes: 40
 
     env:
