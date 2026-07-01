@@ -90,8 +90,8 @@ export function GreetingHeader({
                 )}
                 {/* The greeting is the dashboard's page title (the
                     "Compliance Dashboard" masthead header was removed in the
-                    farm-UI trim), so it carries the page's sole <h1>. Visual
-                    size stays text-xl. */}
+                    farm-UI trim), so it carries the page's sole level-1
+                    heading. Visual size stays text-xl. */}
                 <Heading level={1} className="text-xl">
                     {greetingLine}
                 </Heading>
