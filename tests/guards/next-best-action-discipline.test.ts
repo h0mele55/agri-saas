@@ -167,7 +167,12 @@ describe("v2-PR-11 primitive contract", () => {
     });
 });
 
-describe("v2-PR-11 executive dashboard adoption", () => {
+// The next-best-action ("readiness") card has since been REMOVED from the
+// farm dashboard along with the KPI grid + trend section. The primitive +
+// its priority-chain logic (tested above) stay for other consumers; the
+// dashboard just no longer composes it. This block is now a forward-guard
+// on the removal so a re-add is a conscious change.
+describe("v2-PR-11 dashboard adoption removed", () => {
     const src = fs.readFileSync(
         path.join(
             ROOT,
@@ -176,32 +181,16 @@ describe("v2-PR-11 executive dashboard adoption", () => {
         "utf8",
     );
 
-    it("imports + renders <NextBestActionCard>", () => {
-        expect(src).toMatch(
-            /import\s+\{\s*NextBestActionCard\s*\}\s+from\s+["']@\/components\/ui\/NextBestActionCard["']/,
-        );
-        expect(src).toMatch(/<NextBestActionCard\b/);
+    it("no longer imports or renders <NextBestActionCard>", () => {
+        expect(src).not.toContain("NextBestActionCard");
     });
 
-    it("the 6-button Quick Actions grid is gone", () => {
-        // Before v2-PR-11, the dashboard rendered a 2-col grid of 6
-        // secondary buttons. The grid container had a Heading for
-        // `t('quickActions')`. After: just the recommendation card.
+    it("no longer feeds the priority-chain inputs from an `exec` payload", () => {
+        expect(src).not.toContain("evidenceExpiry.overdue");
+        expect(src).not.toContain("stats.highRisks");
+    });
+
+    it("the legacy Quick Actions grid stays gone", () => {
         expect(src).not.toMatch(/{t\('quickActions'\)}/);
-        // The 6 specific button labels should also be gone (they
-        // moved into the muted "quick add" row but in fewer slots
-        // and as text links rather than buttons).
-        expect(src).not.toMatch(/{t\('newAudit'\)}/);
-        expect(src).not.toMatch(/{t\('exportReports'\)}/);
-    });
-
-    it("supplies the priority-chain inputs from `exec` payload", () => {
-        // The farm dashboard hides the controls + tasks pages, so it no
-        // longer feeds coveragePercent / overdueTasks (both optional on
-        // NextBestActionInput) — only the evidence + risk inputs remain.
-        expect(src).toMatch(
-            /overdueEvidence:\s*exec\.evidenceExpiry\.overdue/,
-        );
-        expect(src).toMatch(/highRisks:\s*exec\.stats\.highRisks/);
     });
 });

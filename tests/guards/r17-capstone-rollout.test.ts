@@ -137,33 +137,26 @@ describe('R17 capstone — Dashboard Reimagined rollout', () => {
             expect(DASHBOARD_CONTEXT).toMatch(/export\s+function\s+useDashboardChartFilter/);
         });
 
-        it('PR-7: dashboard wraps in provider + wires the KPI tiles', () => {
-            expect(DASHBOARD_CLIENT).toMatch(/<DashboardChartProvider>/);
-            // Only the risk + evidence tiles remain.
-            for (const kpi of ['risks', 'evidence']) {
-                expect(DASHBOARD_CLIENT).toMatch(
-                    new RegExp(`onClick=\\{click\\('${kpi}'\\)\\}`),
-                );
-            }
+        // PR-7..PR-9 wired the KPI-tile ↔ chart focus coordination onto
+        // the dashboard. That whole surface (KPI grid, trend section,
+        // chart-filter provider + wrapper) has since been REMOVED from the
+        // farm dashboard. The context primitive (PR-6) survives for other
+        // consumers; the dashboard just no longer composes it. These are
+        // now forward-guards on the removal.
+        it('PR-7: KPI-tile chart wiring removed from the dashboard', () => {
+            expect(DASHBOARD_CLIENT).not.toContain('DashboardChartProvider');
+            expect(DASHBOARD_CLIENT).not.toContain("click('risks')");
+            expect(DASHBOARD_CLIENT).not.toContain("click('evidence')");
         });
 
-        it('PR-8: Risk Distribution donut was removed from the dashboard', () => {
-            // PR-8 made the Risk Distribution donut subscribe to selectedKpi.
-            // The donut has since been removed from the dashboard entirely.
+        it('PR-8: Risk Distribution donut stays removed from the dashboard', () => {
             expect(DASHBOARD_CLIENT).not.toMatch(/function\s+RiskDistributionSection/);
             expect(DASHBOARD_CLIENT).not.toContain('id="risk-distribution"');
         });
 
-        it('PR-9: ChartFocusWrapper still wraps a chart-bound section', () => {
-            // The generic wrapper survives; after the Evidence widgets were
-            // removed it now wraps the Open-Risks trend card.
-            expect(DASHBOARD_CLIENT).toMatch(/function\s+ChartFocusWrapper/);
-            expect(DASHBOARD_CLIENT).toMatch(
-                /<ChartFocusWrapper\s+kpiKey="risks"/,
-            );
-            expect(DASHBOARD_CLIENT).not.toMatch(
-                /<ChartFocusWrapper\s+kpiKey="evidence"/,
-            );
+        it('PR-9: ChartFocusWrapper coordination removed from the dashboard', () => {
+            expect(DASHBOARD_CLIENT).not.toMatch(/function\s+ChartFocusWrapper/);
+            expect(DASHBOARD_CLIENT).not.toContain('<ChartFocusWrapper');
         });
     });
 

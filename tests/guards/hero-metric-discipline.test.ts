@@ -117,12 +117,16 @@ describe("v2-PR-10 executive dashboard adoption", () => {
         expect(src).toMatch(/<HeroMetric\b/);
     });
 
-    it("places the hero ABOVE the KPI grid", () => {
+    it("places the hero below the ag strip and above the recent-activity feed", () => {
+        // The KPI grid was removed in the farm-UI trim; the hero now sits
+        // between the "your farm today" ag strip and the recent-activity
+        // feed (the `children` slot).
+        const agStripIdx = src.search(/<AgDashboardStrip/);
         const heroIdx = src.search(/<HeroMetric/);
-        const kpiGridIdx = src.search(/KPI Grid/);
-        expect(heroIdx).toBeGreaterThan(0);
-        expect(kpiGridIdx).toBeGreaterThan(0);
-        expect(heroIdx).toBeLessThan(kpiGridIdx);
+        const childrenIdx = src.search(/\{children/);
+        expect(agStripIdx).toBeGreaterThan(0);
+        expect(heroIdx).toBeGreaterThan(agStripIdx);
+        expect(childrenIdx).toBeGreaterThan(heroIdx);
     });
 
     it("surfaces open field tasks as the farm hero value", () => {

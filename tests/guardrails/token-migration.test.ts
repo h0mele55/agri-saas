@@ -34,30 +34,20 @@ describe('Dashboard page token migration', () => {
         expect(src).not.toContain("from '@/components/ui/status-badge'");
     });
 
-    it('uses an EmptyState pattern (component or inline) for the trends empty case', () => {
-        // The dashboard is a server component; passing a Component
-        // reference (`React.ElementType`) to the `<EmptyState>` client
-        // component triggers the Next.js 15 "Functions cannot be
-        // passed directly to Client Components" violation. The
-        // dashboard's "no trends yet" branch was therefore inlined
-        // (server-rendered icon JSX). Either shape satisfies the
-        // empty-state contract — what matters is that the surface
-        // exists and uses semantic tokens.
-        const usesEmptyStateImport = src.includes(
-            "from '@/components/ui/empty-state'",
-        );
-        const usesInlineEmptyState =
-            /id=["']trend-section["'][\s\S]{0,800}text-content-emphasis/.test(src);
-        expect(usesEmptyStateImport || usesInlineEmptyState).toBe(true);
+    it('the trends section (and its empty state) was removed from the dashboard', () => {
+        // The compliance-trend charts left with the KPI grid in the farm-UI
+        // trim, so the "no trends yet" empty state is gone too.
+        expect(src).not.toContain('id="trend-section"');
+        expect(src).not.toContain('Trend charts will appear here');
     });
 
-    it('uses semantic text tokens', () => {
-        expect(src).toContain('text-content-emphasis');
-        expect(src).toContain('text-content-muted');
-        // `text-content-default` left with the Risk Distribution card when
-        // that widget was removed; the surviving dashboard text still uses
-        // semantic tokens (emphasis / muted / subtle), never raw slate.
-        expect(src).toContain('text-content-subtle');
+    it('uses no raw Tailwind color scales (semantic tokens only)', () => {
+        // The migration invariant: the dashboard tree never reaches for a
+        // raw color scale (slate / gray / zinc / neutral) — semantic token
+        // classes only. The KPI / trend / next-best-action surfaces that
+        // carried the explicit `text-content-*` tokens were removed; the
+        // enduring guarantee is that nothing regressed to raw colours.
+        expect(src).not.toMatch(/\b(?:bg|text|border|ring|from|to|via)-(?:slate|gray|zinc|neutral|stone)-\d/);
     });
 
     it('UI-15: the dashboard notifications-bell ghost link was removed', () => {

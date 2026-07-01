@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
-import type { Geometry, LineString, Polygon } from 'geojson';
+import type { Geometry } from 'geojson';
 import { EntityDetailLayout } from '@/components/layout/EntityDetailLayout';
 import { DataTable, createColumns } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { Heading } from '@/components/ui/typography';
 import { Modal } from '@/components/ui/modal';
 import { FormField } from '@/components/ui/form-field';
 import { Input } from '@/components/ui/input';
-import { ToggleGroup } from '@/components/ui/toggle-group';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useTenantSWR } from '@/lib/hooks/use-tenant-swr';
@@ -30,7 +29,7 @@ import type { LocationSmartDefaults } from '@/app-layer/usecases/smart-defaults'
 import { Plus, CalendarIcon } from '@/components/ui/icons/nucleo';
 import { useMediaQuery, useToast } from '@/components/ui/hooks';
 import { cn } from '@/lib/cn';
-import type { MapParcel, MapMode } from '@/components/ui/map/MapCanvas';
+import type { MapParcel } from '@/components/ui/map/MapCanvas';
 
 const MapCanvas = dynamic(() => import('@/components/ui/map/MapCanvas').then((m) => m.MapCanvas), { ssr: false });
 
@@ -141,10 +140,6 @@ export default function LocationDetailPage() {
     const [showImport, setShowImport] = useState(false);
     const [showSprayWizard, setShowSprayWizard] = useState(false);
     const [activeJob, setActiveJob] = useState<string | null>(null);
-    const [mapMode, setMapMode] = useState<MapMode>('select');
-    const [pendingGeometry, setPendingGeometry] = useState<Polygon | null>(null);
-    const [newParcelName, setNewParcelName] = useState('');
-    const [saving, setSaving] = useState(false);
     // NDVI overlay (Google Earth Engine). Off by default; the date drives
     // the 30-day composite window (UTC-midnight DateValue per the picker
     // contract). Defaults to today.
@@ -158,9 +153,6 @@ export default function LocationDetailPage() {
     const [mergeName, setMergeName] = useState('');
     const [merging, setMerging] = useState(false);
     const [mergeError, setMergeError] = useState<string | null>(null);
-    // Split: surfaces the "must fully cross" 400 inline; stays in split mode.
-    const [splitting, setSplitting] = useState(false);
-    const [splitError, setSplitError] = useState<string | null>(null);
 
     const locQ = useTenantSWR<LocationDetail>(`/locations/${locationId}`);
     const parcelsQ = useTenantSWR<ParcelsResp>(`/locations/${locationId}/parcels`);
@@ -270,28 +262,6 @@ export default function LocationDetailPage() {
         [setParcelCrop],
     );
 
-    const saveDrawnParcel = async () => {
-        if (!pendingGeometry || !newParcelName.trim()) return;
-        setSaving(true);
-        try {
-            await apiPost(buildUrl(`/locations/${locationId}/parcels`), {
-                name: newParcelName.trim(),
-                geometry: pendingGeometry,
-            });
-            setPendingGeometry(null);
-            setNewParcelName('');
-            await parcelsQ.mutate();
-            await locQ.mutate();
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const reshapeParcel = async (parcelId: string, geometry: Polygon) => {
-        await apiPatch(buildUrl(`/locations/${locationId}/parcels/${parcelId}`), { geometry });
-        await parcelsQ.mutate();
-    };
-
     const mergeParcels = async () => {
         if (selected.length < 2 || !mergeName.trim()) return;
         setMerging(true);
@@ -310,27 +280,6 @@ export default function LocationDetailPage() {
             setMergeError(err instanceof ApiClientError ? err.message : 'Failed to merge parcels.');
         } finally {
             setMerging(false);
-        }
-    };
-
-    const splitParcel = async (line: LineString) => {
-        // Exactly one selected parcel is the target (the toolbar gates this).
-        const targetId = selected[0];
-        if (!targetId || splitting) return;
-        setSplitting(true);
-        setSplitError(null);
-        try {
-            await apiPost(buildUrl(`/locations/${locationId}/parcels/${targetId}/split`), { line });
-            setSelected([]);
-            await parcelsQ.mutate();
-            await locQ.mutate();
-            setMapMode('select');
-        } catch (err) {
-            // A blade that doesn't fully cross returns 400 "must fully cross".
-            // Surface it inline and stay in split mode so the user retries.
-            setSplitError(err instanceof ApiClientError ? err.message : 'Failed to split parcel.');
-        } finally {
-            setSplitting(false);
         }
     };
 
@@ -434,44 +383,11 @@ export default function LocationDetailPage() {
                 <div className="space-y-default">
                     <SmartDefaultsBanner data={smartQ.data} />
                     <div className="flex flex-wrap items-center gap-compact">
-                        <ToggleGroup
-                            ariaLabel="Map mode"
-                            // Field operators tap these on a phone — keep each
-                            // segment ≥44px TALL (WCAG 2.5.5). Width is
-                            // content-based (no min-w) so the NDVI button +
-                            // date picker fit on the same row to its right.
-                            optionClassName="min-h-[44px] justify-center"
-                            options={[
-                                { value: 'select', label: 'Select' },
-                                { value: 'draw', label: 'Draw' },
-                                { value: 'edit', label: 'Edit' },
-                                { value: 'split', label: 'Split' },
-                            ]}
-                            selected={mapMode}
-                            selectAction={(v) => {
-                                const next = v as MapMode;
-                                setSplitError(null);
-                                // Selection is disabled inside split mode (terra-draw owns
-                                // the pointer there), so carry a single selected parcel over
-                                // as the split target. Every other mode clears selection.
-                                setSelected((prev) => (next === 'split' && prev.length === 1 ? prev : []));
-                                setMapMode(next);
-                            }}
-                        />
-                        {mapMode === 'select' && selected.length >= 2 && (
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => { setMergeError(null); setMergeName(''); setMergeOpen(true); }}
-                            >
-                                Merge
-                            </Button>
-                        )}
                         {/* NDVI overlay (GEE) — the button and its inspection
-                            date stay together as one right-aligned unit (date
-                            to the RIGHT of the button), so the calendar never
-                            drops onto its own row beneath the toggles. */}
-                        <div className="ml-auto flex shrink-0 items-center gap-compact">
+                            date sit together as one left-aligned unit (date to
+                            the RIGHT of the button), in the row position the
+                            Select/Draw/Edit/Split toggle used to hold. */}
+                        <div className="flex shrink-0 items-center gap-compact">
                             <Button
                                 variant={ndviOn ? 'primary' : 'secondary'}
                                 size="sm"
@@ -509,6 +425,15 @@ export default function LocationDetailPage() {
                                 />
                             )}
                         </div>
+                        {selected.length >= 2 && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => { setMergeError(null); setMergeName(''); setMergeOpen(true); }}
+                            >
+                                Merge
+                            </Button>
+                        )}
                     </div>
                     {/* NDVI status line: loading / not-configured / legend. */}
                     {ndviOn && (
@@ -540,7 +465,6 @@ export default function LocationDetailPage() {
                             bounds={bounds}
                             selectedIds={selected}
                             onSelectionChange={handleMapSelection}
-                            mode={mapMode}
                             // Phone-native: thumb-reachable zoom + find-my-field
                             // (with live-tracking), lifted clear of the fixed
                             // bottom-tab bar.
@@ -553,28 +477,21 @@ export default function LocationDetailPage() {
                             className={isMobile
                                 ? '-mx-4 h-[calc(100dvh-15rem)] min-h-[22rem] overflow-hidden border-y border-border-subtle'
                                 : undefined}
-                            onCreateGeometry={(g) => setPendingGeometry(g)}
-                            onUpdateGeometry={reshapeParcel}
-                            onCreateSplitLine={(line) => { void splitParcel(line); }}
                             showNdvi={ndviOn && !!ndviTileUrl}
                             ndviTileUrl={ndviTileUrl}
                             // Read-only vector-tile source (perf at scale). The
                             // {z}/{x}/{y} placeholders are kept literal for
                             // MapLibre to substitute (buildUrl doesn't encode
-                            // the path). This Map tab is interactive (select +
-                            // draw/edit/split), so MapCanvas no-ops the vector
-                            // source here — it only engages on pure read-only
-                            // mounts. Passed so the prop is exercised + ready
-                            // for a future read-only farm view.
+                            // the path). This Map tab is interactive (select),
+                            // so MapCanvas no-ops the vector source here — it
+                            // only engages on pure read-only mounts. Passed so
+                            // the prop is exercised + ready for a future
+                            // read-only farm view.
                             vectorTileUrl={buildUrl(`/locations/${locationId}/tiles/{z}/{x}/{y}.pbf`)}
                         />
-                        {/* Only the SELECT-mode spray panel is desktop-only —
-                            on phones the parcel bottom-sheet replaces it. The
-                            draw/edit/split contextual panels (instructions +
-                            errors) still render on mobile so authoring has
-                            feedback there too. */}
-                        {mapMode === 'select' ? (
-                            !isMobile && (
+                        {/* Spray-job panel — desktop-only; on phones the parcel
+                            bottom-sheet replaces it. */}
+                        {!isMobile && (
                             <div className="rounded-lg border border-border-subtle p-4">
                                 <Heading level={3} className="mb-3">New spray job</Heading>
                                 <PrescriptionPanel
@@ -588,30 +505,6 @@ export default function LocationDetailPage() {
                                         {selected.length} parcels selected — use “Merge” above to combine them into one.
                                     </p>
                                 )}
-                            </div>
-                            )
-                        ) : mapMode === 'split' ? (
-                            <div className="space-y-default rounded-lg border border-border-subtle p-4">
-                                <Heading level={3}>Split parcel</Heading>
-                                <p className="text-sm text-content-secondary">
-                                    {selected.length === 1
-                                        ? 'Draw a line that fully crosses the selected parcel to cut it in two.'
-                                        : 'No target parcel. Switch to Select, click one parcel, then return to Split.'}
-                                </p>
-                                {splitting && (
-                                    <p className="text-sm text-content-secondary">Splitting parcel…</p>
-                                )}
-                                {splitError && (
-                                    <div role="alert" className="rounded-lg border border-border-error bg-bg-error px-3 py-2 text-sm text-content-error">
-                                        {splitError}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="rounded-lg border border-border-subtle p-4 text-sm text-content-secondary">
-                                {mapMode === 'draw'
-                                    ? 'Draw a polygon on the map. You’ll name it before it’s saved.'
-                                    : 'Reshape parcels by dragging their vertices. Switch to Select to plan a spray job.'}
                             </div>
                         )}
                     </div>
@@ -688,27 +581,6 @@ export default function LocationDetailPage() {
                         : undefined
                 }
             />
-
-            <Modal
-                showModal={!!pendingGeometry}
-                setShowModal={(v) => { if (!v) { setPendingGeometry(null); setNewParcelName(''); } }}
-                size="sm"
-                title="Name parcel"
-                description="Name the parcel you just drew."
-            >
-                <Modal.Header title="Name parcel" description="Give the drawn parcel a name to save it." />
-                <Modal.Form id="name-parcel-form" onSubmit={(e) => { e.preventDefault(); void saveDrawnParcel(); }}>
-                    <Modal.Body>
-                        <FormField label="Name" required>
-                            <Input value={newParcelName} onChange={(e) => setNewParcelName(e.target.value)} placeholder="e.g. North 40" />
-                        </FormField>
-                    </Modal.Body>
-                    <Modal.Actions>
-                        <Button variant="secondary" size="sm" type="button" onClick={() => { setPendingGeometry(null); setNewParcelName(''); }}>Cancel</Button>
-                        <Button variant="primary" size="sm" type="submit" loading={saving} disabled={!newParcelName.trim() || saving}>Create parcel</Button>
-                    </Modal.Actions>
-                </Modal.Form>
-            </Modal>
 
             <Modal
                 showModal={mergeOpen}
