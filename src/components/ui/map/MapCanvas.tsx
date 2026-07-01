@@ -198,6 +198,28 @@ export function MapCanvas({
             })),
     }), [parcels, selected, done]);
 
+    // On-parcel labels — the cadastral ID (parcel name, e.g. "15655-3")
+    // and the size (ha), anchored at each parcel's bbox centre. Rendered as
+    // HTML <Marker>s rather than a MapLibre symbol layer so they don't
+    // depend on the basemap style shipping glyphs/fonts (the demo fallback
+    // may not), and so the styling matches the app's tokens.
+    const parcelLabels = useMemo(
+        () =>
+            parcels
+                .filter((p): p is MapParcel & { geometry: Geometry } => !!p.geometry)
+                .map((p) => {
+                    const [w, s, e, n] = bbox(p.geometry);
+                    return {
+                        id: p.id,
+                        name: p.name,
+                        areaHa: p.areaHa ?? null,
+                        lon: (w + e) / 2,
+                        lat: (s + n) / 2,
+                    };
+                }),
+        [parcels],
+    );
+
     const initialViewState = useMemo(() => {
         if (bounds) {
             const [w, s, e, n] = bounds;
@@ -588,6 +610,35 @@ export function MapCanvas({
                         />
                     </Source>
                 )}
+
+                {/* On-parcel labels — cadastral ID (parcel name) + size (ha).
+                    Hidden while authoring (draw/edit/split) so the toolbars own
+                    the canvas, and in the read-only vector-tile-at-scale path
+                    (thousands of parcels ⇒ thousands of DOM nodes). */}
+                {!drawing && !vectorActive && parcelLabels.map((lbl) => (
+                    <Marker
+                        key={`label-${lbl.id}`}
+                        longitude={lbl.lon}
+                        latitude={lbl.lat}
+                        anchor="center"
+                        // Let clicks fall through to the parcel fill for select.
+                        style={{ pointerEvents: 'none' }}
+                    >
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none select-none rounded-md bg-bg-default/90 px-1.5 py-0.5 text-center shadow-sm ring-1 ring-border-subtle"
+                        >
+                            <div className="max-w-[8rem] truncate text-[11px] font-semibold leading-tight text-content-default">
+                                {lbl.name}
+                            </div>
+                            {lbl.areaHa != null && (
+                                <div className="text-[10px] leading-tight text-content-secondary">
+                                    {Math.round(lbl.areaHa * 10) / 10} ha
+                                </div>
+                            )}
+                        </div>
+                    </Marker>
+                ))}
 
                 {/* GPS breadcrumb (live-tracking) — drawn under the dot. */}
                 {tracking && trail.length > 1 && (
