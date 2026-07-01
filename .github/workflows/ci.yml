@@ -967,7 +967,7 @@ jobs:
   #  Needs: build (no point testing Docker if app doesn't compile)
   # ═══════════════════════════════════════════════════════════════
   docker:
-    name: Docker Build
+    name: "Docker Build & Scan"
     needs: [build]
     runs-on: ${{ vars.LARGE_RUNNER || 'ubuntu-latest' }}
     # Roadmap-27 CI hardening — bumped 15 → 25. semantic-release
@@ -976,7 +976,12 @@ jobs:
     # pushes this job past 15 min and the run is cancelled. GHA
     # layer caching is already enabled (cache-from/to: gha) — the
     # cold npm-ci layer after a version bump is unavoidable.
-    timeout-minutes: 25
+    #
+    # This job now ALSO runs the Trivy image scan (folded in from the
+    # former standalone `trivy` job) so the image is built ONCE and
+    # scanned in place — no redundant rebuild. +5 min over the old
+    # 25-min build budget covers the gating scan + SARIF upload.
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v6
@@ -1009,57 +1014,13 @@ jobs:
           # Export to local Docker daemon for Trivy scanning
           load: true
 
-  # ═══════════════════════════════════════════════════════════════
-  #  Job 10: Trivy — container image vulnerability scanning
-  #  Scans the built Docker image for OS and library CVEs.
-  #  Blocks on CRITICAL and HIGH severity vulnerabilities.
-  #  Needs: docker (image must be built first)
-  # ═══════════════════════════════════════════════════════════════
-  trivy:
-    name: "Trivy Image Scan"
-    needs: [docker]
-    runs-on: ${{ vars.LARGE_RUNNER || 'ubuntu-latest' }}
-    # The in-job Docker rebuild ("Build Docker image for scanning")
-    # consistently takes ~7.5 min — the `cache-from: type=gha` layer
-    # cache from the `docker` job barely helps here. That + the
-    # critical+high gate scan (~1.5 min) left under a minute for the
-    # SARIF-report step, so the job was hitting the 10-min ceiling and
-    # dying as `cancelled` mid-SARIF — even though the security gate
-    # itself had already passed. 20 min gives real headroom; the
-    # gating scan was never the slow part.
-    timeout-minutes: 20
-
-    steps:
-      - uses: actions/checkout@v6
-
-      # Issue #1005 — reclaim runner disk space. ubuntu-latest ships
-      # ~14 GB free; the multi-stage image build plus Trivy's
-      # uncompressed-image copy to /tmp need more, and 2026-06-11
-      # logged seven 'no space left on device' flakes across Docker
-      # Build + Trivy on otherwise-green runs. Dropping the unused
-      # preinstalled toolchains reclaims ~25-30 GB. Inline rm -rf of
-      # documented runner-image paths only — deliberately NOT a
-      # third-party action (supply-chain surface).
-      - name: Free runner disk space (issue #1005)
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          sudo docker image prune --all --force 2>/dev/null || true
-          df -h /
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      # Rebuild image locally — docker job uses GHA cache so this is fast
-      - name: Build Docker image for scanning
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: false
-          tags: inflect-compliance:ci-${{ github.sha }}
-          cache-from: type=gha
-          load: true
-
       # ── Trivy scan: BLOCKING on CRITICAL,HIGH ──
+      # Runs in the SAME job as the build above — the image is already
+      # loaded into the local daemon (`load: true`), so there is NO
+      # second rebuild. This merge removed the former standalone `trivy`
+      # job's ~7.5-min redundant image rebuild + its runner spin-up /
+      # disk-cleanup / buildx-setup, and the inter-job scheduling gap.
+      #
       # Container-image scan against OS packages + bundled libraries.
       # Dropping HIGH from the severity list (CRITICAL-only) is a
       # regression — `tests/guardrails/security-gate-strictness.test.ts`
