@@ -81,7 +81,7 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -101,7 +101,7 @@ jobs:
     timeout-minutes: 8
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -132,7 +132,7 @@ jobs:
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -216,7 +216,7 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -352,7 +352,7 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -415,7 +415,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Node + Prisma client
         uses: ./.github/actions/setup-node-prisma
@@ -522,7 +522,7 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup environment
         run: cp .env.e2e.example .env
@@ -697,7 +697,7 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup environment
         run: cp .env.e2e.example .env
@@ -817,7 +817,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # ── Dependency review (PR only) ──
       - name: Dependency review
@@ -937,7 +937,7 @@ jobs:
         language: [javascript-typescript]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -984,7 +984,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Issue #1005 — reclaim runner disk space. ubuntu-latest ships
       # ~14 GB free; the multi-stage image build plus Trivy's
