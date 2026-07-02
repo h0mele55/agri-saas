@@ -120,7 +120,7 @@ export function ProcessesClient({
                             role="tab"
                             aria-selected={isActive}
                             className={cn(
-                                "px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap",
+                                "px-5 py-2.5 text-base font-medium transition border-b-2 whitespace-nowrap",
                                 isActive
                                     ? "border-[var(--brand-default)] text-content-emphasis"
                                     : "border-transparent text-content-muted hover:text-content-emphasis",
@@ -136,7 +136,7 @@ export function ProcessesClient({
                 {/* PR-B follow-up — cross-map governance meta-graph. */}
                 <a
                     href={`/t/${tenantSlug}/processes/governance`}
-                    className="ml-auto self-center px-4 py-2 text-sm font-medium text-content-muted hover:text-content-emphasis whitespace-nowrap"
+                    className="ml-auto self-center px-5 py-2.5 text-base font-medium text-content-muted hover:text-content-emphasis whitespace-nowrap"
                     data-testid="governance-graph-link"
                 >
                     Governance graph →

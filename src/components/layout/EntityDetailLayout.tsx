@@ -264,7 +264,7 @@ export function EntityDetailLayout<TKey extends string = string>({
                                 aria-controls={`tabpanel-${t.key}`}
                                 disabled={t.disabled}
                                 className={cn(
-                                    'px-4 py-2 text-sm font-medium transition border-b-2 whitespace-nowrap',
+                                    'px-5 py-2.5 text-base font-medium transition border-b-2 whitespace-nowrap',
                                     isActive
                                         ? 'border-[var(--brand-default)] text-content-emphasis'
                                         : 'border-transparent text-content-muted hover:text-content-emphasis',
@@ -417,7 +417,7 @@ function DetailLoadingSkeleton({ tabCount }: { tabCount: number }) {
                 {Array.from({ length: tabCount }).map((_, i) => (
                     <div
                         key={i}
-                        className="animate-pulse rounded bg-bg-elevated/60 h-8 w-20 mx-1"
+                        className="animate-pulse rounded bg-bg-elevated/60 h-10 w-24 mx-1"
                     />
                 ))}
             </div>
